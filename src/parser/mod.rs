@@ -4,6 +4,7 @@
 
 pub mod markdown;
 pub mod restructured_text;
+
 use crate::parser::markdown::md_link;
 use crate::parser::markdown::md_link_ref;
 use crate::parser::restructured_text::rst_link;

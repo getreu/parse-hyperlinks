@@ -2,9 +2,7 @@
 //! library. It extracts all Markdown and RestructuredText
 //! hyperlinks found in the input stream `stdin` and
 //! prints the list as HTML.
-mod lib;
-mod parser;
-use crate::parser::take_hyperlink;
+use parse_hyperlinks::parser::take_hyperlink;
 use std::io;
 use std::io::Read;
 

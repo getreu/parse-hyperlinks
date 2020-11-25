@@ -1,12 +1,13 @@
 //! Module for parsing hyperlinks in Markdown and RestructuredText.
 #![allow(dead_code)]
 
+pub mod parser;
+
 use nom::error::Error;
 use nom::error::ErrorKind;
 use nom::error::ParseError;
-use nom::IResult;
-
 use nom::Err;
+use nom::IResult;
 
 /// This parser is designed to work inside the `nom::sequence::delimited` parser, e.g.:
 /// `nom::sequence::delimited(tag("("), take_until_unmatched('(', ')'), tag(")"))(i)`

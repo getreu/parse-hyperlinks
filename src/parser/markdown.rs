@@ -1,7 +1,7 @@
 //! This module implements parsers for Markdown hyperlinks.
 #![allow(dead_code)]
 
-use crate::lib::take_until_unmatched;
+use crate::take_until_unmatched;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::*;
