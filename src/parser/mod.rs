@@ -16,28 +16,46 @@ use nom::combinator::*;
 
 /// Skips input until it finds a Markdown or RestructuredText hyperlink.
 /// Returns `Ok(remaining_input, (link_name, link_target, link_title)`.
+///
+/// After the finding, the parser might silently consume some additional bytes:
+/// This happens, when directly after a finding a `md_link_ref` or `rst_link_ref`
+/// appears. These must be ignored, as they are only allowed at the beginning of
+/// a line. The skip has to happen at this moment, as the next parser does not
+/// know if the first byte it gets, is it at the beginning of a line or not.
 pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String)> {
-    let len = i.len();
-    loop {
+    let mut input_start = true;
+    let res = loop {
         // This might not consume bytes and never fails.
-        let (j, _) = take_till(|c| c == '\n' || c == '`' || c == '[')(i)?;
-        i = j;
+        i = if input_start {
+            take_till(|c|
+            // Here we should check for `md_link_ref` and `rst_link_ref`
+            c == '\n' || c == ' ' || c == '.'
+            // these are candidates for `md_link`and `rst_link`
+            || c == '`' || c == '[')(i)?
+            .0
+        } else {
+            take_till(|c|
+            // Here we should check for `md_link_ref` and `rst_link_ref`
+            c == '\n'
+            // these are candidates for `md_link`and `rst_link`
+            || c == '`' || c == '[')(i)?
+            .0
+        };
 
-        // Here we exit when there is no input left.
-        let (_, current_char) = peek(anychar)(i)?;
-
+        let mut line_start = false;
         // Are we on a new line character?
-        if current_char == '\n' {
+        if peek(anychar)(i)?.1 == '\n' {
+            line_start = true;
             // Consume the `\n`.
             // Advance one character.
             let (j, _) = anychar(i)?;
             i = j;
         };
 
-        // Here it is worth to have a look.
+        // Start searching for links.
 
         // Are we at the beginning of a line?
-        if current_char == '\n' || i.len() == len {
+        if line_start || input_start {
             if let Ok(r) = alt((
                 map(md_link_ref, |(ln, lta, lti)| {
                     (ln.to_string(), lta.to_string(), lti.to_string())
@@ -45,9 +63,10 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
                 map(rst_link_ref, |(ln, lt)| (ln, lt, "".to_string())),
             ))(i)
             {
-                return Ok(r);
+                break r;
             };
         };
+        input_start = false;
 
         // Regular links can start everywhere.
         if let Ok(r) = alt((
@@ -57,12 +76,33 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
             }),
         ))(i)
         {
-            return Ok(r);
+            break r;
         };
 
         // This makes sure that we advance.
         let (j, _) = anychar(i)?;
         i = j;
+    };
+
+    // Before we return `res`, we need to check again for `md_link_ref` and
+    // `rst_link_ref` and consume them silently, without returning their result.
+    // These are only allowed at the beginning of a line and we know here, that
+    // we are definately not. The next parser can not tell, because it does not
+    // know if it was called for the first time ore not. This way, we make sure
+    // that `md_link_ref` and `rst_link_ref` are mistakenly recognized in the
+    // middle of a line.
+    // We do this check only once, because we know, if one of the parser
+    // succeeds, it will consume the whole line.
+    if let Ok((i, _)) = alt((
+        map(rst_link_ref, |(ln, lt)| (ln, lt, "".to_string())),
+        map(md_link_ref, |(ln, lta, lti)| {
+            (ln.to_string(), lta.to_string(), lti.to_string())
+        }),
+    ))(res.0)
+    {
+        Ok((i, res.1))
+    } else {
+        Ok(res)
     }
 }
 
@@ -90,9 +130,9 @@ mod tests {
 
         let i = r#"[md link name]: md_link_target "md link title"
 abc [md link name](md_link_target "md link title")abc
-   [md link name]: md_link_target "md link title"
+   [md link name]: md_link_target "md link title"[nomd]: no[nomd]: no
 abc`rst link name <rst_link_target>`_abc
-abc`rst link name <rst_link_target>`_abc
+abc`rst link name <rst_link_target>`_ .. _norst: no .. _norst: no
 .. _rst link name: rst_link_target
   .. _rst link name: rst_link_t
      arget
@@ -121,6 +161,15 @@ abc`rst link name <rst_link_target>`_abc
         assert_eq!(res, expected);
         let (i, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
+        let (_, res) = take_hyperlink(i).unwrap();
+        assert_eq!(res, expected);
+
+        let i = " .. _`My: home page`: http://getreu.net\nabc";
+        let expected = (
+            "My: home page".to_string(),
+            "http://getreu.net".to_string(),
+            "".to_string(),
+        );
         let (_, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
     }
