@@ -16,7 +16,7 @@ use nom::IResult;
 /// it also takes nested brackets.
 /// Escaped brackets e.g. `\(` and `\)` are not considered as brackets and are taken by
 /// default.
-pub fn take_until_unmatched(
+pub fn take_until_unbalanced(
     opening_bracket: char,
     closing_bracket: char,
 ) -> impl Fn(&str) -> IResult<&str, &str> {
@@ -70,38 +70,38 @@ mod tests {
     #[test]
     fn test_take_until_unmatched() {
         assert_eq!(
-            take_until_unmatched('(', ')')("url)abc"),
+            take_until_unbalanced('(', ')')("url)abc"),
             Ok((")abc", "url"))
         );
         assert_eq!(
-            take_until_unmatched('(', ')')("u()rl)abc"),
+            take_until_unbalanced('(', ')')("u()rl)abc"),
             Ok((")abc", "u()rl"))
         );
         assert_eq!(
-            take_until_unmatched('(', ')')("u(())rl)abc"),
+            take_until_unbalanced('(', ')')("u(())rl)abc"),
             Ok((")abc", "u(())rl"))
         );
         assert_eq!(
-            take_until_unmatched('(', ')')("u(())r()l)abc"),
+            take_until_unbalanced('(', ')')("u(())r()l)abc"),
             Ok((")abc", "u(())r()l"))
         );
         assert_eq!(
-            take_until_unmatched('(', ')')("u(())r()labc"),
+            take_until_unbalanced('(', ')')("u(())r()labc"),
             Ok(("", "u(())r()labc"))
         );
         assert_eq!(
-            take_until_unmatched('(', ')')(r#"u\((\))r()labc"#),
+            take_until_unbalanced('(', ')')(r#"u\((\))r()labc"#),
             Ok(("", r#"u\((\))r()labc"#))
         );
         assert_eq!(
-            take_until_unmatched('(', ')')("u(())r(labc"),
+            take_until_unbalanced('(', ')')("u(())r(labc"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "u(())r(labc",
                 ErrorKind::TakeUntil
             )))
         );
         assert_eq!(
-            take_until_unmatched('€', 'ü')("€uü€€üürlüabc"),
+            take_until_unbalanced('€', 'ü')("€uü€€üürlüabc"),
             Ok(("üabc", "€uü€€üürl"))
         );
     }

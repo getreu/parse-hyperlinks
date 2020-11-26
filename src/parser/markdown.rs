@@ -1,7 +1,7 @@
 //! This module implements parsers for Markdown hyperlinks.
 #![allow(dead_code)]
 
-use crate::take_until_unmatched;
+use crate::take_until_unbalanced;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::*;
@@ -46,7 +46,7 @@ pub fn md_link_ref(i: &str) -> nom::IResult<&str, (&str, &str, &str)> {
 /// an open bracket `[`, a sequence of zero or more inlines, and a close
 /// bracket `]`.
 fn md_link_text(i: &str) -> nom::IResult<&str, &str> {
-    nom::sequence::delimited(tag("["), take_until_unmatched('[', ']'), tag("]"))(i)
+    nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]"))(i)
 }
 
 /// CommonMark Spec: A [link reference definition] consists of a [link
@@ -69,7 +69,7 @@ fn md_link_text(i: &str) -> nom::IResult<&str, &str> {
 /// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
 /// [non-whitespace characters]: https://spec.commonmark.org/0.29/#non-whitespace-character
 fn md_link_ref_text(i: &str) -> nom::IResult<&str, &str> {
-    nom::sequence::delimited(tag("["), take_until_unmatched('[', ']'), tag("]:"))(i)
+    nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]:"))(i)
 }
 
 /// A [link destination](https://spec.commonmark.org/0.29/#link-destination)
@@ -88,10 +88,10 @@ fn md_link_ref_text(i: &str) -> nom::IResult<&str, &str> {
 ///
 fn md_link_destination(i: &str) -> nom::IResult<&str, &str> {
     alt((
-        nom::sequence::delimited(tag("<"), take_until_unmatched('<', '>'), tag(">")),
+        nom::sequence::delimited(tag("<"), take_until_unbalanced('<', '>'), tag(">")),
         map_parser(
             nom::bytes::complete::is_not(" \t\r\n"),
-            all_consuming(take_until_unmatched('(', ')')),
+            all_consuming(take_until_unbalanced('(', ')')),
         ),
     ))(i)
 }
@@ -99,7 +99,7 @@ fn md_link_destination(i: &str) -> nom::IResult<&str, &str> {
 /// Matches `md_link_destination` in parenthesis.
 fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (rest, inner) =
-        nom::sequence::delimited(tag("("), take_until_unmatched('(', ')'), tag(")"))(i)?;
+        nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")"))(i)?;
     let (i, link_destination) = md_link_destination(inner)?;
     if let Ok((i, _)) = nom::character::complete::multispace1::<_, (_, ErrorKind)>(i) {
         let (_, link_title) = md_link_title(i)?;
@@ -128,7 +128,7 @@ fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (&str, &str)> {
 fn md_link_title(i: &str) -> nom::IResult<&str, &str> {
     verify(
         alt((
-            nom::sequence::delimited(tag("("), take_until_unmatched('(', ')'), tag(")")),
+            nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
             nom::sequence::delimited(
                 tag("'"),
                 nom::bytes::complete::escaped(
