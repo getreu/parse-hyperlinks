@@ -1,4 +1,4 @@
-//! This module implement parser and iterator to extract all
+//! This module implements parsers to extract all
 //! hyperlinks from a text input.
 #![allow(dead_code)]
 
@@ -14,14 +14,15 @@ use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
 use nom::combinator::*;
 
-/// Skips input until it finds a Markdown or RestructuredText hyperlink.
-/// Returns `Ok(remaining_input, (link_name, link_target, link_title)`.
+/// Consumes the input until it finds a Markdown or RestructuredText hyperlink.  Returns
+/// `Ok(remaining_input, (link_name, link_target, link_title)`.  The parser finds stand alone links
+/// and link references.  ReStructuredText's anonymous links are not supported.
 ///
-/// After the finding, the parser might silently consume some additional bytes:
-/// This happens, when directly after a finding a `md_link_ref` or `rst_link_ref`
-/// appears. These must be ignored, as they are only allowed at the beginning of
-/// a line. The skip has to happen at this moment, as the next parser does not
-/// know if the first byte it gets, is it at the beginning of a line or not.
+/// The parser might silently consume some additional bytes after the actual finding: This happens,
+/// when directly after a finding a `md_link_ref` or `rst_link_ref` appears. These must be ignored,
+/// as they are only allowed at the beginning of a line. The skip has to happen at this moment, as
+/// the next parser does not know if the first byte it gets, is it at the beginning of a line or
+/// not.
 pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String)> {
     let mut input_start = true;
     let res = loop {
@@ -106,10 +107,11 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
     }
 }
 
-/// Returns the parsed first hyperlink found in the input text as:
-/// Some((link_name, link_target, link_title))`
-/// Recognizes hyperlinks in Markdown or RestructuredText
-/// format. Anonymous links in RestructuredText are not supported.
+/// Searches for hyperlinks in the input text and returns the first
+/// finding as tuple:
+/// `Some((link_name, link_target, link_title))`
+/// The function recognizes hyperlinks in Markdown or RestructuredText
+/// format. ReStructuredText's anonymous links are not supported.
 pub fn first_hyperlink(i: &str) -> Option<(String, String, String)> {
     if let Ok((_, result)) = take_hyperlink(i) {
         Some(result)

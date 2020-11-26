@@ -9,14 +9,17 @@ use nom::error::ErrorKind;
 use nom::IResult;
 
 /// Parse a RestructuredText hyperlink.
-/// This parse must start at the link start `\`` to succeed.
+/// The parser expects to start at the link start (\`) to succeed.
 /// A hyperlink reference may directly embed a target URI or (since Docutils
-/// 0.11) a hyperlink reference within angle brackets ("<...>") as follows:
-/// See the `Python home page <http://www.python.org>`_ for info.
+/// 0.11) a hyperlink reference within angle brackets ("<...>") as in
+/// ```rst
+/// abc `Python home page <http://www.python.org>`_ abc
+/// ```
 /// The bracketed URI must be preceded by whitespace and be the last text
-/// before the end string.
+/// before the end string. For more details see the
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases)
+/// It returns either `Ok((i, (link_text, link_destination)))` or some error.
 pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
     match rst_parse_link(i) {
         Ok((i, (ln, lt))) => {
@@ -39,14 +42,15 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
     }
 }
 
-/// Parser and transform RestructuredText link references.
+/// Parse a RestructuredText link references.
 /// The parser expects to start at the beginning of the line.
 /// Here some examples for link references:
-///     See the `Python home page`_ for info.
-///     .. _Python home page: http://www.python.org
-///     .. _`Python: home page`: http://www.python.org
-/// See unit test `test_rst_link_ref()`for more examples.
-///
+/// ```rst
+/// .. _Python home page: http://www.python.org
+/// .. _`Python: home page`: http://www.python.org
+/// ```
+/// See unit test `test_rst_link_ref()` for more examples.
+/// It returns either `Ok((i, (link_text, link_destination)))` or some error.
 pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (String, String)> {
     let (i, block) = rst_explicit_markup_block(i)?;
     match rst_parse_link_ref(block.as_str()) {
@@ -75,7 +79,7 @@ pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (String, String)> {
 
 /// This parser used by `rst_link()`, does all the work that can be
 /// done without allocating new strings.
-/// Removing of escaped characters is not done here.
+/// Removing of escaped characters is not performed here.
 fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (i, j) = nom::sequence::delimited(
         tag("`"),
@@ -158,7 +162,6 @@ fn rst_parse_link_ref(i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// out
 /// ```
 /// An explicit markup block is a text block:
-///
 /// * whose first line begins with ".." followed by whitespace (the "explicit
 ///   markup start"),
 /// * whose second and subsequent lines (if any) are indented relative to the
@@ -202,11 +205,11 @@ fn rst_explicit_markup_block(i: &str) -> nom::IResult<&str, String> {
     Ok((i, s))
 }
 
-/// Replace escaped characters:
+/// Replace the following escaped characters:
 ///     \\\`\ \:\<\>
 /// with:
 ///     \`:<>
-/// Preserve usual whitespace, but remove `\ `.
+/// Preserves usual whitespace, but removes `\ `.
 fn rst_escaped_link_name_transform(i: &str) -> IResult<&str, String> {
     nom::bytes::complete::escaped_transform(
         nom::bytes::complete::is_not("\\"),
@@ -222,11 +225,11 @@ fn rst_escaped_link_name_transform(i: &str) -> IResult<&str, String> {
     )(i)
 }
 
-/// Replace escaped characters:
+/// Replace the following escaped characters:
 ///     \\\`\ \:\<\>
 /// with:
 ///     \` :<>
-/// Delete all whitespace, but keep one space for each `\ `.
+/// Deletes all whitespace, but keeps one space for each `\ `.
 fn rst_escaped_link_target_transform(mut i: &str) -> IResult<&str, String> {
     let mut res = String::new();
 

@@ -9,13 +9,17 @@ use nom::error::ParseError;
 use nom::Err;
 use nom::IResult;
 
-/// This parser is designed to work inside the `nom::sequence::delimited` parser, e.g.:
-/// `nom::sequence::delimited(tag("("), take_until_unmatched('(', ')'), tag(")"))(i)`
-/// It skips nested brackets until it finds an extra closing bracket.
-/// This function is very similar to `nom::bytes::complete::take_until(")")`, except
-/// it also takes nested brackets.
-/// Escaped brackets e.g. `\(` and `\)` are not considered as brackets and are taken by
-/// default.
+/// A parser designed to work inside the `nom::sequence::delimited` parser, e.g.:
+/// ```
+/// use nom::bytes::complete::tag;
+/// use parse_hyperlinks::take_until_unbalanced;
+/// let i = "<<inside>inside>abc";
+/// let mut parser = nom::sequence::delimited(tag("<"), take_until_unbalanced('<', '>'), tag(">"));
+/// assert_eq!(parser(i), Ok(("abc", "<inside>inside")));
+/// ```
+/// It skips nested brackets until it finds an extra unbalanced closing bracket. Escaped brackets
+/// like `\<` and `\>` are not considered as brackets and are not counted. This function is
+/// very similar to `nom::bytes::complete::take_until(">")`, except it also takes nested brackets.
 pub fn take_until_unbalanced(
     opening_bracket: char,
     closing_bracket: char,

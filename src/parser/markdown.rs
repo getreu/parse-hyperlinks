@@ -10,6 +10,8 @@ use nom::error::ErrorKind;
 /// Parse a markdown link.
 /// This parser expects to start at the beginning of the link `[`
 /// to succeed.
+/// It returns either `Ok((i, (link_text, link_destination, link_title)))` or
+/// some error.
 pub fn md_link(i: &str) -> nom::IResult<&str, (&str, &str, &str)> {
     let (i, link_text) = md_link_text(i)?;
     let (i, (link_destination, link_title)) = md_link_destination_enclosed(i)?;
@@ -18,6 +20,8 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (&str, &str, &str)> {
 
 /// Matches a markdown link reference.
 /// The parser expects to start at the beginning of link's line.
+/// It returns either `Ok((i, (link_text, link_destination, link_title)))` or
+/// some error.
 pub fn md_link_ref(i: &str) -> nom::IResult<&str, (&str, &str, &str)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
