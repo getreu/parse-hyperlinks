@@ -10,6 +10,13 @@ use nom::IResult;
 
 /// Parse a RestructuredText hyperlink.
 /// The parser expects to start at the link start (\`) to succeed.
+/// ```
+/// use parse_hyperlinks::parser::restructured_text::rst_link;
+/// assert_eq!(
+///   rst_link("`name <target>`_abc"),
+///   Ok(("abc", ("name".to_string(), "target".to_string())))
+/// );
+/// ```
 /// A hyperlink reference may directly embed a target URI or (since Docutils
 /// 0.11) a hyperlink reference within angle brackets ("<...>") as in
 /// ```rst
@@ -44,6 +51,13 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
 
 /// Parse a RestructuredText link references.
 /// The parser expects to start at the beginning of the line.
+/// ```
+/// use parse_hyperlinks::parser::restructured_text::rst_link_ref;
+/// assert_eq!(
+///   rst_link_ref("   .. _`name`: target\nabc"),
+///   Ok(("\nabc", ("name".to_string(), "target".to_string())))
+/// );
+/// ```
 /// Here some examples for link references:
 /// ```rst
 /// .. _Python home page: http://www.python.org

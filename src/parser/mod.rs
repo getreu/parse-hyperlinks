@@ -17,7 +17,19 @@ use nom::combinator::*;
 /// Consumes the input until it finds a Markdown or RestructuredText hyperlink.  Returns
 /// `Ok(remaining_input, (link_name, link_target, link_title)`.  The parser finds stand alone links
 /// and link references.  ReStructuredText's anonymous links are not supported.
+/// ```
+/// use parse_hyperlinks::parser::take_hyperlink;
+/// let i = "[a]: b 'c'\n.. _d: e\n--[f](g 'h')--`i <j>`_--";
 ///
+/// let (i, r) = take_hyperlink(i).unwrap();
+/// assert_eq!(r, ("a".to_string(),"b".to_string(),"c".to_string()));
+/// let (i, r) = take_hyperlink(i).unwrap();
+/// assert_eq!(r, ("d".to_string(),"e".to_string(),"".to_string()));
+/// let (i, r) = take_hyperlink(i).unwrap();
+/// assert_eq!(r, ("f".to_string(),"g".to_string(),"h".to_string()));
+/// let (i, r) = take_hyperlink(i).unwrap();
+/// assert_eq!(r, ("i".to_string(),"j".to_string(),"".to_string()));
+/// ```
 /// The parser might silently consume some additional bytes after the actual finding: This happens,
 /// when directly after a finding a `md_link_ref` or `rst_link_ref` appears. These must be ignored,
 /// as they are only allowed at the beginning of a line. The skip has to happen at this moment, as
@@ -112,6 +124,13 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
 /// `Some((link_name, link_target, link_title))`
 /// The function recognizes hyperlinks in Markdown or RestructuredText
 /// format. ReStructuredText's anonymous links are not supported.
+/// ```
+/// use parse_hyperlinks::parser::first_hyperlink;
+/// let i = "abc\n   [u]: v \"w\"abc";
+///
+/// let r = first_hyperlink(i);
+/// assert_eq!(r, Some(("u".to_string(), "v".to_string(), "w".to_string())));
+/// ```
 pub fn first_hyperlink(i: &str) -> Option<(String, String, String)> {
     if let Ok((_, result)) = take_hyperlink(i) {
         Some(result)
