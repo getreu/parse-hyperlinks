@@ -42,7 +42,7 @@ pub fn md_link_ref(i: &str) -> nom::IResult<&str, (&str, &str, &str)> {
     let (i, _) = verify(nom::character::complete::multispace1, |s: &str| {
         s.find("\n\n").is_none()
     })(i)?;
-    let (i, link_destination) = md_link_destination(i)?;
+    let (i, link_destination) = md_parse_link_destination(i)?;
     if let Ok((i, _)) = verify(
         nom::character::complete::multispace1::<_, (_, ErrorKind)>,
         |s: &str| s.find("\n\n").is_none(),
@@ -103,9 +103,17 @@ fn md_link_ref_text(i: &str) -> nom::IResult<&str, &str> {
 ///   nesting to avoid performance issues, but at least three levels of nesting
 ///   should be supported.)
 ///
-fn md_link_destination(i: &str) -> nom::IResult<&str, &str> {
+fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
     alt((
-        nom::sequence::delimited(tag("<"), take_until_unbalanced('<', '>'), tag(">")),
+        nom::sequence::delimited(
+            tag("<"),
+            nom::bytes::complete::escaped(
+                nom::character::complete::none_of(r#"\<>"#),
+                '\\',
+                nom::character::complete::one_of(r#"<>"#),
+            ),
+            tag(">"),
+        ),
         map_parser(
             nom::bytes::complete::is_not(" \t\r\n"),
             all_consuming(take_until_unbalanced('(', ')')),
@@ -117,7 +125,7 @@ fn md_link_destination(i: &str) -> nom::IResult<&str, &str> {
 fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (rest, inner) =
         nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")"))(i)?;
-    let (i, link_destination) = md_link_destination(inner)?;
+    let (i, link_destination) = md_parse_link_destination(inner)?;
     if let Ok((i, _)) = nom::character::complete::multispace1::<_, (_, ErrorKind)>(i) {
         let (_, link_title) = md_link_title(i)?;
         Ok((rest, (link_destination, link_title)))
@@ -317,12 +325,27 @@ mod tests {
     }
 
     #[test]
-    fn test_md_link_destination() {
-        assert_eq!(md_link_destination("<url>abc"), Ok(("abc", "url")));
-        assert_eq!(md_link_destination("<url 2>abc"), Ok(("abc", "url 2")));
-        assert_eq!(md_link_destination("url abc"), Ok((" abc", "url")));
-        assert_eq!(md_link_destination("<url(1)> abc"), Ok((" abc", "url(1)")));
-        assert_eq!(md_link_destination("ur()l abc"), Ok((" abc", "ur()l")));
+    fn test_md_parse_link_destination() {
+        assert_eq!(md_parse_link_destination("<url>abc"), Ok(("abc", "url")));
+        assert_eq!(md_parse_link_destination(r#"<u\<r\>l>abc"#), Ok(("abc", r#"u\<r\>l"#)));
+        assert_eq!(md_parse_link_destination("<url 2>abc"), Ok(("abc", "url 2")));
+        assert_eq!(md_parse_link_destination("url abc"), Ok((" abc", "url")));
+        assert_eq!(md_parse_link_destination("<url(1)> abc"), Ok((" abc", "url(1)")));
+        assert_eq!(md_parse_link_destination("ur()l abc"), Ok((" abc", "ur()l")));
+        assert_eq!(
+            md_link_title("<url>>abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "<url>>abc",
+                ErrorKind::Tag
+            )))
+        );
+        assert_eq!(
+            md_link_title("<u<rl>abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "<u<rl>abc",
+                ErrorKind::Tag
+            )))
+        );
     }
 
     #[test]
