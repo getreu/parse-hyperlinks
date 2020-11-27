@@ -15,7 +15,7 @@ The library implements the
 [reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
 (revision 8571, date 2020-10-28).
 
-To illustrate the usage and the API of the library, `parse-hyperlink`
+To illustrate the usage and the API of the library, [parse-hyperlinks](https://crates.io/crates/parse-hyperlinks)
 comes also with a simple command line application.
 
 Installation:
