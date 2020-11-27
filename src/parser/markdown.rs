@@ -423,7 +423,7 @@ mod tests {
             md_escaped_link_destination_transform(""),
             Ok(("", "".to_string()))
         );
-        // Different than the link target version.
+        // Different than the link destination version.
         assert_eq!(
             md_escaped_link_destination_transform("   "),
             Ok(("", "   ".to_string()))

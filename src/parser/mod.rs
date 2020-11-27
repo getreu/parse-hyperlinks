@@ -15,7 +15,7 @@ use nom::character::complete::anychar;
 use nom::combinator::*;
 
 /// Consumes the input until it finds a Markdown or RestructuredText hyperlink.  Returns
-/// `Ok(remaining_input, (link_name, link_target, link_title)`.  The parser finds stand alone links
+/// `Ok(remaining_input, (link_name, link_destination, link_title)`.  The parser finds stand alone links
 /// and link references.  ReStructuredText's anonymous links are not supported.
 /// ```
 /// use parse_hyperlinks::parser::take_hyperlink;
@@ -121,7 +121,7 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
 
 /// Searches for hyperlinks in the input text and returns the first
 /// finding as tuple:
-/// `Some((link_name, link_target, link_title))`
+/// `Some((link_name, link_destination, link_title))`
 /// The function recognizes hyperlinks in Markdown or RestructuredText
 /// format. ReStructuredText's anonymous links are not supported.
 /// ```
@@ -149,19 +149,19 @@ mod tests {
         let err = take_hyperlink("").unwrap_err();
         assert_eq!(err, expected);
 
-        let i = r#"[md link name]: md_link_target "md link title"
-abc [md link name](md_link_target "md link title")abc
-   [md link name]: md_link_target "md link title"[nomd]: no[nomd]: no
-abc`rst link name <rst_link_target>`_abc
-abc`rst link name <rst_link_target>`_ .. _norst: no .. _norst: no
-.. _rst link name: rst_link_target
-  .. _rst link name: rst_link_t
-     arget
+        let i = r#"[md link name]: md_link_destination "md link title"
+abc [md link name](md_link_destination "md link title")abc
+   [md link name]: md_link_destination "md link title"[nomd]: no[nomd]: no
+abc`rst link name <rst_link_destination>`_abc
+abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
+.. _rst link name: rst_link_destination
+  .. _rst link name: rst_link_d
+     estination
 "#;
 
         let expected = (
             "md link name".to_string(),
-            "md_link_target".to_string(),
+            "md_link_destination".to_string(),
             "md link title".to_string(),
         );
         let (i, res) = take_hyperlink(i).unwrap();
@@ -173,7 +173,7 @@ abc`rst link name <rst_link_target>`_ .. _norst: no .. _norst: no
 
         let expected = (
             "rst link name".to_string(),
-            "rst_link_target".to_string(),
+            "rst_link_destination".to_string(),
             "".to_string(),
         );
         let (i, res) = take_hyperlink(i).unwrap();
@@ -197,11 +197,11 @@ abc`rst link name <rst_link_target>`_ .. _norst: no .. _norst: no
 
     #[test]
     fn test_first_hyperlink() {
-        let i = "abc\n   [md link name]: md_link_target \"md link title\"abc";
+        let i = "abc\n   [md link name]: md_link_destination \"md link title\"abc";
 
         let expected = (
             "md link name".to_string(),
-            "md_link_target".to_string(),
+            "md_link_destination".to_string(),
             "md link title".to_string(),
         );
         let res = first_hyperlink(i).unwrap();

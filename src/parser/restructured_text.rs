@@ -13,12 +13,13 @@ use nom::IResult;
 /// ```
 /// use parse_hyperlinks::parser::restructured_text::rst_link;
 /// assert_eq!(
-///   rst_link("`name <target>`_abc"),
-///   Ok(("abc", ("name".to_string(), "target".to_string())))
+///   rst_link("`name <destination>`_abc"),
+///   Ok(("abc", ("name".to_string(), "destination".to_string())))
 /// );
 /// ```
-/// A hyperlink reference may directly embed a target URI or (since Docutils
-/// 0.11) a hyperlink reference within angle brackets ("<...>") as in
+/// A hyperlink reference may directly embed a destination URI or (since Docutils
+/// 0.11) a hyperlink reference within angle brackets `<>` as shown in the
+/// following example:
 /// ```rst
 /// abc `Python home page <http://www.python.org>`_ abc
 /// ```
@@ -26,7 +27,7 @@ use nom::IResult;
 /// before the end string. For more details see the
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases)
-/// It returns either `Ok((i, (link_text, link_destination)))` or some error.
+/// It returns either `Ok((i, (link_name, link_destination)))` or some error.
 pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
     match rst_parse_link(i) {
         Ok((i, (ln, lt))) => {
@@ -35,7 +36,7 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
             } else {
                 ln.to_string()
             };
-            let lt = if let Ok((_, lt_trans)) = rst_escaped_link_target_transform(lt) {
+            let lt = if let Ok((_, lt_trans)) = rst_escaped_link_destination_transform(lt) {
                 lt_trans
             } else {
                 lt.to_string()
@@ -54,8 +55,8 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
 /// ```
 /// use parse_hyperlinks::parser::restructured_text::rst_link_ref;
 /// assert_eq!(
-///   rst_link_ref("   .. _`name`: target\nabc"),
-///   Ok(("\nabc", ("name".to_string(), "target".to_string())))
+///   rst_link_ref("   .. _`name`: destination\nabc"),
+///   Ok(("\nabc", ("name".to_string(), "destination".to_string())))
 /// );
 /// ```
 /// Here some examples for link references:
@@ -64,7 +65,7 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
 /// .. _`Python: home page`: http://www.python.org
 /// ```
 /// See unit test `test_rst_link_ref()` for more examples.
-/// It returns either `Ok((i, (link_text, link_destination)))` or some error.
+/// It returns either `Ok((i, (link_name, link_destination)))` or some error.
 pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (String, String)> {
     let (i, block) = rst_explicit_markup_block(i)?;
     match rst_parse_link_ref(block.as_str()) {
@@ -74,7 +75,7 @@ pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (String, String)> {
             } else {
                 ln.to_string()
             };
-            let lt = if let Ok((_, lt_trans)) = rst_escaped_link_target_transform(lt) {
+            let lt = if let Ok((_, lt_trans)) = rst_escaped_link_destination_transform(lt) {
                 lt_trans
             } else {
                 lt.to_string()
@@ -116,7 +117,7 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
     )(j)?;
     // Trim trailing whitespace.
     let link_name = link_name.trim_end();
-    let (j, link_target) = nom::sequence::delimited(
+    let (j, link_destination) = nom::sequence::delimited(
         tag("<"),
         nom::bytes::complete::escaped(
             nom::character::complete::none_of(r#"\<>"#),
@@ -128,10 +129,10 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
     // Fail if there are bytes left between `>` and `\``.
     let (_, _) = nom::combinator::eof(j)?;
 
-    Ok((i, (link_name, link_target)))
+    Ok((i, (link_name, link_destination)))
 }
 
-/// This parser detects the position of the link name and the link target.
+/// This parser detects the position of the link name and the link destination.
 /// It does not perform any transformation.
 /// This parser expects to start at the beginning of the line.
 /// If the reference name contains any colons, either:
@@ -141,7 +142,7 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets)
 fn rst_parse_link_ref(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (i, _) = nom::character::complete::char('_')(i)?;
-    let (link_target, link_name) = alt((
+    let (link_destination, link_name) = alt((
         nom::sequence::delimited(
             tag("`"),
             nom::bytes::complete::escaped(
@@ -161,7 +162,7 @@ fn rst_parse_link_ref(i: &str) -> nom::IResult<&str, (&str, &str)> {
         ),
     ))(i)?;
 
-    Ok(("", (link_name, link_target)))
+    Ok(("", (link_name, link_destination)))
 }
 
 /// This parses an explicit markup block.
@@ -244,7 +245,7 @@ fn rst_escaped_link_name_transform(i: &str) -> IResult<&str, String> {
 /// with:
 ///     \` :<>
 /// Deletes all whitespace, but keeps one space for each `\ `.
-fn rst_escaped_link_target_transform(mut i: &str) -> IResult<&str, String> {
+fn rst_escaped_link_destination_transform(mut i: &str) -> IResult<&str, String> {
     let mut res = String::new();
 
     while i != "" {
@@ -556,12 +557,12 @@ mod tests {
             rst_escaped_link_name_transform(""),
             Ok(("", "".to_string()))
         );
-        // Different than the link target version.
+        // Different than the link destination version.
         assert_eq!(
             rst_escaped_link_name_transform("   "),
             Ok(("", "   ".to_string()))
         );
-        // Different than the link target version.
+        // Different than the link destination version.
         assert_eq!(
             rst_escaped_link_name_transform(r#"\ \ \ "#),
             Ok(("", "".to_string()))
@@ -577,27 +578,27 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_escaped_link_target_transform() {
+    fn test_rst_escaped_link_destination_transform() {
         assert_eq!(
-            rst_escaped_link_target_transform(""),
+            rst_escaped_link_destination_transform(""),
             Ok(("", "".to_string()))
         );
         // Different than the link name version.
         assert_eq!(
-            rst_escaped_link_target_transform("  "),
+            rst_escaped_link_destination_transform("  "),
             Ok(("", "".to_string()))
         );
         // Different than the link name version.
         assert_eq!(
-            rst_escaped_link_target_transform(r#"\ \ \ "#),
+            rst_escaped_link_destination_transform(r#"\ \ \ "#),
             Ok(("", "   ".to_string()))
         );
         assert_eq!(
-            rst_escaped_link_target_transform(r#"abc`:<>abc"#),
+            rst_escaped_link_destination_transform(r#"abc`:<>abc"#),
             Ok(("", r#"abc`:<>abc"#.to_string()))
         );
         assert_eq!(
-            rst_escaped_link_target_transform(r#"\:\`\<\>\\"#),
+            rst_escaped_link_destination_transform(r#"\:\`\<\>\\"#),
             Ok(("", r#":`<>\"#.to_string()))
         );
     }
