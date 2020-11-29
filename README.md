@@ -13,8 +13,7 @@ https://github.com/getreu/parse-hyperlinks)
 The library implements the
 [CommonMark Specification 0.29](https://spec.commonmark.org/0.29/),
 [reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
-(revision 8571, date 2020-10-28) and [HTML 5.2: 4.5. Text-level
-//! semantics](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element).
+(revision 8571, date 2020-10-28) and [HTML 5.2: section 4.5](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element).
 
 To illustrate the usage and the API of the library, [parse-hyperlinks](https://crates.io/crates/parse-hyperlinks)
 comes also with a simple command line application.
@@ -27,7 +26,7 @@ cargo install parse-hyperlinks
 
 Usage example:
 
-```bash
+```text
 $ cat input.txt
 abc [my blog](https://getreu.net "blog title")abc
    [my blog]: https://getreu.net "blog title"
@@ -35,9 +34,13 @@ abc`my blog <https://getreu.net>`_abc
   .. _my blog: https://get
      reu.net
 <a href="https://getreu.net" title="blog title">my blog</a>
-$
+```
+
+```shell
 $ ./parse-hyperlinks <input.txt >ouput.html
-$
+```
+
+```html
 $ cat ouput.html
 <a href="https://getreu.net" title="blog title">my blog</a><br/>
 <a href="https://getreu.net" title="blog title">my blog</a><br/>
