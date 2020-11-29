@@ -13,3 +13,4 @@ categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
 nom= "6.0.1"
+html-escape = "0.2.6"
