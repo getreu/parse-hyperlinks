@@ -3,32 +3,39 @@
 //! semantics](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element)
 #![allow(dead_code)]
 
+use html_escape::decode_html_entities;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
 use nom::character::complete::alphanumeric1;
+use nom::error::Error;
+use nom::error::ErrorKind;
+use std::borrow::Cow;
 
 /// Parse an HTML hyperlink.
 /// The parser expects to start at the link start (`<`) to succeed.
 /// ```
 /// use parse_hyperlinks::parser::html::html_link;
+/// use std::borrow::Cow;
+///
 /// assert_eq!(
 ///   html_link(r#"<a href="destination" title="title">name</a>abc"#),
-///   Ok(("abc", ("name", "destination", "title")))
+///   Ok(("abc", (Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
 /// It returns either `Ok((i, (link_name, link_destination, link_title)))` or some error.
-pub fn html_link(i: &str) -> nom::IResult<&str, (&str, &str, &str)> {
+pub fn html_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, ((link_destination, link_title), link_name)) = nom::sequence::terminated(
         nom::sequence::pair(tag_a_opening, nom::bytes::complete::take_until("</a>")),
         tag("</a>"),
     )(i)?;
+    let link_name = decode_html_entities(link_name);
     Ok((i, (link_name, link_destination, link_title)))
 }
 
 /// Parses a `<a ...>` opening tag and returns
 /// either `Ok((i, (link_destination, link_title)))` or some error.
-fn tag_a_opening(i: &str) -> nom::IResult<&str, (&str, &str)> {
+fn tag_a_opening(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     nom::sequence::delimited(
         tag("<a "),
         nom::combinator::map_parser(is_not(">"), parse_attributes),
@@ -38,17 +45,29 @@ fn tag_a_opening(i: &str) -> nom::IResult<&str, (&str, &str)> {
 
 /// Parses attributes and returns `Ok((name, value))`.
 /// Boolean attributes are ignored, but silently consumed.
-fn attribute(i: &str) -> nom::IResult<&str, (&str, &str)> {
+fn attribute(i: &str) -> nom::IResult<&str, (&str, Cow<str>)> {
     alt((
         nom::sequence::pair(
             nom::combinator::verify(alphanumeric1, |s: &str| {
                 nom::character::is_alphabetic(s.as_bytes()[0])
             }),
-            nom::sequence::delimited(tag("=\""), is_not("\""), tag("\"")),
+            alt((
+                nom::combinator::map(
+                    nom::sequence::delimited(tag("=\""), is_not("\""), tag("\"")),
+                    |s: &str| decode_html_entities(s),
+                ),
+                nom::combinator::map(
+                    nom::sequence::delimited(tag("='"), is_not("'"), tag("'")),
+                    |s: &str| decode_html_entities(s),
+                ),
+                nom::combinator::map(nom::sequence::preceded(tag("="), is_not(" ")), |s: &str| {
+                    decode_html_entities(s)
+                }),
+            )),
         ),
         // Consume boolean attributes.
         nom::combinator::value(
-            ("", ""),
+            ("", Cow::from("")),
             nom::combinator::verify(alphanumeric1, |s: &str| {
                 nom::character::is_alphabetic(s.as_bytes()[0])
             }),
@@ -57,7 +76,7 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, &str)> {
 }
 
 /// Parses a whitespace separated list of attributes and returns a vector of (name, value).
-fn attribute_list<'a>(i: &'a str) -> nom::IResult<&'a str, Vec<(&'a str, &'a str)>> {
+fn attribute_list<'a>(i: &'a str) -> nom::IResult<&'a str, Vec<(&'a str, Cow<str>)>> {
     let i = i.trim();
     nom::multi::separated_list1(nom::character::complete::multispace1, attribute)(i)
 }
@@ -65,28 +84,33 @@ fn attribute_list<'a>(i: &'a str) -> nom::IResult<&'a str, Vec<(&'a str, &'a str
 /// Extracts the `href` and `title` attributes and returns
 /// `Ok((link_destination, link_title))`. `link_title` can be empty,
 /// `link_destination` not.
-fn parse_attributes(i: &str) -> nom::IResult<&str, (&str, &str)> {
+fn parse_attributes(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     let (i, attributes) = attribute_list(i)?;
-    let mut href = "";
-    let mut title = "";
+    let mut href = Cow::Borrowed("");
+    let mut title = Cow::Borrowed("");
 
     for (name, value) in attributes {
         if name == "href" {
             // Make sure `href` is empty, it can appear only
             // once.
-            let _ = nom::combinator::eof(href)?;
+            if &*href != "" {
+                return Err(nom::Err::Error(Error::new(name, ErrorKind::ManyMN)));
+            }
             href = value;
-        };
-        if name == "title" {
+        } else if name == "title" {
             // Make sure `title` is empty, it can appear only
             // once.
-            let _ = nom::combinator::eof(title)?;
+            if &*title != "" {
+                return Err(nom::Err::Error(Error::new(name, ErrorKind::ManyMN)));
+            }
             title = value;
         }
     }
 
     // Assure that `href` is not empty.
-    let _ = nom::character::complete::anychar(href)?;
+    if &*href == "" {
+        return Err(nom::Err::Error(Error::new(i, ErrorKind::Eof)));
+    };
 
     Ok((i, (href, title)))
 }
@@ -97,17 +121,33 @@ mod tests {
 
     #[test]
     fn test_html_link() {
-        let expected = ("abc", ("W3Schools", "https://www.w3schools.com/", "W3S"));
+        let expected = (
+            "abc",
+            (
+                Cow::from("W3Schools"),
+                Cow::from("https://www.w3schools.com/"),
+                Cow::from("W3S"),
+            ),
+        );
         assert_eq!(
             html_link(r#"<a title="W3S" href="https://www.w3schools.com/">W3Schools</a>abc"#)
                 .unwrap(),
+            expected
+        );
+
+        let expected = ("abc", (Cow::from("<n>"), Cow::from("h"), Cow::from("t")));
+        assert_eq!(
+            html_link(r#"<a title="t" href="h">&lt;n&gt;</a>abc"#).unwrap(),
             expected
         );
     }
 
     #[test]
     fn test_tag_a_opening() {
-        let expected = ("abc", ("http://getreu.net", "My blog"));
+        let expected = (
+            "abc",
+            (Cow::from("http://getreu.net"), Cow::from("My blog")),
+        );
         assert_eq!(
             tag_a_opening(r#"<a href="http://getreu.net" title="My blog">abc"#).unwrap(),
             expected
@@ -116,15 +156,15 @@ mod tests {
 
     #[test]
     fn test_parse_attributes() {
-        let expected = ("", ("http://getreu.net", "My blog"));
+        let expected = ("", (Cow::from("http://getreu.net"), Cow::from("My blog")));
         assert_eq!(
             parse_attributes(r#"abc href="http://getreu.net" abc title="My blog" abc"#).unwrap(),
             expected
         );
 
         let expected = nom::Err::Error(nom::error::Error::new(
-            "http://getreu.net",
-            nom::error::ErrorKind::Eof,
+            "href",
+            nom::error::ErrorKind::ManyMN,
         ));
         assert_eq!(
             parse_attributes(r#" href="http://getreu.net" href="http://blog.getreu.net" "#)
@@ -132,7 +172,10 @@ mod tests {
             expected
         );
 
-        let expected = nom::Err::Error(nom::error::Error::new("a", nom::error::ErrorKind::Eof));
+        let expected = nom::Err::Error(nom::error::Error::new(
+            "title",
+            nom::error::ErrorKind::ManyMN,
+        ));
         assert_eq!(
             parse_attributes(r#" href="http://getreu.net" title="a" title="b" "#).unwrap_err(),
             expected
@@ -150,11 +193,11 @@ mod tests {
         let expected = (
             "",
             vec![
-                ("", ""),
-                ("href", "http://getreu.net"),
-                ("", ""),
-                ("title", "My blog"),
-                ("", ""),
+                ("", Cow::from("")),
+                ("href", Cow::from("http://getreu.net")),
+                ("", Cow::from("")),
+                ("title", Cow::from("My blog")),
+                ("", Cow::from("")),
             ],
         );
         assert_eq!(
@@ -164,13 +207,37 @@ mod tests {
     }
     #[test]
     fn test_attribute() {
-        let expected = (" abc", ("href", "http://getreu.net"));
+        let expected = (" abc", ("href", Cow::from("http://getreu.net")));
         assert_eq!(
             attribute(r#"href="http://getreu.net" abc"#).unwrap(),
             expected
         );
+        assert_eq!(
+            attribute(r#"href='http://getreu.net' abc"#).unwrap(),
+            expected
+        );
+        // Only allowed when no space in value.
+        assert_eq!(
+            attribute(r#"href=http://getreu.net abc"#).unwrap(),
+            expected
+        );
 
-        let expected = (" abc", ("", ""));
+        let expected = (" abc", ("href", Cow::from("http://getreu.net/<>")));
+        assert_eq!(
+            attribute(r#"href="http://getreu.net/&lt;&gt;" abc"#).unwrap(),
+            expected
+        );
+        assert_eq!(
+            attribute(r#"href='http://getreu.net/&lt;&gt;' abc"#).unwrap(),
+            expected
+        );
+        // Only allowed when no space in value.
+        assert_eq!(
+            attribute(r#"href=http://getreu.net/&lt;&gt; abc"#).unwrap(),
+            expected
+        );
+
+        let expected = (" abc", ("", Cow::from("")));
         assert_eq!(attribute("bool abc").unwrap(), expected);
 
         let expected = nom::Err::Error(nom::error::Error::new(
