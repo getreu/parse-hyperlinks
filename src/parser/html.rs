@@ -42,7 +42,7 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, &str)> {
     alt((
         nom::sequence::pair(
             nom::combinator::verify(alphanumeric1, |s: &str| {
-                s.chars().next().unwrap().is_alphabetic()
+                nom::character::is_alphabetic(s.as_bytes()[0])
             }),
             nom::sequence::delimited(tag("=\""), is_not("\""), tag("\"")),
         ),
@@ -50,7 +50,7 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, &str)> {
         nom::combinator::value(
             ("", ""),
             nom::combinator::verify(alphanumeric1, |s: &str| {
-                s.chars().next().unwrap().is_alphabetic()
+                nom::character::is_alphabetic(s.as_bytes()[0])
             }),
         ),
     ))(i)
