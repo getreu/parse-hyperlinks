@@ -2,9 +2,11 @@
 //! hyperlinks from a text input.
 #![allow(dead_code)]
 
+pub mod html;
 pub mod markdown;
 pub mod restructured_text;
 
+use crate::parser::html::html_link;
 use crate::parser::markdown::md_link;
 use crate::parser::markdown::md_link_ref;
 use crate::parser::restructured_text::rst_link;
@@ -19,7 +21,10 @@ use nom::combinator::*;
 /// and link references.  ReStructuredText's anonymous links are not supported.
 /// ```
 /// use parse_hyperlinks::parser::take_hyperlink;
-/// let i = "[a]: b 'c'\n.. _d: e\n--[f](g 'h')--`i <j>`_--";
+/// let i = r#"[a]: b 'c'
+///            .. _d: e
+///            ---[f](g 'h')---`i <j>`_---
+///            ---<a href="l" title="m">k</a>"#;
 ///
 /// let (i, r) = take_hyperlink(i).unwrap();
 /// assert_eq!(r, ("a".to_string(),"b".to_string(),"c".to_string()));
@@ -29,6 +34,8 @@ use nom::combinator::*;
 /// assert_eq!(r, ("f".to_string(),"g".to_string(),"h".to_string()));
 /// let (i, r) = take_hyperlink(i).unwrap();
 /// assert_eq!(r, ("i".to_string(),"j".to_string(),"".to_string()));
+/// let (i, r) = take_hyperlink(i).unwrap();
+/// assert_eq!(r, ("k".to_string(),"l".to_string(),"m".to_string()));
 /// ```
 /// The parser might silently consume some additional bytes after the actual finding: This happens,
 /// when directly after a finding a `md_link_ref` or `rst_link_ref` appears. These must be ignored,
@@ -44,14 +51,18 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
             // Here we should check for `md_link_ref` and `rst_link_ref`
             c == '\n' || c == ' ' || c == '.'
             // these are candidates for `md_link`and `rst_link`
-            || c == '`' || c == '[')(i)?
+            || c == '`' || c == '['
+            // and this could be an HTML hyperlink
+            || c == '<')(i)?
             .0
         } else {
             take_till(|c|
             // Here we should check for `md_link_ref` and `rst_link_ref`
             c == '\n'
             // these are candidates for `md_link`and `rst_link`
-            || c == '`' || c == '[')(i)?
+            || c == '`' || c == '['
+            // and this could be an HTML hyperlink
+            || c == '<')(i)?
             .0
         };
 
@@ -85,6 +96,9 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
         if let Ok(r) = alt((
             map(rst_link, |(ln, lt)| (ln, lt, "".to_string())),
             map(md_link, |(ln, lta, lti)| {
+                (ln.to_string(), lta, lti.to_string())
+            }),
+            map(html_link, |(ln, lta, lti)| {
                 (ln.to_string(), lta.to_string(), lti.to_string())
             }),
         ))(i)
@@ -100,12 +114,13 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
     // Before we return `res`, we need to check again for `md_link_ref` and
     // `rst_link_ref` and consume them silently, without returning their result.
     // These are only allowed at the beginning of a line and we know here, that
-    // we are definately not. The next parser can not tell, because it does not
-    // know if it was called for the first time ore not. This way, we make sure
-    // that `md_link_ref` and `rst_link_ref` are mistakenly recognized in the
-    // middle of a line.
-    // We do this check only once, because we know, if one of the parser
-    // succeeds, it will consume the whole line.
+    // we are not. We have to act now, because the next parser can not tell if
+    // its first byte is at the beginning of the line, because it does not know
+    // if it was called for the first time ore not. By consuming more now, we
+    // make sure that no `md_link_ref` and `rst_link_ref` is mistakenly
+    // recognized in the middle of a line.
+    // It is sufficient to do this check once, because both parser guarantee to
+    // consume the whole line in case of success.
     if let Ok((i, _)) = alt((
         map(rst_link_ref, |(ln, lt)| (ln, lt, "".to_string())),
         map(md_link_ref, |(ln, lta, lti)| {
@@ -157,6 +172,8 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
 .. _rst link name: rst_link_destination
   .. _rst link name: rst_link_d
      estination
+<a href="html_link_destination"
+   title="html link title">html link name</a>
 "#;
 
         let expected = (
@@ -182,6 +199,14 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
         assert_eq!(res, expected);
         let (i, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
+        let (i, res) = take_hyperlink(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = (
+            "html link name".to_string(),
+            "html_link_destination".to_string(),
+            "html link title".to_string(),
+        );
         let (_, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
 

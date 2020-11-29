@@ -1,4 +1,8 @@
-//! Module for parsing hyperlinks in Markdown and RestructuredText.
+//! Library and application for parsing hyperlinks in Markdown and RestructuredText format.
+//! The library implements the
+//! [CommonMark Specification 0.29](https://spec.commonmark.org/0.29/) and the
+//! [reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
+//! (revision 8571, date 2020-10-28).
 #![allow(dead_code)]
 
 pub mod parser;
