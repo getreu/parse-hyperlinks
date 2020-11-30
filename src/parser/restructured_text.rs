@@ -4,17 +4,18 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::*;
-use nom::error::Error;
-use nom::error::ErrorKind;
 use nom::IResult;
+use std::borrow::Cow;
 
 /// Parse a RestructuredText hyperlink.
 /// The parser expects to start at the link start (\`) to succeed.
 /// ```
 /// use parse_hyperlinks::parser::restructured_text::rst_link;
+/// use std::borrow::Cow;
+///
 /// assert_eq!(
 ///   rst_link("`name <destination>`_abc"),
-///   Ok(("abc", ("name".to_string(), "destination".to_string())))
+///   Ok(("abc", (Cow::from("name"), Cow::from("destination"))))
 /// );
 /// ```
 /// A hyperlink reference may directly embed a destination URI or (since Docutils
@@ -28,35 +29,23 @@ use nom::IResult;
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases)
 /// It returns either `Ok((i, (link_name, link_destination)))` or some error.
-pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
-    match rst_parse_link(i) {
-        Ok((i, (ln, lt))) => {
-            let ln = if let Ok((_, ln_trans)) = rst_escaped_link_name_transform(ln) {
-                ln_trans
-            } else {
-                ln.to_string()
-            };
-            let lt = if let Ok((_, lt_trans)) = rst_escaped_link_destination_transform(lt) {
-                lt_trans
-            } else {
-                lt.to_string()
-            };
-            Ok((i, (ln, lt)))
-        }
-        std::result::Result::Err(nom::Err::Error(nom::error::Error { input: _, code })) => {
-            Err(nom::Err::Error(Error::new(i, code)))
-        }
-        Err(_) => Err(nom::Err::Error(Error::new(i, ErrorKind::EscapedTransform))),
-    }
+pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+    let (i, (ln, ld)) = rst_parse_link(i)?;
+    let ln = rst_escaped_link_name_transform(ln)?.1;
+    let ld = rst_escaped_link_destination_transform(ld)?.1;
+
+    Ok((i, (ln, ld)))
 }
 
 /// Parse a RestructuredText link references.
 /// The parser expects to start at the beginning of the line.
 /// ```
 /// use parse_hyperlinks::parser::restructured_text::rst_link_ref;
+/// use std::borrow::Cow;
+///
 /// assert_eq!(
 ///   rst_link_ref("   .. _`name`: destination\nabc"),
-///   Ok(("\nabc", ("name".to_string(), "destination".to_string())))
+///   Ok(("\nabc", (Cow::from("name"), Cow::from("destination"))))
 /// );
 /// ```
 /// Here some examples for link references:
@@ -66,30 +55,44 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (String, String)> {
 /// ```
 /// See unit test `test_rst_link_ref()` for more examples.
 /// It returns either `Ok((i, (link_name, link_destination)))` or some error.
-pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (String, String)> {
-    let (i, block) = rst_explicit_markup_block(i)?;
-    match rst_parse_link_ref(block.as_str()) {
-        Ok((_, (ln, lt))) => {
-            let ln = if let Ok((_, ln_trans)) = rst_escaped_link_name_transform(ln) {
-                ln_trans
-            } else {
-                ln.to_string()
-            };
-            let lt = if let Ok((_, lt_trans)) = rst_escaped_link_destination_transform(lt) {
-                lt_trans
-            } else {
-                lt.to_string()
-            };
-            Ok((i, (ln, lt)))
-        }
-        std::result::Result::Err(nom::Err::Error(nom::error::Error { input: _, code })) => {
-            Err(nom::Err::Error(Error::new(i, code)))
-        }
-        Err(_) => Err(nom::Err::Error(nom::error::Error::new(
+pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+    let my_err = |_| {
+        nom::Err::Error(nom::error::Error::new(
             i,
-            ErrorKind::EscapedTransform,
-        ))),
-    }
+            nom::error::ErrorKind::EscapedTransform,
+        ))
+    };
+
+    let (i, c) = rst_explicit_markup_block(i)?;
+
+    let (ln, ld) = match c {
+        Cow::Borrowed(s) => {
+            let (_, (ln, ld)) = rst_parse_link_ref(s)?;
+            (
+                rst_escaped_link_name_transform(ln)?.1,
+                rst_escaped_link_destination_transform(ld)?.1,
+            )
+        }
+
+        Cow::Owned(strg) => {
+            let (_, (ln, ld)) = rst_parse_link_ref(&strg).map_err(my_err)?;
+            let ln = Cow::Owned(
+                rst_escaped_link_name_transform(ln)
+                    .map_err(my_err)?
+                    .1
+                    .to_string(),
+            );
+            let ld = Cow::Owned(
+                rst_escaped_link_destination_transform(ld)
+                    .map_err(my_err)?
+                    .1
+                    .to_string(),
+            );
+            (ln, ld)
+        }
+    };
+
+    Ok((i, (ln, ld)))
 }
 
 /// This parser used by `rst_link()`, does all the work that can be
@@ -101,7 +104,7 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
         nom::bytes::complete::escaped(
             nom::character::complete::none_of(r#"\`"#),
             '\\',
-            nom::character::complete::one_of(r#" `:<>"#),
+            nom::character::complete::one_of(r#" `:<>\"#),
         ),
         tag("`_"),
     )(i)?;
@@ -186,7 +189,7 @@ fn rst_parse_link_ref(i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// hyperlink target may begin on the same line as the explicit markup start
 /// or the next line. It may also be split over multiple lines, in which case
 /// the lines are joined with whitespace before being normalized.
-fn rst_explicit_markup_block(i: &str) -> nom::IResult<&str, String> {
+fn rst_explicit_markup_block(i: &str) -> nom::IResult<&str, Cow<str>> {
     fn indent<'a>(wsp1: &'a str, wsp2: &'a str) -> impl Fn(&'a str) -> IResult<&'a str, ()> {
         move |i: &str| {
             let (i, _) = nom::character::complete::line_ending(i)?;
@@ -201,10 +204,15 @@ fn rst_explicit_markup_block(i: &str) -> nom::IResult<&str, String> {
         nom::combinator::map(nom::bytes::complete::tag(".. "), |_| "   "),
     )(i)?;
 
-    let (i, v) = nom::multi::separated_list1(
+    let (j, v) = nom::multi::separated_list1(
         indent(&wsp1, &wsp2),
         nom::character::complete::not_line_ending,
     )(i)?;
+
+    // If the block consists of only one line return now.
+    if v.len() == 1 {
+        return Ok((j, Cow::Borrowed(v[0].clone())));
+    };
 
     let mut s = String::new();
     let mut is_first = true;
@@ -217,7 +225,7 @@ fn rst_explicit_markup_block(i: &str) -> nom::IResult<&str, String> {
         is_first = false;
     }
 
-    Ok((i, s))
+    Ok((j, Cow::from(s)))
 }
 
 /// Replace the following escaped characters:
@@ -225,33 +233,70 @@ fn rst_explicit_markup_block(i: &str) -> nom::IResult<&str, String> {
 /// with:
 ///     \`:<>
 /// Preserves usual whitespace, but removes `\ `.
-fn rst_escaped_link_name_transform(i: &str) -> IResult<&str, String> {
-    nom::bytes::complete::escaped_transform(
-        nom::bytes::complete::is_not("\\"),
-        '\\',
-        alt((
-            value("\\", tag("\\")),
-            value("`", tag("`")),
-            value(":", tag(":")),
-            value("<", tag("<")),
-            value(">", tag(">")),
-            value("", tag(" ")),
-        )),
+fn rst_escaped_link_name_transform(i: &str) -> IResult<&str, Cow<str>> {
+    nom::combinator::map(
+        nom::bytes::complete::escaped_transform(
+            nom::bytes::complete::is_not("\\"),
+            '\\',
+            alt((
+                value("\\", tag("\\")),
+                value("`", tag("`")),
+                value(":", tag(":")),
+                value("<", tag("<")),
+                value(">", tag(">")),
+                value("", tag(" ")),
+            )),
+        ),
+        |s| if s == i { Cow::from(i) } else { Cow::from(s) },
     )(i)
+}
+
+/// Deletes all whitespace, but keeps one space for each `\ `.
+fn remove_whitespace(i: &str) -> IResult<&str, Cow<str>> {
+    let mut res = Cow::Borrowed("");
+    let mut j = i;
+    while j != "" {
+        let (k, _) = nom::character::complete::multispace0(j)?;
+        let (k, s) = nom::bytes::complete::escaped(
+            nom::character::complete::none_of("\\\r\n \t"),
+            '\\',
+            nom::character::complete::one_of(r#" :`<>\"#),
+        )(k)?;
+        res = match res {
+            Cow::Borrowed("") => Cow::Borrowed(s),
+            Cow::Borrowed(res_str) => {
+                let mut strg = res_str.to_string();
+                strg.push_str(s);
+                Cow::Owned(strg)
+            }
+            Cow::Owned(mut strg) => {
+                strg.push_str(s);
+                Cow::Owned(strg)
+            }
+        };
+        j = k;
+    }
+
+    Ok((j, res))
 }
 
 /// Replace the following escaped characters:
 ///     \\\`\ \:\<\>
 /// with:
 ///     \` :<>
-/// Deletes all whitespace, but keeps one space for each `\ `.
-fn rst_escaped_link_destination_transform(mut i: &str) -> IResult<&str, String> {
-    let mut res = String::new();
+fn rst_escaped_link_destination_transform(i: &str) -> IResult<&str, Cow<str>> {
+    let my_err = |_| {
+        nom::Err::Error(nom::error::Error::new(
+            i,
+            nom::error::ErrorKind::EscapedTransform,
+        ))
+    };
 
-    while i != "" {
-        let (j, _) = nom::character::complete::space0(i)?;
-        let (j, s) = nom::bytes::complete::escaped_transform(
-            nom::bytes::complete::is_not("\\ \t"),
+    let (j, c) = remove_whitespace(i)?;
+
+    let (_, s) =
+        nom::bytes::complete::escaped_transform::<_, nom::error::Error<_>, _, _, _, _, _, _>(
+            nom::bytes::complete::is_not("\\"),
             '\\',
             alt((
                 value("\\", tag("\\")),
@@ -261,13 +306,16 @@ fn rst_escaped_link_destination_transform(mut i: &str) -> IResult<&str, String> 
                 value(">", tag(">")),
                 value(" ", tag(" ")),
             )),
-        )(j)?;
-        res.push_str(&s);
-        i = j;
-    }
-    Ok(("", res))
-}
+        )(&*c)
+        .map_err(my_err)?;
 
+    // When nothing was changed we can continue with `Borrowed`.
+    if s == i {
+        Ok((j, Cow::Borrowed(i)))
+    } else {
+        Ok((j, Cow::Owned(s.to_owned())))
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,8 +326,8 @@ mod tests {
         let expected = (
             "abc",
             (
-                "Python home page".to_string(),
-                "http://www.python.org".to_string(),
+                Cow::from("Python home page"),
+                Cow::from("http://www.python.org"),
             ),
         );
         assert_eq!(
@@ -294,8 +342,8 @@ mod tests {
         let expected = (
             "",
             (
-                r#"Python<home> page"#.to_string(),
-                "http://www.python.org".to_string(),
+                Cow::from(r#"Python<home> page"#),
+                Cow::from("http://www.python.org"),
             ),
         );
         assert_eq!(
@@ -306,8 +354,8 @@ mod tests {
         let expected = (
             "",
             (
-                r#"my news at <http://python.org>"#.to_string(),
-                "http://news.python.org".to_string(),
+                Cow::from(r#"my news at <http://python.org>"#),
+                Cow::from("http://news.python.org"),
             ),
         );
         assert_eq!(
@@ -318,8 +366,8 @@ mod tests {
         let expected = (
             "",
             (
-                r#"my news at <http://python.org>"#.to_string(),
-                r#"http://news. <python>.org"#.to_string(),
+                Cow::from(r#"my news at <http://python.org>"#),
+                Cow::from(r#"http://news. <python>.org"#),
             ),
         );
         assert_eq!(
@@ -334,8 +382,8 @@ mod tests {
         let expected = (
             "\nabc",
             (
-                "Python: home page".to_string(),
-                "http://www.python.org".to_string(),
+                Cow::from("Python: home page"),
+                Cow::from("http://www.python.org"),
             ),
         );
         assert_eq!(
@@ -360,8 +408,8 @@ mod tests {
         let expected = (
             "",
             (
-                "Python: `home page`".to_string(),
-                "http://www.python .org".to_string(),
+                Cow::from("Python: `home page`"),
+                Cow::from("http://www.python .org"),
             ),
         );
         assert_eq!(
@@ -376,8 +424,8 @@ mod tests {
         let expected = (
             "",
             (
-                "my news at <http://python.org>".to_string(),
-                "http://news.python.org".to_string(),
+                Cow::from("my news at <http://python.org>"),
+                Cow::from("http://news.python.org"),
             ),
         );
         assert_eq!(
@@ -398,10 +446,7 @@ mod tests {
 
         let expected = (
             "",
-            (
-                "my news".to_string(),
-                "http://news.<python>.org".to_string(),
-            ),
+            (Cow::from("my news"), Cow::from("http://news.<python>.org")),
         );
         assert_eq!(
             rst_link_ref(r#".. _my news: http://news.<python>.org"#).unwrap(),
@@ -521,19 +566,19 @@ mod tests {
     fn test_rst_explicit_markup_block() {
         assert_eq!(
             rst_explicit_markup_block(".. 11111"),
-            Ok(("", "11111".to_string()))
+            Ok(("", Cow::from("11111")))
         );
         assert_eq!(
             rst_explicit_markup_block("   .. 11111\nout"),
-            Ok(("\nout", "11111".to_string()))
+            Ok(("\nout", Cow::from("11111")))
         );
         assert_eq!(
             rst_explicit_markup_block("   .. 11111\n      222222\n      333333\nout"),
-            Ok(("\nout", "11111 222222 333333".to_string()))
+            Ok(("\nout", Cow::from("11111 222222 333333")))
         );
         assert_eq!(
             rst_explicit_markup_block("   .. first\n      second\n       1indent\nout"),
-            Ok(("\nout", "first second  1indent".to_string()))
+            Ok(("\nout", Cow::from("first second  1indent")))
         );
         assert_eq!(
             rst_explicit_markup_block("   ..first"),
@@ -553,27 +598,24 @@ mod tests {
 
     #[test]
     fn test_rst_escaped_link_name_transform() {
-        assert_eq!(
-            rst_escaped_link_name_transform(""),
-            Ok(("", "".to_string()))
-        );
+        assert_eq!(rst_escaped_link_name_transform(""), Ok(("", Cow::from(""))));
         // Different than the link destination version.
         assert_eq!(
             rst_escaped_link_name_transform("   "),
-            Ok(("", "   ".to_string()))
+            Ok(("", Cow::from("   ")))
         );
         // Different than the link destination version.
         assert_eq!(
             rst_escaped_link_name_transform(r#"\ \ \ "#),
-            Ok(("", "".to_string()))
+            Ok(("", Cow::from("")))
         );
         assert_eq!(
             rst_escaped_link_name_transform(r#"abc`:<>abc"#),
-            Ok(("", r#"abc`:<>abc"#.to_string()))
+            Ok(("", Cow::from(r#"abc`:<>abc"#)))
         );
         assert_eq!(
             rst_escaped_link_name_transform(r#"\:\`\<\>\\"#),
-            Ok(("", r#":`<>\"#.to_string()))
+            Ok(("", Cow::from(r#":`<>\"#)))
         );
     }
 
@@ -581,25 +623,55 @@ mod tests {
     fn test_rst_escaped_link_destination_transform() {
         assert_eq!(
             rst_escaped_link_destination_transform(""),
-            Ok(("", "".to_string()))
+            Ok(("", Cow::Borrowed("")))
         );
         // Different than the link name version.
         assert_eq!(
             rst_escaped_link_destination_transform("  "),
-            Ok(("", "".to_string()))
+            Ok(("", Cow::Borrowed("")))
+        );
+        assert_eq!(
+            rst_escaped_link_destination_transform(" x x"),
+            Ok(("", Cow::Owned("xx".to_string())))
         );
         // Different than the link name version.
         assert_eq!(
             rst_escaped_link_destination_transform(r#"\ \ \ "#),
-            Ok(("", "   ".to_string()))
+            Ok(("", Cow::Owned("   ".to_string())))
         );
         assert_eq!(
             rst_escaped_link_destination_transform(r#"abc`:<>abc"#),
-            Ok(("", r#"abc`:<>abc"#.to_string()))
+            Ok(("", Cow::Borrowed(r#"abc`:<>abc"#)))
         );
         assert_eq!(
             rst_escaped_link_destination_transform(r#"\:\`\<\>\\"#),
-            Ok(("", r#":`<>\"#.to_string()))
+            Ok(("", Cow::Owned(r#":`<>\"#.to_string())))
+        );
+    }
+    #[test]
+    fn test_remove_whitespace() {
+        assert_eq!(remove_whitespace(" abc "), Ok(("", Cow::Borrowed("abc"))));
+        assert_eq!(
+            remove_whitespace(" x x"),
+            Ok(("", Cow::Owned("xx".to_string())))
+        );
+        assert_eq!(remove_whitespace("  \t \r \n"), Ok(("", Cow::from(""))));
+        assert_eq!(
+            remove_whitespace(r#"\ \ \ "#),
+            Ok(("", Cow::Borrowed(r#"\ \ \ "#)))
+        );
+        assert_eq!(
+            remove_whitespace(r#"abc`:<>abc"#),
+            Ok(("", Cow::Borrowed(r#"abc`:<>abc"#)))
+        );
+        assert_eq!(
+            remove_whitespace(r#"\:\`\<\>\\"#),
+            Ok(("", Cow::Borrowed(r#"\:\`\<\>\\"#)))
+        );
+
+        assert_eq!(
+            remove_whitespace("http://www.py\n     thon.org"),
+            Ok(("", Cow::Owned("http://www.python.org".to_string())))
         );
     }
 }

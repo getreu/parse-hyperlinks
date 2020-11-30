@@ -6,6 +6,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::*;
 use nom::error::ErrorKind;
+use std::borrow::Cow;
 
 /// Parse a markdown link.
 /// This parser expects to start at the beginning of the link `[` to succeed. It
@@ -13,12 +14,14 @@ use nom::error::ErrorKind;
 /// error.
 /// ```
 /// use parse_hyperlinks::parser::markdown::md_link;
+/// use std::borrow::Cow;
+///
 /// assert_eq!(
 ///   md_link(r#"[name](<destination> "title")abc"#),
-///   Ok(("abc", ("name", "destination".to_string(), "title")))
+///   Ok(("abc", ("name", Cow::from("destination"), "title")))
 /// );
 /// ```
-pub fn md_link(i: &str) -> nom::IResult<&str, (&str, String, &str)> {
+pub fn md_link(i: &str) -> nom::IResult<&str, (&str, Cow<str>, &str)> {
     let (i, link_text) = md_link_text(i)?;
     let (i, (link_destination, link_title)) = md_link_destination_enclosed(i)?;
     Ok((i, (link_text, link_destination, link_title)))
@@ -30,12 +33,14 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (&str, String, &str)> {
 /// some error.
 /// ```
 /// use parse_hyperlinks::parser::markdown::md_link_ref;
+/// use std::borrow::Cow;
+///
 /// assert_eq!(
 ///   md_link_ref("   [name]: <destination> 'title'\nabc"),
-///   Ok(("\nabc", ("name", "destination".to_string(), "title")))
+///   Ok(("\nabc", ("name", Cow::from("destination"), "title")))
 /// );
 /// ```
-pub fn md_link_ref(i: &str) -> nom::IResult<&str, (&str, String, &str)> {
+pub fn md_link_ref(i: &str) -> nom::IResult<&str, (&str, Cow<str>, &str)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
     let (i, link_text) = md_link_ref_text(i)?;
@@ -92,36 +97,21 @@ fn md_link_ref_text(i: &str) -> nom::IResult<&str, &str> {
 /// This is a wrapper around `md_parse_link_destination()`. It takes its result
 /// and transforms the escaped characters `\\`, \<` and `\>` into `\`, `<` and
 /// `>` with the help of `md_escaped_link_destination_transform()`.
-fn md_link_destination(i: &str) -> nom::IResult<&str, String> {
-    match md_parse_link_destination(i) {
-        Ok((i, ld)) => {
-            let ld = if let Ok((_, ld_trans)) = md_escaped_link_destination_transform(ld) {
-                ld_trans
-            } else {
-                ld.to_string()
-            };
-            Ok((i, ld))
-        }
-        std::result::Result::Err(nom::Err::Error(nom::error::Error { input: _, code })) => {
-            Err(nom::Err::Error(nom::error::Error::new(i, code)))
-        }
-        Err(_) => Err(nom::Err::Error(nom::error::Error::new(
-            i,
-            ErrorKind::EscapedTransform,
-        ))),
-    }
+fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+    nom::combinator::map_parser(
+        md_parse_link_destination,
+        md_escaped_link_destination_transform,
+    )(i)
 }
 
 /// A [link destination](https://spec.commonmark.org/0.29/#link-destination)
 /// consists of either
 /// - a sequence of zero or more characters between an opening `<` and a
 ///   closing `>` that contains no line breaks or unescaped `<` or `>`
-///   characters (TODO remark: this implementation is not as strict: it allows
-///   nested `<>` and line breaks), or
-/// - a nonempty sequence of characters that does not start with `<`, does
-///   not include ASCII space or control characters, (TODO remark: various
-///   control characters are not checked) and includes parentheses only if (a)
-///   they are backslash-escaped or (b) they are part of a balanced pair of
+///   characters, or
+/// - a nonempty sequence of characters that does not start with `<`, does not
+///   include ASCII space or control characters, and includes parentheses only if
+///   (a) they are backslash-escaped or (b) they are part of a balanced pair of
 ///   unescaped parentheses. (Implementations may impose limits on parentheses
 ///   nesting to avoid performance issues, but at least three levels of nesting
 ///   should be supported.)
@@ -148,20 +138,23 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
 /// with:
 ///     \<>
 /// Preserves usual whitespace, but removes `\ `.
-fn md_escaped_link_destination_transform(i: &str) -> nom::IResult<&str, String> {
-    nom::bytes::complete::escaped_transform(
-        nom::bytes::complete::is_not("\\"),
-        '\\',
-        alt((
-            value("\\", tag("\\")),
-            value("<", tag("<")),
-            value(">", tag(">")),
-        )),
+fn md_escaped_link_destination_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
+    nom::combinator::map(
+        nom::bytes::complete::escaped_transform(
+            nom::bytes::complete::is_not("\\"),
+            '\\',
+            alt((
+                value("\\", tag("\\")),
+                value("<", tag("<")),
+                value(">", tag(">")),
+            )),
+        ),
+        |s| if s == i { Cow::from(i) } else { Cow::from(s) },
     )(i)
 }
 
 /// Matches `md_link_destination` in parenthesis.
-fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (String, &str)> {
+fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, &str)> {
     let (rest, inner) =
         nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")"))(i)?;
     let (i, link_destination) = md_link_destination(inner)?;
@@ -225,15 +218,15 @@ mod tests {
     fn test_md_link() {
         assert_eq!(
             md_link("[text](url)abc"),
-            Ok(("abc", ("text", "url".to_string(), "")))
+            Ok(("abc", ("text", Cow::from("url"), "")))
         );
         assert_eq!(
             md_link("[text[i]](url)abc"),
-            Ok(("abc", ("text[i]", "url".to_string(), "")))
+            Ok(("abc", ("text[i]", Cow::from("url"), "")))
         );
         assert_eq!(
             md_link("[text[i]](ur(l))abc"),
-            Ok(("abc", ("text[i]", "ur(l)".to_string(), "")))
+            Ok(("abc", ("text[i]", Cow::from("ur(l)"), "")))
         );
         assert_eq!(
             md_link("[text(url)"),
@@ -241,15 +234,15 @@ mod tests {
         );
         assert_eq!(
             md_link("[text](<url>)abc"),
-            Ok(("abc", ("text", "url".to_string(), "")))
+            Ok(("abc", ("text", Cow::from("url"), "")))
         );
         assert_eq!(
             md_link("[text](<url> \"link title\")abc"),
-            Ok(("abc", ("text", "url".to_string(), "link title")))
+            Ok(("abc", ("text", Cow::from("url"), "link title")))
         );
         assert_eq!(
             md_link("[text](url \"link title\")abc"),
-            Ok(("abc", ("text", "url".to_string(), "link title")))
+            Ok(("abc", ("text", Cow::from("url"), "link title")))
         );
     }
 
@@ -257,11 +250,11 @@ mod tests {
     fn test_md_link_ref() {
         assert_eq!(
             md_link_ref("[text]: url\n\"abc\""),
-            Ok(("", ("text", "url".to_string(), "abc")))
+            Ok(("", ("text", Cow::from("url"), "abc")))
         );
         assert_eq!(
             md_link_ref("   [text]: url\n\"abc\""),
-            Ok(("", ("text", "url".to_string(), "abc")))
+            Ok(("", ("text", Cow::from("url"), "abc")))
         );
         assert_eq!(
             md_link_ref("abc[text]: url\n\"abc\""),
@@ -280,7 +273,7 @@ mod tests {
         // Nested brackets.
         assert_eq!(
             md_link_ref("[text[i]]: ur(l)url"),
-            Ok(("", ("text[i]", "ur(l)url".to_string(), "")))
+            Ok(("", ("text[i]", Cow::from("ur(l)url"), "")))
         );
         // Nested but balanced.
         assert_eq!(
@@ -293,7 +286,7 @@ mod tests {
         // Whitespace can have one newline.
         assert_eq!(
             md_link_ref("[text]: \nurl"),
-            Ok(("", ("text", "url".to_string(), "")))
+            Ok(("", ("text", Cow::from("url"), "")))
         );
         // But only one newline is allowed.
         assert_eq!(
@@ -316,11 +309,11 @@ mod tests {
         );
         assert_eq!(
             md_link_ref("[text]: url \"link title\"\nabc"),
-            Ok(("\nabc", ("text", "url".to_string(), "link title")))
+            Ok(("\nabc", ("text", Cow::from("url"), "link title")))
         );
         assert_eq!(
             md_link_ref("[text]: url \"link\ntitle\"\nabc"),
-            Ok(("\nabc", ("text", "url".to_string(), "link\ntitle")))
+            Ok(("\nabc", ("text", Cow::from("url"), "link\ntitle")))
         );
         assert_eq!(
             md_link_ref("[text]: url \"link\n\ntitle\"\nabc"),
@@ -331,7 +324,7 @@ mod tests {
         );
         assert_eq!(
             md_link_ref("[text]:\nurl \"link\ntitle\"\nabc"),
-            Ok(("\nabc", ("text", "url".to_string(), "link\ntitle")))
+            Ok(("\nabc", ("text", Cow::from("url"), "link\ntitle")))
         );
         assert_eq!(
             md_link_ref("[text]:\n\nurl \"link title\"\nabc"),
@@ -373,11 +366,11 @@ mod tests {
     fn test_md_link_destination() {
         assert_eq!(
             md_link_destination("<url>abc"),
-            Ok(("abc", "url".to_string()))
+            Ok(("abc", Cow::from("url")))
         );
         assert_eq!(
             md_link_destination(r#"<u\<r\>l>abc"#),
-            Ok(("abc", r#"u<r>l"#.to_string()))
+            Ok(("abc", Cow::from(r#"u<r>l"#)))
         );
     }
 
@@ -421,20 +414,20 @@ mod tests {
     fn test_md_escaped_link_destination_transform() {
         assert_eq!(
             md_escaped_link_destination_transform(""),
-            Ok(("", "".to_string()))
+            Ok(("", Cow::from("")))
         );
         // Different than the link destination version.
         assert_eq!(
             md_escaped_link_destination_transform("   "),
-            Ok(("", "   ".to_string()))
+            Ok(("", Cow::from("   ")))
         );
         assert_eq!(
             md_escaped_link_destination_transform(r#"abc`:<>abc"#),
-            Ok(("", r#"abc`:<>abc"#.to_string()))
+            Ok(("", Cow::from(r#"abc`:<>abc"#)))
         );
         assert_eq!(
             md_escaped_link_destination_transform(r#"\<\>\\"#),
-            Ok(("", r#"<>\"#.to_string()))
+            Ok(("", Cow::from(r#"<>\"#)))
         );
     }
 

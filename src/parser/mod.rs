@@ -15,34 +15,37 @@ use nom::branch::alt;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
 use nom::combinator::*;
+use std::borrow::Cow;
 
 /// Consumes the input until it finds a Markdown or RestructuredText hyperlink.  Returns
 /// `Ok(remaining_input, (link_name, link_destination, link_title)`.  The parser finds stand alone links
 /// and link references.  ReStructuredText's anonymous links are not supported.
 /// ```
 /// use parse_hyperlinks::parser::take_hyperlink;
+/// use std::borrow::Cow;
+///
 /// let i = r#"[a]: b 'c'
 ///            .. _d: e
 ///            ---[f](g 'h')---`i <j>`_---
 ///            ---<a href="l" title="m">k</a>"#;
 ///
 /// let (i, r) = take_hyperlink(i).unwrap();
-/// assert_eq!(r, ("a".to_string(),"b".to_string(),"c".to_string()));
+/// assert_eq!(r, (Cow::from("a"), Cow::from("b"), Cow::from("c")));
 /// let (i, r) = take_hyperlink(i).unwrap();
-/// assert_eq!(r, ("d".to_string(),"e".to_string(),"".to_string()));
+/// assert_eq!(r, (Cow::from("d"), Cow::from("e"), Cow::from("")));
 /// let (i, r) = take_hyperlink(i).unwrap();
-/// assert_eq!(r, ("f".to_string(),"g".to_string(),"h".to_string()));
+/// assert_eq!(r, (Cow::from("f"), Cow::from("g"), Cow::from("h")));
 /// let (i, r) = take_hyperlink(i).unwrap();
-/// assert_eq!(r, ("i".to_string(),"j".to_string(),"".to_string()));
+/// assert_eq!(r, (Cow::from("i"), Cow::from("j"), Cow::from("")));
 /// let (i, r) = take_hyperlink(i).unwrap();
-/// assert_eq!(r, ("k".to_string(),"l".to_string(),"m".to_string()));
+/// assert_eq!(r, (Cow::from("k"), Cow::from("l"), Cow::from("m")));
 /// ```
 /// The parser might silently consume some additional bytes after the actual finding: This happens,
 /// when directly after a finding a `md_link_ref` or `rst_link_ref` appears. These must be ignored,
 /// as they are only allowed at the beginning of a line. The skip has to happen at this moment, as
 /// the next parser does not know if the first byte it gets, is it at the beginning of a line or
 /// not.
-pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String)> {
+pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let mut input_start = true;
     let res = loop {
         // This might not consume bytes and never fails.
@@ -82,9 +85,9 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
         if line_start || input_start {
             if let Ok(r) = alt((
                 map(md_link_ref, |(ln, lta, lti)| {
-                    (ln.to_string(), lta.to_string(), lti.to_string())
+                    (Cow::from(ln), lta, Cow::from(lti))
                 }),
-                map(rst_link_ref, |(ln, lt)| (ln, lt, "".to_string())),
+                map(rst_link_ref, |(ln, lt)| (ln, lt, Cow::from(""))),
             ))(i)
             {
                 break r;
@@ -94,13 +97,11 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
 
         // Regular links can start everywhere.
         if let Ok(r) = alt((
-            map(rst_link, |(ln, lt)| (ln, lt, "".to_string())),
+            map(rst_link, |(ln, lt)| (ln, lt, Cow::from(""))),
             map(md_link, |(ln, lta, lti)| {
-                (ln.to_string(), lta, lti.to_string())
+                (Cow::from(ln), lta, Cow::from(lti))
             }),
-            map(html_link, |(ln, lta, lti)| {
-                (ln.to_string(), lta.to_string(), lti.to_string())
-            }),
+            html_link,
         ))(i)
         {
             break r;
@@ -122,9 +123,9 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
     // It is sufficient to do this check once, because both parser guarantee to
     // consume the whole line in case of success.
     if let Ok((i, _)) = alt((
-        map(rst_link_ref, |(ln, lt)| (ln, lt, "".to_string())),
+        map(rst_link_ref, |(ln, lt)| (ln, lt, Cow::from(""))),
         map(md_link_ref, |(ln, lta, lti)| {
-            (ln.to_string(), lta.to_string(), lti.to_string())
+            (Cow::from(ln), lta, Cow::from(lti))
         }),
     ))(res.0)
     {
@@ -141,12 +142,14 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (String, String, String
 /// format. ReStructuredText's anonymous links are not supported.
 /// ```
 /// use parse_hyperlinks::parser::first_hyperlink;
+/// use std::borrow::Cow;
+///
 /// let i = "abc\n   [u]: v \"w\"abc";
 ///
 /// let r = first_hyperlink(i);
-/// assert_eq!(r, Some(("u".to_string(), "v".to_string(), "w".to_string())));
+/// assert_eq!(r, Some((Cow::from("u"), Cow::from("v"), Cow::from("w"))));
 /// ```
-pub fn first_hyperlink(i: &str) -> Option<(String, String, String)> {
+pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
     if let Ok((_, result)) = take_hyperlink(i) {
         Some(result)
     } else {
@@ -177,9 +180,9 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
 "#;
 
         let expected = (
-            "md link name".to_string(),
-            "md_link_destination".to_string(),
-            "md link title".to_string(),
+            Cow::from("md link name"),
+            Cow::from("md_link_destination"),
+            Cow::from("md link title"),
         );
         let (i, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
@@ -189,9 +192,9 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
         assert_eq!(res, expected);
 
         let expected = (
-            "rst link name".to_string(),
-            "rst_link_destination".to_string(),
-            "".to_string(),
+            Cow::from("rst link name"),
+            Cow::from("rst_link_destination"),
+            Cow::from(""),
         );
         let (i, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
@@ -203,18 +206,18 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
         assert_eq!(res, expected);
 
         let expected = (
-            "html link name".to_string(),
-            "html_link_destination".to_string(),
-            "html link title".to_string(),
+            Cow::from("html link name"),
+            Cow::from("html_link_destination"),
+            Cow::from("html link title"),
         );
         let (_, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
 
         let i = " .. _`My: home page`: http://getreu.net\nabc";
         let expected = (
-            "My: home page".to_string(),
-            "http://getreu.net".to_string(),
-            "".to_string(),
+            Cow::from("My: home page"),
+            Cow::from("http://getreu.net"),
+            Cow::from(""),
         );
         let (_, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
@@ -225,9 +228,9 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
         let i = "abc\n   [md link name]: md_link_destination \"md link title\"abc";
 
         let expected = (
-            "md link name".to_string(),
-            "md_link_destination".to_string(),
-            "md link title".to_string(),
+            Cow::from("md link name"),
+            Cow::from("md_link_destination"),
+            Cow::from("md link title"),
         );
         let res = first_hyperlink(i).unwrap();
         assert_eq!(res, expected);

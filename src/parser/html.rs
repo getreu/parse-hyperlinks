@@ -1,6 +1,5 @@
 //! This module implements parsers for HTML hyperlinks.
-//! The code follows [HTML 5.2: 4.5. Text-level
-//! semantics](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element)
+//! The code follows [HTML 5.2: 4.5.](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element)
 #![allow(dead_code)]
 
 use html_escape::decode_html_entities;
