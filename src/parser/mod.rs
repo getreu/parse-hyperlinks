@@ -17,9 +17,39 @@ use nom::character::complete::anychar;
 use nom::combinator::*;
 use std::borrow::Cow;
 
-/// Consumes the input until it finds a Markdown or RestructuredText hyperlink.  Returns
+/// Consumes the input until it finds a Markdown, RestructuredText or HTML hyperlink.  Returns
 /// `Ok(remaining_input, (link_name, link_destination, link_title)`.  The parser finds stand alone links
-/// and link references.  ReStructuredText's anonymous links are not supported.
+/// and link references.  
+///
+/// # Limitations:
+/// Reference names are never resolved into link names. This limitation only concerns this function
+/// and the function `first_hyperlink()`. All other parsers are not affected. 
+///
+/// Very often this limitation has no effect at all. This is the case, when the _link name_ and
+/// the _link reference name_ are identical:
+///
+/// ```md
+/// abc [link and reference name] abc
+/// [link and reference name]: /url "title"
+/// ```
+///
+/// But in general, the _link name_ and the _link reference name_ can be different:
+///
+/// ```md
+/// abc [link name][reference name] abc
+/// [reference name]: /url "title"
+/// ```
+/// 
+/// When a link reference is found, the parser outputs it's link reference name as link name, which
+/// is strictly speaking only correct when both are identical. Beyond that, the same applies to
+/// RestructuredText's link references too.
+///
+///
+/// Another limitation is that ReStructuredText's anonymous links are not supported.
+///
+///
+/// # Basic usage
+///
 /// ```
 /// use parse_hyperlinks::parser::take_hyperlink;
 /// use std::borrow::Cow;
@@ -119,8 +149,9 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Co
 /// Searches for hyperlinks in the input text and returns the first
 /// finding as tuple:
 /// `Some((link_name, link_destination, link_title))`
-/// The function recognizes hyperlinks in Markdown or RestructuredText
-/// format. ReStructuredText's anonymous links are not supported.
+/// The function recognizes hyperlinks in Markdown, RestructuredText
+/// or HTML format. See function `take_hyperlink()` for limitations.
+///
 /// ```
 /// use parse_hyperlinks::parser::first_hyperlink;
 /// use std::borrow::Cow;
