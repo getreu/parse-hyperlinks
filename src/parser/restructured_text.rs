@@ -9,13 +9,15 @@ use std::borrow::Cow;
 
 /// Parse a RestructuredText hyperlink.
 /// The parser expects to start at the link start (\`) to succeed.
+/// It returns either `Ok((i, (link_name, link_destination, link_title)))` or some error.
+/// This parser always returns an empty `link_title=Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::restructured_text::rst_link;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   rst_link("`name <destination>`_abc"),
-///   Ok(("abc", (Cow::from("name"), Cow::from("destination"))))
+///   Ok(("abc", (Cow::from("name"), Cow::from("destination"), Cow::from(""))))
 /// );
 /// ```
 /// A hyperlink reference may directly embed a destination URI or (since Docutils
@@ -28,24 +30,25 @@ use std::borrow::Cow;
 /// before the end string. For more details see the
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases)
-/// It returns either `Ok((i, (link_name, link_destination)))` or some error.
-pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, (ln, ld)) = rst_parse_link(i)?;
     let ln = rst_escaped_link_name_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
-    Ok((i, (ln, ld)))
+    Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
 
 /// Parse a RestructuredText link references.
-/// The parser expects to start at the beginning of the line.
+/// It returns either `Ok((i, (link_name, link_destination, link_title)))` or
+/// some error. This parser always returns an empty link_title
+/// This parser always returns an empty `link_title=Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::restructured_text::rst_link_ref;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   rst_link_ref("   .. _`name`: destination\nabc"),
-///   Ok(("\nabc", (Cow::from("name"), Cow::from("destination"))))
+///   Ok(("\nabc", (Cow::from("name"), Cow::from("destination"), Cow::from(""))))
 /// );
 /// ```
 /// Here some examples for link references:
@@ -54,8 +57,7 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 /// .. _`Python: home page`: http://www.python.org
 /// ```
 /// See unit test `test_rst_link_ref()` for more examples.
-/// It returns either `Ok((i, (link_name, link_destination)))` or some error.
-pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let my_err = |_| {
         nom::Err::Error(nom::error::Error::new(
             i,
@@ -92,7 +94,7 @@ pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
         }
     };
 
-    Ok((i, (ln, ld)))
+    Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
 
 /// This parser used by `rst_link()`, does all the work that can be
@@ -316,6 +318,7 @@ fn rst_escaped_link_destination_transform(i: &str) -> IResult<&str, Cow<str>> {
         Ok((j, Cow::Owned(s.to_owned())))
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,6 +331,7 @@ mod tests {
             (
                 Cow::from("Python home page"),
                 Cow::from("http://www.python.org"),
+                Cow::from(""),
             ),
         );
         assert_eq!(
@@ -344,6 +348,7 @@ mod tests {
             (
                 Cow::from(r#"Python<home> page"#),
                 Cow::from("http://www.python.org"),
+                Cow::from(""),
             ),
         );
         assert_eq!(
@@ -356,6 +361,7 @@ mod tests {
             (
                 Cow::from(r#"my news at <http://python.org>"#),
                 Cow::from("http://news.python.org"),
+                Cow::from(""),
             ),
         );
         assert_eq!(
@@ -368,6 +374,7 @@ mod tests {
             (
                 Cow::from(r#"my news at <http://python.org>"#),
                 Cow::from(r#"http://news. <python>.org"#),
+                Cow::from(""),
             ),
         );
         assert_eq!(
@@ -384,6 +391,7 @@ mod tests {
             (
                 Cow::from("Python: home page"),
                 Cow::from("http://www.python.org"),
+                Cow::from(""),
             ),
         );
         assert_eq!(
@@ -410,6 +418,7 @@ mod tests {
             (
                 Cow::from("Python: `home page`"),
                 Cow::from("http://www.python .org"),
+                Cow::from(""),
             ),
         );
         assert_eq!(
@@ -426,6 +435,7 @@ mod tests {
             (
                 Cow::from("my news at <http://python.org>"),
                 Cow::from("http://news.python.org"),
+                Cow::from(""),
             ),
         );
         assert_eq!(
@@ -446,7 +456,11 @@ mod tests {
 
         let expected = (
             "",
-            (Cow::from("my news"), Cow::from("http://news.<python>.org")),
+            (
+                Cow::from("my news"),
+                Cow::from("http://news.<python>.org"),
+                Cow::from(""),
+            ),
         );
         assert_eq!(
             rst_link_ref(r#".. _my news: http://news.<python>.org"#).unwrap(),

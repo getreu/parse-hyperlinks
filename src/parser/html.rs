@@ -204,6 +204,7 @@ mod tests {
             expected
         );
     }
+
     #[test]
     fn test_attribute() {
         let expected = (" abc", ("href", Cow::from("http://getreu.net")));

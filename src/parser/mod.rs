@@ -83,27 +83,14 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Co
 
         // Are we at the beginning of a line?
         if line_start || input_start {
-            if let Ok(r) = alt((
-                map(md_link_ref, |(ln, lta, lti)| {
-                    (Cow::from(ln), lta, Cow::from(lti))
-                }),
-                map(rst_link_ref, |(ln, lt)| (ln, lt, Cow::from(""))),
-            ))(i)
-            {
+            if let Ok(r) = alt((md_link_ref, rst_link_ref))(i) {
                 break r;
             };
         };
         input_start = false;
 
         // Regular links can start everywhere.
-        if let Ok(r) = alt((
-            map(rst_link, |(ln, lt)| (ln, lt, Cow::from(""))),
-            map(md_link, |(ln, lta, lti)| {
-                (Cow::from(ln), lta, Cow::from(lti))
-            }),
-            html_link,
-        ))(i)
-        {
+        if let Ok(r) = alt((rst_link, md_link, html_link))(i) {
             break r;
         };
 
@@ -122,13 +109,7 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Co
     // recognized in the middle of a line.
     // It is sufficient to do this check once, because both parser guarantee to
     // consume the whole line in case of success.
-    if let Ok((i, _)) = alt((
-        map(rst_link_ref, |(ln, lt)| (ln, lt, Cow::from(""))),
-        map(md_link_ref, |(ln, lta, lti)| {
-            (Cow::from(ln), lta, Cow::from(lti))
-        }),
-    ))(res.0)
-    {
+    if let Ok((i, _)) = alt((rst_link_ref, md_link_ref))(res.0) {
         Ok((i, res.1))
     } else {
         Ok(res)
