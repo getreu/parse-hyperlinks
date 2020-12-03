@@ -13,11 +13,13 @@ use std::borrow::Cow;
 
 /// Parses an Asciidoc link.
 /// This parser expects to start at the first letter of `http://`,
-/// `https://`, `link:http://`or link:https://` (preceded by optional
-/// whitespaces) to succeed. When it starts at the letter `h` or `l`,
-/// the caller must guarantee, that:
+/// `https://`, `link:http://` or `link:https://` (preceded by optional
+/// whitespaces) to succeed.
+///
+/// When it starts at the letter `h` or `l`, the caller must guarantee, that:
 /// * the parser is at the beginning of the input _or_
 /// * the preceding byte is a newline `\n`.
+///
 /// When ist starts at a whitespace no further guarantee is required.
 /// The parser returns either `Ok((i, (link_text, link_destination,
 /// link_title)))` or some error. `link_title` is always empty:

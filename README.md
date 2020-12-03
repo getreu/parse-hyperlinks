@@ -50,5 +50,6 @@ $ cat ouput.html
 <a href="https://getreu.net" title="">my blog</a><br/>
 <a href="https://getreu.net" title="">my blog</a><br/>
 <a href="https://getreu.net" title="blog title">my blog</a><br/>
+<a href="https://getreu.net" title="">my blog</a><br/>
 $
 ```

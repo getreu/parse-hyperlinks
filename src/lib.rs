@@ -1,5 +1,5 @@
-//! Library and application for parsing hyperlinks in Markdown, RestructuredText and HTML format.
-//! The library implements the
+//! Library and application for parsing hyperlinks in Markdown,
+//! RestructuredText, Asciidoc and HTML format. The library implements the
 //! [CommonMark Specification 0.29](https://spec.commonmark.org/0.29/),
 //! [reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
 //! (revision 8571, date 2020-10-28),
