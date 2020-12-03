@@ -2,7 +2,9 @@
 //! The library implements the
 //! [CommonMark Specification 0.29](https://spec.commonmark.org/0.29/),
 //! [reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
-//! (revision 8571, date 2020-10-28) and the
+//! (revision 8571, date 2020-10-28),
+//! [Asciidoctor User Manual, chapter 26](https://asciidoctor.org/docs/user-manual/#url) (date 2020-12-03)
+//! and the
 //! [HTML 5.2: section 4.5.](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element)
 //! specification.
 #![allow(dead_code)]

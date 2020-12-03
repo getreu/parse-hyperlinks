@@ -2,10 +2,12 @@
 //! hyperlinks from a text input.
 #![allow(dead_code)]
 
+pub mod asciidoc;
 pub mod html;
 pub mod markdown;
 pub mod restructured_text;
 
+use crate::parser::asciidoc::adoc_link;
 use crate::parser::html::html_link;
 use crate::parser::markdown::md_link;
 use crate::parser::markdown::md_link_ref;
@@ -14,16 +16,17 @@ use crate::parser::restructured_text::rst_link_ref;
 use nom::branch::alt;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
+use nom::character::complete::space0;
 use nom::combinator::*;
 use std::borrow::Cow;
 
-/// Consumes the input until it finds a Markdown, RestructuredText or HTML hyperlink.  Returns
+/// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or HTML hyperlink.  Returns
 /// `Ok(remaining_input, (link_name, link_destination, link_title)`.  The parser finds stand alone links
-/// and link references.  
+/// and link references.
 ///
 /// # Limitations:
 /// Reference names are never resolved into link names. This limitation only concerns this function
-/// and the function `first_hyperlink()`. All other parsers are not affected. 
+/// and the function `first_hyperlink()`. All other parsers are not affected.
 ///
 /// Very often this limitation has no effect at all. This is the case, when the _link name_ and
 /// the _link reference name_ are identical:
@@ -39,7 +42,7 @@ use std::borrow::Cow;
 /// abc [link name][reference name] abc
 /// [reference name]: /url "title"
 /// ```
-/// 
+///
 /// When a link reference is found, the parser outputs it's link reference name as link name, which
 /// is strictly speaking only correct when both are identical. Beyond that, the same applies to
 /// RestructuredText's link references too.
@@ -79,53 +82,68 @@ pub fn take_hyperlink(mut i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Co
     let mut input_start = true;
     let res = loop {
         // This might not consume bytes and never fails.
-        i = if input_start {
+        let mut j = if input_start {
             take_till(|c|
-            // Here we should check for `md_link_ref` and `rst_link_ref`
-            c == '\n' || c == ' ' || c == '.'
-            // these are candidates for `md_link`and `rst_link`
+            // Here we should check for `md_link_ref`, `rst_link_ref` and `adoc_link`:
+            c == '\n' || c == ' ' || c == '\t'
+            // Possible start for `rst_link_ref:
+            || c == '.'
+            // These are candidates for `md_link`and `rst_link`:
             || c == '`' || c == '['
-            // and this could be an HTML hyperlink
+            // Asciidoc links start with `http` `link`.
+            || c == 'h' || c == 'l'
+            // And this could be an HTML hyperlink:
             || c == '<')(i)?
             .0
         } else {
             take_till(|c|
-            // Here we should check for `md_link_ref` and `rst_link_ref`
+            // Here we should check for `md_link_ref`, `rst_link_ref` and `adoc_link`
             c == '\n'
-            // these are candidates for `md_link`and `rst_link`
+            // Possible start for `adoc_link`:
+            || c == ' ' || c == '\t'
+            // These are candidates for `md_link`and `rst_link`:
             || c == '`' || c == '['
-            // and this could be an HTML hyperlink
+            // And this could be an HTML hyperlink:
             || c == '<')(i)?
             .0
         };
 
         let mut line_start = false;
         // Are we on a new line character?
-        if peek(anychar)(i)?.1 == '\n' {
+        if peek(anychar)(j)?.1 == '\n' {
             line_start = true;
             // Consume the `\n`.
             // Advance one character.
-            let (j, _) = anychar(i)?;
-            i = j;
+            let (k, _) = anychar(j)?;
+            j = k;
         };
 
         // Start searching for links.
 
         // Are we at the beginning of a line?
         if line_start || input_start {
-            if let Ok(r) = alt((md_link_ref, rst_link_ref))(i) {
+            if let Ok(r) = alt((md_link_ref, rst_link_ref, adoc_link))(j) {
                 break r;
             };
         };
         input_start = false;
 
+        // Are we on a whitespace? Then, check for `adoc_link`.
+        if let Ok(_) = nom::character::complete::space1::<_, nom::error::Error<_>>(j) {
+            if let Ok(r) = adoc_link(j) {
+                break r;
+            }
+        }
+
         // Regular links can start everywhere.
-        if let Ok(r) = alt((rst_link, md_link, html_link))(i) {
+        if let Ok(r) = alt((rst_link, md_link, html_link))(j) {
             break r;
         };
 
         // This makes sure that we advance.
-        let (j, _) = anychar(i)?;
+        let (j, _) = anychar(j)?;
+        // To be faster we skip whitespace, if there are any.
+        let (j, _) = space0(j)?;
         i = j;
     };
 
@@ -181,7 +199,7 @@ mod tests {
 
         let i = r#"[md link name]: md_link_destination "md link title"
 abc [md link name](md_link_destination "md link title")abc
-   [md link name]: md_link_destination "md link title"[nomd]: no[nomd]: no
+   [md link name]: md_link_destination "md link title"[no-md]: no[no-md]: no
 abc`rst link name <rst_link_destination>`_abc
 abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
 .. _rst link name: rst_link_destination
@@ -189,6 +207,7 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
      estination
 <a href="html_link_destination"
    title="html link title">html link name</a>
+abc https://adoc_link_destination[adoc link name] abc
 "#;
 
         let expected = (
@@ -222,17 +241,37 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
             Cow::from("html_link_destination"),
             Cow::from("html link title"),
         );
+        let (i, res) = take_hyperlink(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = (
+            Cow::from("adoc link name"),
+            Cow::from("https://adoc_link_destination"),
+            Cow::from(""),
+        );
         let (_, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
 
-        let i = " .. _`My: home page`: http://getreu.net\nabc";
+        // Do we find at the input start also?
+        let i = ".. _`My: home page`: http://getreu.net\nabc";
         let expected = (
             Cow::from("My: home page"),
             Cow::from("http://getreu.net"),
             Cow::from(""),
         );
-        let (_, res) = take_hyperlink(i).unwrap();
+        let (i, res) = take_hyperlink(i).unwrap();
         assert_eq!(res, expected);
+        assert_eq!(i, "\nabc");
+
+        let i = "https://adoc_link_destination[adoc link name]abc";
+        let expected = (
+            Cow::from("adoc link name"),
+            Cow::from("https://adoc_link_destination"),
+            Cow::from(""),
+        );
+        let (i, res) = take_hyperlink(i).unwrap();
+        assert_eq!(res, expected);
+        assert_eq!(i, "abc");
     }
 
     #[test]

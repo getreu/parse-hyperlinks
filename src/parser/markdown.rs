@@ -35,7 +35,8 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
 }
 
 /// Matches a markdown link reference.
-/// The parser expects to start at the beginning of link's line.
+/// The caller must guarantee, that the parser starts at first character of the
+/// input or at the first character of a line.
 /// It returns either `Ok((i, (link_text, link_destination, link_title)))` or
 /// some error.
 /// ```

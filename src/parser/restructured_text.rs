@@ -139,7 +139,8 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
 
 /// This parser detects the position of the link name and the link destination.
 /// It does not perform any transformation.
-/// This parser expects to start at the beginning of the line.
+/// The caller must guarantee, that the parser starts at first character of the
+/// input or at the first character of a line.
 /// If the reference name contains any colons, either:
 /// * the phrase must be enclosed in backquotes, or
 /// * the colon must be backslash escaped.
