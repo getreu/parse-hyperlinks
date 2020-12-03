@@ -25,8 +25,10 @@ use std::borrow::Cow;
 /// It returns either `Ok((i, (link_name, link_destination, link_title)))` or some error.
 pub fn html_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, ((link_destination, link_title), link_name)) = nom::sequence::terminated(
-        nom::sequence::pair(tag_a_opening, nom::bytes::complete::take_until("</a>")),
-        tag("</a>"),
+        nom::sequence::pair(tag_a_opening, nom::bytes::complete::take_until("</")),
+        // HTML is case insensitive. XHTML, that is being XML is case sensitive.
+        // Here we deal with HTML.
+        alt((tag("</a>"), tag("</A>"))),
     )(i)?;
     let link_name = decode_html_entities(link_name);
     Ok((i, (link_name, link_destination, link_title)))
@@ -36,7 +38,9 @@ pub fn html_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> 
 /// either `Ok((i, (link_destination, link_title)))` or some error.
 fn tag_a_opening(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     nom::sequence::delimited(
-        tag("<a "),
+        // HTML is case insensitive. XHTML, that is being XML is case sensitive.
+        // Here we deal with HTML.
+        alt((tag("<a "), tag("<A "))),
         nom::combinator::map_parser(is_not(">"), parse_attributes),
         tag(">"),
     )(i)
@@ -135,6 +139,11 @@ mod tests {
                 .unwrap(),
             expected
         );
+        assert_eq!(
+            html_link(r#"<A title="W3S" href="https://www.w3schools.com/">W3Schools</A>abc"#)
+                .unwrap(),
+            expected
+        );
 
         let expected = ("abc", (Cow::from("<n>"), Cow::from("h"), Cow::from("t")));
         assert_eq!(
@@ -157,6 +166,10 @@ mod tests {
         );
         assert_eq!(
             tag_a_opening(r#"<a href="http://getreu.net" title="My blog">abc"#).unwrap(),
+            expected
+        );
+        assert_eq!(
+            tag_a_opening(r#"<A href="http://getreu.net" title="My blog">abc"#).unwrap(),
             expected
         );
     }
