@@ -1,7 +1,7 @@
 # Parse hyperlinks
 
 A parser library written with [Nom](https://crates.io/crates/nom) to recognize
-hyperlinks in Markdown, reStructuredText and HTML formatted text input.
+hyperlinks in Markdown, reStructuredText, Asciidoc and HTML formatted text input.
 
 [![Cargo](https://img.shields.io/crates/v/parse-hyperlinks.svg)](
 https://crates.io/crates/parse-hyperlinks)
