@@ -51,6 +51,8 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, Cow<str>)> {
                 nom::character::is_alphabetic(s.as_bytes()[0])
             }),
             alt((
+                nom::combinator::value(Cow::from(""), tag(r#"="""#)),
+                nom::combinator::value(Cow::from(""), tag(r#"=''"#)),
                 nom::combinator::map(
                     nom::sequence::delimited(tag("=\""), is_not("\""), tag("\"")),
                     |s: &str| decode_html_entities(s),
@@ -137,6 +139,12 @@ mod tests {
         let expected = ("abc", (Cow::from("<n>"), Cow::from("h"), Cow::from("t")));
         assert_eq!(
             html_link(r#"<a title="t" href="h">&lt;n&gt;</a>abc"#).unwrap(),
+            expected
+        );
+
+        let expected = ("abc", (Cow::from("name"), Cow::from("url"), Cow::from("")));
+        assert_eq!(
+            html_link(r#"<a href="url" title="" >name</a>abc"#).unwrap(),
             expected
         );
     }
