@@ -25,7 +25,13 @@ use std::borrow::Cow;
 /// It returns either `Ok((i, (link_name, link_destination, link_title)))` or some error.
 pub fn html_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, ((link_destination, link_title), link_name)) = nom::sequence::terminated(
-        nom::sequence::pair(tag_a_opening, nom::bytes::complete::take_until("</")),
+        nom::sequence::pair(
+            tag_a_opening,
+            alt((
+                nom::bytes::complete::take_until("</a>"),
+                nom::bytes::complete::take_until("</A>"),
+            )),
+        ),
         // HTML is case insensitive. XHTML, that is being XML is case sensitive.
         // Here we deal with HTML.
         alt((tag("</a>"), tag("</A>"))),
@@ -154,6 +160,24 @@ mod tests {
         let expected = ("abc", (Cow::from("name"), Cow::from("url"), Cow::from("")));
         assert_eq!(
             html_link(r#"<a href="url" title="" >name</a>abc"#).unwrap(),
+            expected
+        );
+
+        let expected = (
+            "abc",
+            (Cow::from("na</me"), Cow::from("url"), Cow::from("")),
+        );
+        assert_eq!(
+            html_link(r#"<a href="url" title="" >na</me</A>abc"#).unwrap(),
+            expected
+        );
+
+        let expected = nom::Err::Error(nom::error::Error::new(
+            r#"<a href="url" title="" >name</a abc"#,
+            nom::error::ErrorKind::AlphaNumeric,
+        ));
+        assert_eq!(
+            parse_attributes(r#"<a href="url" title="" >name</a abc"#).unwrap_err(),
             expected
         );
     }
