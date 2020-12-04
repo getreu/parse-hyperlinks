@@ -47,10 +47,30 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
 ///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
+/// CommonMark Spec: A [link reference definition] consists of a [link
+/// label], indented up to three spaces, followed by a colon (`:`), optional
+/// [whitespace] (including up to one [line ending]), a [link destination],
+/// optional [whitespace] (including up to one [line ending]), and an
+/// optional [link title], which if it is present must be separated from the
+/// [link destination] by [whitespace]. No further [non-whitespace
+/// characters] may occur on the line.
+///
+/// [link reference definition]: https://spec.commonmark.org/0.29/#link-reference-definition
+/// [link label]: https://spec.commonmark.org/0.29/#link-label
+/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
+/// [line ending]: https://spec.commonmark.org/0.29/#line-ending
+/// [link destination]: https://spec.commonmark.org/0.29/#link-destination
+/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
+/// [line ending]: https://spec.commonmark.org/0.29/#line-ending
+/// [link title]: https://spec.commonmark.org/0.29/#link-title
+/// [link destination]: https://spec.commonmark.org/0.29/#link-destination
+/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
+/// [non-whitespace characters]: https://spec.commonmark.org/0.29/#non-whitespace-character
+/// ```
 pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
-    let (i, link_text) = md_link_ref_text(i)?;
+    let (i, link_text) = md_link_label(i)?;
     let (i, _) = verify(nom::character::complete::multispace1, |s: &str| {
         s.find("\n\n").is_none()
     })(i)?;
@@ -81,28 +101,25 @@ fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
     )(i)
 }
 
-/// CommonMark Spec: A [link reference definition] consists of a [link
-/// label], indented up to three spaces, followed by a colon (`:`), optional
-/// [whitespace] (including up to one [line ending]), a [link destination],
-/// optional [whitespace] (including up to one [line ending]), and an
-/// optional [link title], which if it is present must be separated from the
-/// [link destination] by [whitespace]. No further [non-whitespace
-/// characters] may occur on the line.
-///
-/// [link reference definition]: https://spec.commonmark.org/0.29/#link-reference-definition
-/// [link label]: https://spec.commonmark.org/0.29/#link-label
-/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
-/// [line ending]: https://spec.commonmark.org/0.29/#line-ending
-/// [link destination]: https://spec.commonmark.org/0.29/#link-destination
-/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
-/// [line ending]: https://spec.commonmark.org/0.29/#line-ending
-/// [link title]: https://spec.commonmark.org/0.29/#link-title
-/// [link destination]: https://spec.commonmark.org/0.29/#link-destination
-/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
-/// [non-whitespace characters]: https://spec.commonmark.org/0.29/#non-whitespace-character
-fn md_link_ref_text(i: &str) -> nom::IResult<&str, Cow<str>> {
+/// Parses _link label_.
+/// A link label begins with a left bracket ([) and ends with the first right
+/// bracket (]) that is not backslash-escaped. Between these brackets there must
+/// be at least one non-whitespace character. Unescaped square bracket characters
+/// are not allowed inside the opening and closing square brackets of link
+/// labels. A link label can have at most 999 characters inside the square
+/// brackets.
+/// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-label)
+fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
-        nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]:")),
+        nom::sequence::delimited(
+            tag("["),
+            nom::bytes::complete::escaped(
+                nom::character::complete::none_of(r#"\[]"#),
+                '\\',
+                nom::character::complete::one_of(ESCAPABLE),
+            ),
+            tag("]:"),
+        ),
         md_escaped_str_transform,
     )(i)
 }
@@ -291,18 +308,18 @@ mod tests {
         );
         // Nested brackets.
         assert_eq!(
-            md_link_ref_def("[text[i]]: ur(l)url"),
+            md_link_ref_def(r#"[text\[i\]]: ur(l)url"#),
             Ok((
                 "",
                 (Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
             ))
         );
-        // Nested but balanced.
+        // Nested but balanced not allowed for link labels.
         assert_eq!(
             md_link_ref_def("[text[i]]: ur(l)(url"),
             Err(nom::Err::Error(nom::error::Error::new(
-                "ur(l)(url",
-                ErrorKind::TakeUntil
+                "[i]]: ur(l)(url",
+                ErrorKind::Tag
             )))
         );
         // Whitespace can have one newline.
@@ -395,28 +412,24 @@ mod tests {
     }
 
     #[test]
-    fn test_md_link_ref_text() {
+    fn test_md_link_label() {
         assert_eq!(
-            md_link_ref_text("[text]: url"),
+            md_link_label("[text]: url"),
             Ok((" url", Cow::from("text")))
         );
         assert_eq!(
-            md_link_ref_text("[text[i]]: url"),
+            md_link_label(r#"[text\[i\]]: url"#),
             Ok((" url", Cow::from("text[i]")))
         );
         assert_eq!(
-            md_link_ref_text(r#"[text\[i\]]: url"#),
-            Ok((" url", Cow::from("text[i]")))
-        );
-        assert_eq!(
-            md_link_ref_text("[text: url"),
+            md_link_label("[text: url"),
             Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
         );
         assert_eq!(
-            md_link_ref_text("[t[ext: url"),
+            md_link_label("[t[ext: url"),
             Err(nom::Err::Error(nom::error::Error::new(
-                "t[ext: url",
-                ErrorKind::TakeUntil
+                "[ext: url",
+                ErrorKind::Tag
             )))
         );
     }
