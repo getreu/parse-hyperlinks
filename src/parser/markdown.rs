@@ -8,6 +8,10 @@ use nom::combinator::*;
 use nom::error::ErrorKind;
 use std::borrow::Cow;
 
+/// The following character are escapable in _link text_, _link label_, _link
+/// destination_ and _link title_.
+const ESCAPABLE: &str = r#"\'"()[]{}<>"#;
+
 /// Parse a markdown inline link.
 /// returns either `Ok((i, (link_text, link_destination, link_title)))` or some
 /// error.
@@ -146,7 +150,7 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
             nom::bytes::complete::escaped(
                 nom::character::complete::none_of(r#"\<>"#),
                 '\\',
-                nom::character::complete::one_of(r#"<>"#),
+                nom::character::complete::one_of(ESCAPABLE),
             ),
             tag(">"),
         ),
@@ -167,11 +171,7 @@ fn md_escaped_link_destination_transform(i: &str) -> nom::IResult<&str, Cow<str>
         nom::bytes::complete::escaped_transform(
             nom::bytes::complete::is_not("\\"),
             '\\',
-            alt((
-                value("\\", tag("\\")),
-                value("<", tag("<")),
-                value(">", tag(">")),
-            )),
+            nom::character::complete::one_of(ESCAPABLE),
         ),
         |s| if s == i { Cow::from(i) } else { Cow::from(s) },
     )(i)
@@ -215,7 +215,7 @@ fn md_link_title(i: &str) -> nom::IResult<&str, &str> {
                 nom::bytes::complete::escaped(
                     nom::character::complete::none_of(r#"\'"#),
                     '\\',
-                    nom::character::complete::one_of(r#"n"'()"#),
+                    nom::character::complete::one_of(ESCAPABLE),
                 ),
                 tag("'"),
             ),
@@ -224,7 +224,7 @@ fn md_link_title(i: &str) -> nom::IResult<&str, &str> {
                 nom::bytes::complete::escaped(
                     nom::character::complete::none_of(r#"\""#),
                     '\\',
-                    nom::character::complete::one_of(r#"n"'()"#),
+                    nom::character::complete::one_of(ESCAPABLE),
                 ),
                 tag("\""),
             ),
@@ -447,6 +447,10 @@ mod tests {
             Ok((" abc", "url(1)"))
         );
         assert_eq!(
+            md_parse_link_destination(r#"<[1a]\[1b\](2a)\(2b\)\<3b\>{4a}\{4b\}> abc"#),
+            Ok((" abc", r#"[1a]\[1b\](2a)\(2b\)\<3b\>{4a}\{4b\}"#))
+        );
+        assert_eq!(
             md_parse_link_destination("ur()l abc"),
             Ok((" abc", "ur()l"))
         );
@@ -485,6 +489,10 @@ mod tests {
             md_escaped_link_destination_transform(r#"\<\>\\"#),
             Ok(("", Cow::from(r#"<>\"#)))
         );
+        assert_eq!(
+            md_escaped_link_destination_transform(r#"\(\)\\"#),
+            Ok(("", Cow::from(r#"()\"#)))
+        );
     }
 
     #[test]
@@ -492,16 +500,13 @@ mod tests {
         assert_eq!(md_link_title("(title)abc"), Ok(("abc", "title")));
         assert_eq!(md_link_title("(ti(t)le)abc"), Ok(("abc", "ti(t)le")));
         assert_eq!(
-            md_link_title(r#""123\"456"abc"#),
-            Ok(("abc", r#"123\"456"#))
+            md_link_title(r#""1\\23\"4\'56"abc"#),
+            Ok(("abc", r#"1\\23\"4\'56"#))
         );
+        assert_eq!(md_link_title("\"tu\nvwxy\"abc"), Ok(("abc", "tu\nvwxy")));
         assert_eq!(
-            md_link_title(r#""tu\nv\"wxy"abc"#),
-            Ok(("abc", r#"tu\nv\"wxy"#))
-        );
-        assert_eq!(
-            md_link_title(r#"'tu\nv\'wxy'abc"#),
-            Ok(("abc", r#"tu\nv\'wxy"#))
+            md_link_title("'tu\nv\\\'wxy'abc"),
+            Ok(("abc", "tu\nv\\\'wxy"))
         );
         assert_eq!(
             md_link_title("(ti\n\ntle)abc"),
