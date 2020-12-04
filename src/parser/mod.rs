@@ -18,25 +18,32 @@ use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
 use nom::character::complete::space0;
 use nom::combinator::*;
-use std::{borrow::Cow, unimplemented};
+use std::borrow::Cow;
 
-/// Defines the return datatype for this API.
+/// A link can be an _inline link_, a _reference link_ or a _link reference definition_.
+/// This is the main return type of this API.
 pub enum Link<'a> {
-    /// In _inline links_ the destination and title are given immediately after the link text:
-    /// `Inline(link_text, link_destination, link_title)`
+    /// In (stand alone) _inline links_ the destination and title are given
+    /// immediately after the link text.
+    ///
+    /// The tuple definition: `Inline(link_text, link_destination, link_title)`
     Inline(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
-    ///  In _reference links_ the destination and title are defined elsewhere in the document:
-    /// `Ref(link_text, link_label)`
+    /// In _reference links_ the destination and title are defined elsewhere in the document
+    /// in some _link reference definition_.
+    ///
+    /// Tuple definition: `Ref(link_text, link_label)`
     Ref(Cow<'a, str>, Cow<'a, str>),
-    /// A _link reference definition_ refers to a _reference link_ with the same _link label_:
-    /// `RefDef(link_label, link_destination, link_title)`
+    /// A _link reference definition_ refers to a _reference link_ with the same _link label_.
+    ///
+    /// Tuple definition: `RefDef(link_label, link_destination, link_title)`
     RefDef(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
 }
 
 /// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or
-/// HTML hyperlink or link reference definition. Returns `Ok((remaining_input,
+/// HTML _inline hyperlink_ or _link reference definition_. Returns `Ok((remaining_input,
 /// (link_text_or_label, link_destination, link_title)))`. The parser recognizes
-/// stand alone links and link reference definitions.
+/// only stand alone _inline links_ and _link reference definitions_, but no
+/// _reference links_.
 ///
 /// # Limitations:
 /// Link reference labels are never resolved into link text. This limitation only
@@ -94,6 +101,10 @@ pub enum Link<'a> {
 /// as they are only allowed at the beginning of a line. The skip has to happen at this moment, as
 /// the next parser does not know if the first byte it gets, is it at the beginning of a line or
 /// not.
+///
+/// Technically, this parser is a wrapper around `take_link()`, that erases the
+/// link type information and ignores all _reference links_. As it does not
+/// resolve _reference links_, it is much faster than the `hyperlink_list()` function.
 pub fn take_inline_or_ref_def_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let mut j = i;
     loop {
@@ -110,8 +121,8 @@ pub fn take_inline_or_ref_def_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow
     }
 }
 
-/// Consumes the input until it finds an _inline link_, a _reference link_ or a _link reference definition_
-/// which is also consumed. Returns `Ok((remaining_input, Link::<variant>))` or some error.
+/// Consumes the input until it finds an _inline link_, a _reference link_ or a _link reference definition_.
+/// The parser consumes the finding and returns `Ok((remaining_input, Link))` or some error.
 pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
     let mut input_start = true;
     let res = loop {
@@ -224,13 +235,15 @@ pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
     }
 }
 
-/// Resolves link references and returns a vector of hyperlinks `Vec<Link>` or
-/// some error.
+/*
+/// Parses through the input text, resolves all _reference links_ and returns a
+/// vector of the extracted hyperlinks `Vec<Link>` or some error.
 pub fn hyperlink_list(_i: &str) -> Result<Vec<Link>, nom::error::Error<&str>> {
     unimplemented!();
     // return something like.
     // Ok(vec![Link::Inline(Cow::from(""), Cow::from(""), Cow::from(""))])
 }
+*/
 
 #[cfg(test)]
 mod tests {

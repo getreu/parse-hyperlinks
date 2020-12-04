@@ -12,11 +12,11 @@ use std::borrow::Cow;
 /// destination_ and _link title_.
 const ESCAPABLE: &str = r#"\'"()[]{}<>"#;
 
-/// Parse a markdown inline link.
-/// returns either `Ok((i, (link_text, link_destination, link_title)))` or some
+/// Parses a Markdown _inline link_.
+/// It returns either `Ok((i, (link_text, link_destination, link_title)))` or some
 /// error.
 ///
-/// This parser expects to start at the beginning of the link `[` to succeed. It
+/// This parser expects to start at the beginning of the link `[` to succeed.
 /// ```
 /// use parse_hyperlinks::parser::markdown::md_link;
 /// use std::borrow::Cow;
@@ -32,7 +32,7 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     Ok((i, (link_text, link_destination, link_title)))
 }
 
-/// Matches a Markdown link reference definition.
+/// Matches a Markdown _link reference definition_.
 /// It returns either `Ok((i, (link_label, link_destination, link_title)))` or
 /// some error.
 ///
@@ -66,11 +66,12 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
 /// [link destination]: https://spec.commonmark.org/0.29/#link-destination
 /// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
 /// [non-whitespace characters]: https://spec.commonmark.org/0.29/#non-whitespace-character
-/// ```
+///
 pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
     let (i, link_text) = md_link_label(i)?;
+    let (i, _) = nom::character::complete::char(':')(i)?;
     let (i, _) = verify(nom::character::complete::multispace1, |s: &str| {
         s.find("\n\n").is_none()
     })(i)?;
@@ -85,6 +86,54 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
     } else {
         Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
     }
+}
+
+/// Parse a Markdown _reference link_.
+/// The parser returns either `Ok((i, (link_text, link_destination,
+/// Cow::from(""))))` or some error.
+///
+/// There are three kinds of reference links: full, collapsed, and shortcut.
+/// 1. A full reference link consists of a link text immediately followed by a
+///    link label that matches a link reference definition elsewhere in the
+///    document.
+/// 2. A collapsed reference link consists of a link label that matches a link
+///    reference definition elsewhere in the document, followed by the string [].
+///    The contents of the first link label are parsed as inlines, which are used as
+///    the link’s text. The link’s URI and title are provided by the matching
+///    reference link definition. Thus, `[foo][]` is equivalent to `[foo][foo]`.
+/// 3. A shortcut reference link consists of a link label that matches a link
+///    reference definition elsewhere in the document and is not followed by [] or a
+///    link label. The contents of the first link label are parsed as inlines, which
+///    are used as the link’s text. The link’s URI and title are provided by the
+///    matching link reference definition. Thus, `[foo]` is equivalent to `[foo][]`.
+///
+/// This parser expects to start at the beginning of the link `[` to succeed.
+/// It should always run at last position after all other parsers.
+/// ```rust
+/// use parse_hyperlinks::parser::markdown::md_ref;
+/// use std::borrow::Cow;
+///
+/// assert_eq!(
+///   md_ref("[link text][link label]abc"),
+///   Ok(("abc", (Cow::from("link text"), Cow::from("link label"))))
+/// );
+/// assert_eq!(
+///   md_ref("[link text][]abc"),
+///   Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
+/// );
+/// assert_eq!(
+///   md_ref("[link text]abc"),
+///   Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
+/// );
+/// ```
+pub fn md_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+    alt((
+        nom::sequence::pair(md_link_text, md_link_label),
+        nom::combinator::map(nom::sequence::terminated(md_link_text, tag("[]")), |s| {
+            (s.clone(), s)
+        }),
+        nom::combinator::map(md_link_text, |s| (s.clone(), s)),
+    ))(i)
 }
 
 /// Parses _link text_.
@@ -118,7 +167,7 @@ fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
                 '\\',
                 nom::character::complete::one_of(ESCAPABLE),
             ),
-            tag("]:"),
+            tag("]"),
         ),
         md_escaped_str_transform,
     )(i)
@@ -342,8 +391,8 @@ mod tests {
         assert_eq!(
             md_link_ref_def("[text] url"),
             Err(nom::Err::Error(nom::error::Error::new(
-                "] url",
-                ErrorKind::Tag
+                " url",
+                ErrorKind::Char
             )))
         );
         assert_eq!(
@@ -415,11 +464,11 @@ mod tests {
     fn test_md_link_label() {
         assert_eq!(
             md_link_label("[text]: url"),
-            Ok((" url", Cow::from("text")))
+            Ok((": url", Cow::from("text")))
         );
         assert_eq!(
             md_link_label(r#"[text\[i\]]: url"#),
-            Ok((" url", Cow::from("text[i]")))
+            Ok((": url", Cow::from("text[i]")))
         );
         assert_eq!(
             md_link_label("[text: url"),
