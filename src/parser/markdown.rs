@@ -128,7 +128,7 @@ fn md_link_ref_text(i: &str) -> nom::IResult<&str, &str> {
 fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
         md_parse_link_destination,
-        md_escaped_link_destination_transform,
+        md_escaped_str_transform,
     )(i)
 }
 
@@ -166,7 +166,7 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
 /// with:
 ///     \<>
 /// Preserves usual whitespace, but removes `\ `.
-fn md_escaped_link_destination_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map(
         nom::bytes::complete::escaped_transform(
             nom::bytes::complete::is_not("\\"),
@@ -473,24 +473,24 @@ mod tests {
     #[test]
     fn test_md_escaped_link_destination_transform() {
         assert_eq!(
-            md_escaped_link_destination_transform(""),
+            md_escaped_str_transform(""),
             Ok(("", Cow::from("")))
         );
         // Different than the link destination version.
         assert_eq!(
-            md_escaped_link_destination_transform("   "),
+            md_escaped_str_transform("   "),
             Ok(("", Cow::from("   ")))
         );
         assert_eq!(
-            md_escaped_link_destination_transform(r#"abc`:<>abc"#),
+            md_escaped_str_transform(r#"abc`:<>abc"#),
             Ok(("", Cow::from(r#"abc`:<>abc"#)))
         );
         assert_eq!(
-            md_escaped_link_destination_transform(r#"\<\>\\"#),
+            md_escaped_str_transform(r#"\<\>\\"#),
             Ok(("", Cow::from(r#"<>\"#)))
         );
         assert_eq!(
-            md_escaped_link_destination_transform(r#"\(\)\\"#),
+            md_escaped_str_transform(r#"\(\)\\"#),
             Ok(("", Cow::from(r#"()\"#)))
         );
     }
