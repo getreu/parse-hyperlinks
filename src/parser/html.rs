@@ -10,7 +10,7 @@ use nom::error::Error;
 use nom::error::ErrorKind;
 use std::borrow::Cow;
 
-/// Parse an HTML hyperlink.
+/// Parse an HTML inline hyperlink.
 /// It returns either `Ok((i, (link_text, link_destination, link_title)))` or some error.
 ///
 /// The parser expects to start at the link start (`<`) to succeed.

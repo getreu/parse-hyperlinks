@@ -4,7 +4,7 @@
 //! prints the list as HTML.
 use html_escape::encode_double_quoted_attribute;
 use html_escape::encode_text;
-use parse_hyperlinks::parser::take_hyperlink;
+use parse_hyperlinks::parser::take_inline_or_ref_def_link;
 use std::io;
 use std::io::Read;
 
@@ -15,7 +15,7 @@ fn main() -> Result<(), ::std::io::Error> {
     Read::read_to_string(&mut io::stdin(), &mut buffer)?;
 
     let mut bufp = buffer.as_str();
-    while let Ok((b, (ln, lta, lti))) = take_hyperlink(&bufp) {
+    while let Ok((b, (ln, lta, lti))) = take_inline_or_ref_def_link(&bufp) {
         bufp = b;
         println!(
             r#"<a href="{}" title="{}">{}</a><br/>"#,

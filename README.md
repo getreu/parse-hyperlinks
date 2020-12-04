@@ -32,7 +32,7 @@ Usage example:
 1. Create a file `input.txt`:
 
    ```text
-   abc [my blog](https://getreu.net "blog title")abc
+   abc[my blog](https://getreu.net "blog title")abc
       [my blog]: https://getreu.net "blog title"
    abc`my blog <https://getreu.net>`_abc
      .. _my blog: https://get

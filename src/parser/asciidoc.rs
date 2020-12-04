@@ -10,7 +10,7 @@ use nom::error::ErrorKind;
 use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
-/// Parses an Asciidoc link. The parser returns either `Ok((i, (link_text,
+/// Parses an Asciidoc inline link. The parser returns either `Ok((i, (link_text,
 /// link_destination, link_title)))` or some error. `link_title` is always the empty
 /// `Cow::Borrowed("")`.
 ///

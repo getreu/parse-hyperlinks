@@ -8,7 +8,7 @@ use nom::combinator::*;
 use nom::error::ErrorKind;
 use std::borrow::Cow;
 
-/// Parse a markdown link.
+/// Parse a markdown inline link.
 /// returns either `Ok((i, (link_text, link_destination, link_title)))` or some
 /// error.
 ///
@@ -42,15 +42,15 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
 /// The caller must guarantee, that the parser starts at first character of the
 /// input or at the first character of a line.
 /// ```
-/// use parse_hyperlinks::parser::markdown::md_link_ref;
+/// use parse_hyperlinks::parser::markdown::md_link_ref_def;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   md_link_ref("   [label]: <destination> 'title'\nabc"),
+///   md_link_ref_def("   [label]: <destination> 'title'\nabc"),
 ///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
-pub fn md_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
     let (i, link_text) = md_link_ref_text(i)?;
@@ -283,24 +283,24 @@ mod tests {
     }
 
     #[test]
-    fn test_md_link_ref() {
+    fn test_md_link_ref_def() {
         assert_eq!(
-            md_link_ref("[text]: url\n\"abc\""),
+            md_link_ref_def("[text]: url\n\"abc\""),
             Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from("abc"))))
         );
         assert_eq!(
-            md_link_ref("   [text]: url\n\"abc\""),
+            md_link_ref_def("   [text]: url\n\"abc\""),
             Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from("abc"))))
         );
         assert_eq!(
-            md_link_ref("abc[text]: url\n\"abc\""),
+            md_link_ref_def("abc[text]: url\n\"abc\""),
             Err(nom::Err::Error(nom::error::Error::new(
                 "abc[text]: url\n\"abc\"",
                 ErrorKind::Tag
             )))
         );
         assert_eq!(
-            md_link_ref("    [text]: url\n\"abc\""),
+            md_link_ref_def("    [text]: url\n\"abc\""),
             Err(nom::Err::Error(nom::error::Error::new(
                 " [text]: url\n\"abc\"",
                 ErrorKind::Tag
@@ -308,7 +308,7 @@ mod tests {
         );
         // Nested brackets.
         assert_eq!(
-            md_link_ref("[text[i]]: ur(l)url"),
+            md_link_ref_def("[text[i]]: ur(l)url"),
             Ok((
                 "",
                 (Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
@@ -316,7 +316,7 @@ mod tests {
         );
         // Nested but balanced.
         assert_eq!(
-            md_link_ref("[text[i]]: ur(l)(url"),
+            md_link_ref_def("[text[i]]: ur(l)(url"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "ur(l)(url",
                 ErrorKind::TakeUntil
@@ -324,37 +324,37 @@ mod tests {
         );
         // Whitespace can have one newline.
         assert_eq!(
-            md_link_ref("[text]: \nurl"),
+            md_link_ref_def("[text]: \nurl"),
             Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from(""))))
         );
         // But only one newline is allowed.
         assert_eq!(
-            md_link_ref("[text]: \n\nurl"),
+            md_link_ref_def("[text]: \n\nurl"),
             Err(nom::Err::Error(nom::error::Error::new(
                 " \n\nurl",
                 ErrorKind::Verify
             )))
         );
         assert_eq!(
-            md_link_ref("[text: url"),
+            md_link_ref_def("[text: url"),
             Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
         );
         assert_eq!(
-            md_link_ref("[text] url"),
+            md_link_ref_def("[text] url"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "] url",
                 ErrorKind::Tag
             )))
         );
         assert_eq!(
-            md_link_ref("[text]: url \"link title\"\nabc"),
+            md_link_ref_def("[text]: url \"link title\"\nabc"),
             Ok((
                 "\nabc",
                 (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
         assert_eq!(
-            md_link_ref("[text]: url \"link\ntitle\"\nabc"),
+            md_link_ref_def("[text]: url \"link\ntitle\"\nabc"),
             Ok((
                 "\nabc",
                 (
@@ -365,14 +365,14 @@ mod tests {
             ))
         );
         assert_eq!(
-            md_link_ref("[text]: url \"link\n\ntitle\"\nabc"),
+            md_link_ref_def("[text]: url \"link\n\ntitle\"\nabc"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "\"link\n\ntitle\"\nabc",
                 ErrorKind::Verify
             )))
         );
         assert_eq!(
-            md_link_ref("[text]:\nurl \"link\ntitle\"\nabc"),
+            md_link_ref_def("[text]:\nurl \"link\ntitle\"\nabc"),
             Ok((
                 "\nabc",
                 (
@@ -383,7 +383,7 @@ mod tests {
             ))
         );
         assert_eq!(
-            md_link_ref("[text]:\n\nurl \"link title\"\nabc"),
+            md_link_ref_def("[text]:\n\nurl \"link title\"\nabc"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "\n\nurl \"link title\"\nabc",
                 ErrorKind::Verify

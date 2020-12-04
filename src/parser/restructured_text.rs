@@ -44,11 +44,11 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
 ///
 /// This parser always returns an empty `link_title` as `Cow::Borrowed("")`.
 /// ```
-/// use parse_hyperlinks::parser::restructured_text::rst_link_ref;
+/// use parse_hyperlinks::parser::restructured_text::rst_link_ref_def;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   rst_link_ref("   .. _`label`: destination\nabc"),
+///   rst_link_ref_def("   .. _`label`: destination\nabc"),
 ///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from(""))))
 /// );
 /// ```
@@ -57,8 +57,8 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
 /// .. _Python home page: http://www.python.org
 /// .. _`Python: home page`: http://www.python.org
 /// ```
-/// See unit test `test_rst_link_ref()` for more examples.
-pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+/// See unit test `test_rst_link_ref_def()` for more examples.
+pub fn rst_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let my_err = |_| {
         nom::Err::Error(nom::error::Error::new(
             i,
@@ -70,7 +70,7 @@ pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
 
     let (ln, ld) = match c {
         Cow::Borrowed(s) => {
-            let (_, (ln, ld)) = rst_parse_link_ref(s)?;
+            let (_, (ln, ld)) = rst_parse_link_ref_def(s)?;
             (
                 rst_escaped_link_text_transform(ln)?.1,
                 rst_escaped_link_destination_transform(ld)?.1,
@@ -78,7 +78,7 @@ pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
         }
 
         Cow::Owned(strg) => {
-            let (_, (ln, ld)) = rst_parse_link_ref(&strg).map_err(my_err)?;
+            let (_, (ln, ld)) = rst_parse_link_ref_def(&strg).map_err(my_err)?;
             let ln = Cow::Owned(
                 rst_escaped_link_text_transform(ln)
                     .map_err(my_err)?
@@ -147,7 +147,7 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// * the colon must be backslash escaped.
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets)
-fn rst_parse_link_ref(i: &str) -> nom::IResult<&str, (&str, &str)> {
+fn rst_parse_link_ref_def(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (i, _) = nom::character::complete::char('_')(i)?;
     let (link_destination, link_text) = alt((
         nom::sequence::delimited(
@@ -387,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_link_ref() {
+    fn test_rst_link_ref_def() {
         let expected = (
             "\nabc",
             (
@@ -397,11 +397,11 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_link_ref(".. _`Python: home page`: http://www.python.org\nabc").unwrap(),
+            rst_link_ref_def(".. _`Python: home page`: http://www.python.org\nabc").unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref("  .. _`Python: home page`: http://www.py\n     thon.org    \nabc")
+            rst_link_ref_def("  .. _`Python: home page`: http://www.py\n     thon.org    \nabc")
                 .unwrap(),
             expected
         );
@@ -411,7 +411,7 @@ mod tests {
             ErrorKind::Tag,
         ));
         assert_eq!(
-            rst_link_ref("x .. _`Python: home page`: http://www.python.org\nabc").unwrap_err(),
+            rst_link_ref_def("x .. _`Python: home page`: http://www.python.org\nabc").unwrap_err(),
             expected
         );
 
@@ -424,11 +424,11 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_link_ref(r#".. _Python\: \`home page\`: http://www.python\ .org"#).unwrap(),
+            rst_link_ref_def(r#".. _Python\: \`home page\`: http://www.python\ .org"#).unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref(r#".. _`Python: \`home page\``: http://www.python\ .org"#).unwrap(),
+            rst_link_ref_def(r#".. _`Python: \`home page\``: http://www.python\ .org"#).unwrap(),
             expected
         );
 
@@ -441,17 +441,17 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_link_ref(r#".. _`my news at <http://python.org>`: http://news.python.org"#)
+            rst_link_ref_def(r#".. _`my news at <http://python.org>`: http://news.python.org"#)
                 .unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref(r#".. _`my news at \<http://python.org\>`: http://news.python.org"#)
+            rst_link_ref_def(r#".. _`my news at \<http://python.org\>`: http://news.python.org"#)
                 .unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref(r#".. _my news at \<http\://python.org\>: http://news.python.org"#)
+            rst_link_ref_def(r#".. _my news at \<http\://python.org\>: http://news.python.org"#)
                 .unwrap(),
             expected
         );
@@ -465,11 +465,11 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_link_ref(r#".. _my news: http://news.<python>.org"#).unwrap(),
+            rst_link_ref_def(r#".. _my news: http://news.<python>.org"#).unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref(r#".. _my news: http://news.\<python\>.org"#).unwrap(),
+            rst_link_ref_def(r#".. _my news: http://news.\<python\>.org"#).unwrap(),
             expected
         );
     }
@@ -518,26 +518,26 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_parse_link_ref() {
+    fn test_rst_parse_link_ref_def() {
         let expected = ("", ("Python home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_ref("_Python home page: http://www.python.org").unwrap(),
+            rst_parse_link_ref_def("_Python home page: http://www.python.org").unwrap(),
             expected
         );
         assert_eq!(
-            rst_parse_link_ref("_`Python home page`: http://www.python.org").unwrap(),
+            rst_parse_link_ref_def("_`Python home page`: http://www.python.org").unwrap(),
             expected
         );
 
         let expected = ("", ("Python: home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_ref("_`Python: home page`: http://www.python.org").unwrap(),
+            rst_parse_link_ref_def("_`Python: home page`: http://www.python.org").unwrap(),
             expected
         );
 
         let expected = ("", (r#"Python\: home page"#, "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_ref(r#"_Python\: home page: http://www.python.org"#).unwrap(),
+            rst_parse_link_ref_def(r#"_Python\: home page: http://www.python.org"#).unwrap(),
             expected
         );
 
@@ -546,7 +546,7 @@ mod tests {
             ("my news at <http://python.org>", "http://news.python.org"),
         );
         assert_eq!(
-            rst_parse_link_ref(r#"_`my news at <http://python.org>`: http://news.python.org"#)
+            rst_parse_link_ref_def(r#"_`my news at <http://python.org>`: http://news.python.org"#)
                 .unwrap(),
             expected
         );
@@ -559,8 +559,10 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_link_ref(r#"_`my news at \<http://python.org\>`: http://news.python.org"#)
-                .unwrap(),
+            rst_parse_link_ref_def(
+                r#"_`my news at \<http://python.org\>`: http://news.python.org"#
+            )
+            .unwrap(),
             expected
         );
 
@@ -572,7 +574,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_link_ref(r#"_my news at \<http\://python.org\>: http://news.python.org"#)
+            rst_parse_link_ref_def(r#"_my news at \<http\://python.org\>: http://news.python.org"#)
                 .unwrap(),
             expected
         );
