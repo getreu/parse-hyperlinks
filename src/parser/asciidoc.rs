@@ -1,5 +1,4 @@
-//! This module implements parsers for standalone Asciidoc hyperlinks.
-//! Link references are not supported.
+//! This module implements parsers for Asciidoc hyperlinks.
 #![allow(dead_code)]
 
 use nom::branch::alt;
@@ -11,7 +10,10 @@ use nom::error::ErrorKind;
 use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
-/// Parses an Asciidoc link.
+/// Parses an Asciidoc link. The parser returns either `Ok((i, (link_text,
+/// link_destination, link_title)))` or some error. `link_title` is always the empty
+/// `Cow::Borrowed("")`.
+///
 /// This parser expects to start at the first letter of `http://`,
 /// `https://`, `link:http://` or `link:https://` (preceded by optional
 /// whitespaces) to succeed.
@@ -21,9 +23,6 @@ use std::borrow::Cow;
 /// * the preceding byte is a newline `\n`.
 ///
 /// When ist starts at a whitespace no further guarantee is required.
-/// The parser returns either `Ok((i, (link_text, link_destination,
-/// link_title)))` or some error. `link_title` is always empty:
-/// `Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::asciidoc::adoc_link;
 /// use std::borrow::Cow;

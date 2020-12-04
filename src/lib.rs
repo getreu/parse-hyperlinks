@@ -1,5 +1,6 @@
-//! Library and application for parsing hyperlinks in Markdown,
-//! RestructuredText, Asciidoc and HTML format. The library implements the
+//! Library and application for parsing hyperlinks and link reference
+//! definitions in Markdown, reStructuredText, Asciidoc and HTML format. The
+//! library implements the
 //! [CommonMark Specification 0.29](https://spec.commonmark.org/0.29/),
 //! [reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
 //! (revision 8571, date 2020-10-28),
@@ -17,7 +18,11 @@ use nom::error::ParseError;
 use nom::Err;
 use nom::IResult;
 
-/// A parser designed to work inside the `nom::sequence::delimited` parser, e.g.:
+/// A parser similar to `nom::bytes::complete::take_until()`, but that does not
+/// stop at balanced opening and closing tags. It is designed to work inside the
+/// `nom::sequence::delimited()` parser.
+///
+/// # Basic usage
 /// ```
 /// use nom::bytes::complete::tag;
 /// use nom::sequence::delimited;

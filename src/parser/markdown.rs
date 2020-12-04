@@ -9,9 +9,10 @@ use nom::error::ErrorKind;
 use std::borrow::Cow;
 
 /// Parse a markdown link.
-/// This parser expects to start at the beginning of the link `[` to succeed. It
 /// returns either `Ok((i, (link_text, link_destination, link_title)))` or some
 /// error.
+///
+/// This parser expects to start at the beginning of the link `[` to succeed. It
 /// ```
 /// use parse_hyperlinks::parser::markdown::md_link;
 /// use std::borrow::Cow;
@@ -34,18 +35,19 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     ))
 }
 
-/// Matches a markdown link reference.
+/// Matches a Markdown link reference definition.
+/// It returns either `Ok((i, (link_label, link_destination, link_title)))` or
+/// some error.
+///
 /// The caller must guarantee, that the parser starts at first character of the
 /// input or at the first character of a line.
-/// It returns either `Ok((i, (link_text, link_destination, link_title)))` or
-/// some error.
 /// ```
 /// use parse_hyperlinks::parser::markdown::md_link_ref;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   md_link_ref("   [name]: <destination> 'title'\nabc"),
-///   Ok(("\nabc", (Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
+///   md_link_ref("   [label]: <destination> 'title'\nabc"),
+///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
 pub fn md_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {

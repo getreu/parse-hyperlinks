@@ -1,5 +1,4 @@
 //! This module implements parsers for HTML hyperlinks.
-//! The code follows [HTML 5.2: 4.5.](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element)
 #![allow(dead_code)]
 
 use html_escape::decode_html_entities;
@@ -12,6 +11,8 @@ use nom::error::ErrorKind;
 use std::borrow::Cow;
 
 /// Parse an HTML hyperlink.
+/// It returns either `Ok((i, (link_text, link_destination, link_title)))` or some error.
+///
 /// The parser expects to start at the link start (`<`) to succeed.
 /// ```
 /// use parse_hyperlinks::parser::html::html_link;
@@ -22,9 +23,8 @@ use std::borrow::Cow;
 ///   Ok(("abc", (Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
-/// It returns either `Ok((i, (link_name, link_destination, link_title)))` or some error.
 pub fn html_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, ((link_destination, link_title), link_name)) = nom::sequence::terminated(
+    let (i, ((link_destination, link_title), link_text)) = nom::sequence::terminated(
         nom::sequence::pair(
             tag_a_opening,
             alt((
@@ -36,8 +36,8 @@ pub fn html_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> 
         // Here we deal with HTML.
         alt((tag("</a>"), tag("</A>"))),
     )(i)?;
-    let link_name = decode_html_entities(link_name);
-    Ok((i, (link_name, link_destination, link_title)))
+    let link_text = decode_html_entities(link_text);
+    Ok((i, (link_text, link_destination, link_title)))
 }
 
 /// Parses a `<a ...>` opening tag and returns

@@ -1,7 +1,8 @@
 # Parse hyperlinks
 
-A parser library written with [Nom](https://crates.io/crates/nom) to recognize
-hyperlinks in Markdown, reStructuredText, Asciidoc and HTML formatted text input.
+A parser library written with [Nom](https://crates.io/crates/nom) to
+recognize hyperlinks and link reference definitions in Markdown,
+reStructuredText, Asciidoc and HTML formatted text input.
 
 [![Cargo](https://img.shields.io/crates/v/parse-hyperlinks.svg)](
 https://crates.io/crates/parse-hyperlinks)
@@ -28,28 +29,31 @@ cargo install parse-hyperlinks
 
 Usage example:
 
-```text
-$ cat input.txt
-abc [my blog](https://getreu.net "blog title")abc
-   [my blog]: https://getreu.net "blog title"
-abc`my blog <https://getreu.net>`_abc
-  .. _my blog: https://get
-     reu.net
-<a href="https://getreu.net" title="blog title">my blog</a>
-abc https://getreu.net[my blog]abc
-```
+1. Create a file `input.txt`:
 
-```shell
-$ ./parse-hyperlinks <input.txt >ouput.html
-```
+   ```text
+   abc [my blog](https://getreu.net "blog title")abc
+      [my blog]: https://getreu.net "blog title"
+   abc`my blog <https://getreu.net>`_abc
+     .. _my blog: https://get
+        reu.net
+   abc<a href="https://getreu.net" title="blog title">my blog</a>abc
+   abc https://getreu.net[my blog]abc
+   ```
 
-```html
-$ cat ouput.html
-<a href="https://getreu.net" title="blog title">my blog</a><br/>
-<a href="https://getreu.net" title="blog title">my blog</a><br/>
-<a href="https://getreu.net" title="">my blog</a><br/>
-<a href="https://getreu.net" title="">my blog</a><br/>
-<a href="https://getreu.net" title="blog title">my blog</a><br/>
-<a href="https://getreu.net" title="">my blog</a><br/>
-$
-```
+2. Run `parse-hyperlinks`:
+
+   ```shell
+   $ ./parse-hyperlinks <input.txt >ouput.html
+   ```
+
+3. Inspect `output.html`:
+
+   ```html
+   $ cat ouput.html
+   <a href="https://getreu.net" title="blog title">my blog
+   <a href="https://getreu.net" title="">my blog</a><br/>
+   <a href="https://getreu.net" title="">my blog</a><br/>
+   <a href="https://getreu.net" title="blog title">my blog
+   <a href="https://getreu.net" title="">my blog</a><br/>
+   ```

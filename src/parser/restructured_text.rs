@@ -9,7 +9,7 @@ use std::borrow::Cow;
 
 /// Parse a RestructuredText hyperlink.
 /// The parser expects to start at the link start (\`) to succeed.
-/// It returns either `Ok((i, (link_name, link_destination, link_title)))` or some error.
+/// It returns either `Ok((i, (link_text, link_destination, link_title)))` or some error.
 /// This parser always returns an empty `link_title=Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::restructured_text::rst_link;
@@ -32,23 +32,24 @@ use std::borrow::Cow;
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases)
 pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, (ln, ld)) = rst_parse_link(i)?;
-    let ln = rst_escaped_link_name_transform(ln)?.1;
+    let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
     Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
 
-/// Parse a RestructuredText link references.
-/// It returns either `Ok((i, (link_name, link_destination, link_title)))` or
-/// some error. This parser always returns an empty link_title
-/// This parser always returns an empty `link_title=Cow::Borrowed("")`.
+/// Parse a RestructuredText link reference definition.
+/// It returns either `Ok((i, (link_label, link_destination, link_title)))` or
+/// some error.
+///
+/// This parser always returns an empty `link_title` as `Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::restructured_text::rst_link_ref;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   rst_link_ref("   .. _`name`: destination\nabc"),
-///   Ok(("\nabc", (Cow::from("name"), Cow::from("destination"), Cow::from(""))))
+///   rst_link_ref("   .. _`label`: destination\nabc"),
+///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from(""))))
 /// );
 /// ```
 /// Here some examples for link references:
@@ -71,7 +72,7 @@ pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
         Cow::Borrowed(s) => {
             let (_, (ln, ld)) = rst_parse_link_ref(s)?;
             (
-                rst_escaped_link_name_transform(ln)?.1,
+                rst_escaped_link_text_transform(ln)?.1,
                 rst_escaped_link_destination_transform(ld)?.1,
             )
         }
@@ -79,7 +80,7 @@ pub fn rst_link_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
         Cow::Owned(strg) => {
             let (_, (ln, ld)) = rst_parse_link_ref(&strg).map_err(my_err)?;
             let ln = Cow::Owned(
-                rst_escaped_link_name_transform(ln)
+                rst_escaped_link_text_transform(ln)
                     .map_err(my_err)?
                     .1
                     .to_string(),
@@ -115,13 +116,13 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
 
     // From here on, we only deal with the inner result of the above.
     // Take everything until the first unescaped `<`
-    let (j, link_name): (&str, &str) = nom::bytes::complete::escaped(
+    let (j, link_text): (&str, &str) = nom::bytes::complete::escaped(
         nom::character::complete::none_of(r#"\<"#),
         '\\',
         nom::character::complete::one_of(r#" `:<>"#),
     )(j)?;
     // Trim trailing whitespace.
-    let link_name = link_name.trim_end();
+    let link_text = link_text.trim_end();
     let (j, link_destination) = nom::sequence::delimited(
         tag("<"),
         nom::bytes::complete::escaped(
@@ -134,7 +135,7 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
     // Fail if there are bytes left between `>` and `\``.
     let (_, _) = nom::combinator::eof(j)?;
 
-    Ok((i, (link_name, link_destination)))
+    Ok((i, (link_text, link_destination)))
 }
 
 /// This parser detects the position of the link name and the link destination.
@@ -148,7 +149,7 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets)
 fn rst_parse_link_ref(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (i, _) = nom::character::complete::char('_')(i)?;
-    let (link_destination, link_name) = alt((
+    let (link_destination, link_text) = alt((
         nom::sequence::delimited(
             tag("`"),
             nom::bytes::complete::escaped(
@@ -168,7 +169,7 @@ fn rst_parse_link_ref(i: &str) -> nom::IResult<&str, (&str, &str)> {
         ),
     ))(i)?;
 
-    Ok(("", (link_name, link_destination)))
+    Ok(("", (link_text, link_destination)))
 }
 
 /// This parses an explicit markup block.
@@ -236,7 +237,7 @@ fn rst_explicit_markup_block(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// with:
 ///     \`:<>
 /// Preserves usual whitespace, but removes `\ `.
-fn rst_escaped_link_name_transform(i: &str) -> IResult<&str, Cow<str>> {
+fn rst_escaped_link_text_transform(i: &str) -> IResult<&str, Cow<str>> {
     nom::combinator::map(
         nom::bytes::complete::escaped_transform(
             nom::bytes::complete::is_not("\\"),
@@ -612,24 +613,24 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_escaped_link_name_transform() {
-        assert_eq!(rst_escaped_link_name_transform(""), Ok(("", Cow::from(""))));
+    fn test_rst_escaped_link_text_transform() {
+        assert_eq!(rst_escaped_link_text_transform(""), Ok(("", Cow::from(""))));
         // Different than the link destination version.
         assert_eq!(
-            rst_escaped_link_name_transform("   "),
+            rst_escaped_link_text_transform("   "),
             Ok(("", Cow::from("   ")))
         );
         // Different than the link destination version.
         assert_eq!(
-            rst_escaped_link_name_transform(r#"\ \ \ "#),
+            rst_escaped_link_text_transform(r#"\ \ \ "#),
             Ok(("", Cow::from("")))
         );
         assert_eq!(
-            rst_escaped_link_name_transform(r#"abc`:<>abc"#),
+            rst_escaped_link_text_transform(r#"abc`:<>abc"#),
             Ok(("", Cow::from(r#"abc`:<>abc"#)))
         );
         assert_eq!(
-            rst_escaped_link_name_transform(r#"\:\`\<\>\\"#),
+            rst_escaped_link_text_transform(r#"\:\`\<\>\\"#),
             Ok(("", Cow::from(r#":`<>\"#)))
         );
     }
