@@ -67,13 +67,13 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
     }
 }
 
-/// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-text)
-///
+/// Parses _link text_.
 /// Brackets are allowed in the
 /// [link text](https://spec.commonmark.org/0.29/#link-text) only if (a) they are
 /// backslash-escaped or (b) they appear as a matched pair of brackets, with
 /// an open bracket `[`, a sequence of zero or more inlines, and a close
 /// bracket `]`.
+/// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-text)
 fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
         nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]")),
@@ -142,22 +142,6 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
     ))(i)
 }
 
-/// Replace the following escaped characters:
-///     \\\<\>
-/// with:
-///     \<>
-/// Preserves usual whitespace, but removes `\ `.
-fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
-    nom::combinator::map(
-        nom::bytes::complete::escaped_transform(
-            nom::bytes::complete::is_not("\\"),
-            '\\',
-            nom::character::complete::one_of(ESCAPABLE),
-        ),
-        |s| if s == i { Cow::from(i) } else { Cow::from(s) },
-    )(i)
-}
-
 /// Matches `md_link_destination` in parenthesis.
 fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     let (rest, inner) =
@@ -217,6 +201,18 @@ fn md_parse_link_title(i: &str) -> nom::IResult<&str, &str> {
             ),
         )),
         |s: &str| s.find("\n\n").is_none(),
+    )(i)
+}
+
+/// Remove the `\` before the escaped characters `ESCAPABLE`.
+fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
+    nom::combinator::map(
+        nom::bytes::complete::escaped_transform(
+            nom::bytes::complete::is_not("\\"),
+            '\\',
+            nom::character::complete::one_of(ESCAPABLE),
+        ),
+        |s| if s == i { Cow::from(i) } else { Cow::from(s) },
     )(i)
 }
 
