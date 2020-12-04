@@ -29,7 +29,7 @@ const ESCAPABLE: &str = r#"\'"()[]{}<>"#;
 pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, link_text) = md_link_text(i)?;
     let (i, (link_destination, link_title)) = md_link_destination_enclosed(i)?;
-    Ok((i, (Cow::Borrowed(link_text), link_destination, link_title)))
+    Ok((i, (link_text, link_destination, link_title)))
 }
 
 /// Matches a Markdown link reference definition.
@@ -61,16 +61,9 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
     )(i)
     {
         let (i, link_title) = verify(md_link_title, |s: &str| s.find("\n\n").is_none())(i)?;
-        Ok((i, (Cow::Borrowed(link_text), link_destination, link_title)))
+        Ok((i, (link_text, link_destination, link_title)))
     } else {
-        Ok((
-            i,
-            (
-                Cow::Borrowed(link_text),
-                link_destination,
-                Cow::Borrowed(""),
-            ),
-        ))
+        Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
     }
 }
 
@@ -81,8 +74,11 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
 /// backslash-escaped or (b) they appear as a matched pair of brackets, with
 /// an open bracket `[`, a sequence of zero or more inlines, and a close
 /// bracket `]`.
-fn md_link_text(i: &str) -> nom::IResult<&str, &str> {
-    nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]"))(i)
+fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
+    nom::combinator::map_parser(
+        nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]")),
+        md_escaped_str_transform,
+    )(i)
 }
 
 /// CommonMark Spec: A [link reference definition] consists of a [link
@@ -104,8 +100,11 @@ fn md_link_text(i: &str) -> nom::IResult<&str, &str> {
 /// [link destination]: https://spec.commonmark.org/0.29/#link-destination
 /// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
 /// [non-whitespace characters]: https://spec.commonmark.org/0.29/#non-whitespace-character
-fn md_link_ref_text(i: &str) -> nom::IResult<&str, &str> {
-    nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]:"))(i)
+fn md_link_ref_text(i: &str) -> nom::IResult<&str, Cow<str>> {
+    nom::combinator::map_parser(
+        nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]:")),
+        md_escaped_str_transform,
+    )(i)
 }
 
 /// This is a wrapper around `md_parse_link_destination()`. It takes its result
@@ -381,8 +380,18 @@ mod tests {
 
     #[test]
     fn test_md_link_text() {
-        assert_eq!(md_link_text("[text](url)"), Ok(("(url)", "text")));
-        assert_eq!(md_link_text("[text[i]](url)"), Ok(("(url)", "text[i]")));
+        assert_eq!(
+            md_link_text("[text](url)"),
+            Ok(("(url)", Cow::from("text")))
+        );
+        assert_eq!(
+            md_link_text("[text[i]](url)"),
+            Ok(("(url)", Cow::from("text[i]")))
+        );
+        assert_eq!(
+            md_link_text(r#"[text\[i\]](url)"#),
+            Ok(("(url)", Cow::from("text[i]")))
+        );
         assert_eq!(
             md_link_text("[text(url)"),
             Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
@@ -391,8 +400,18 @@ mod tests {
 
     #[test]
     fn test_md_link_ref_text() {
-        assert_eq!(md_link_ref_text("[text]: url"), Ok((" url", "text")));
-        assert_eq!(md_link_ref_text("[text[i]]: url"), Ok((" url", "text[i]")));
+        assert_eq!(
+            md_link_ref_text("[text]: url"),
+            Ok((" url", Cow::from("text")))
+        );
+        assert_eq!(
+            md_link_ref_text("[text[i]]: url"),
+            Ok((" url", Cow::from("text[i]")))
+        );
+        assert_eq!(
+            md_link_ref_text(r#"[text\[i\]]: url"#),
+            Ok((" url", Cow::from("text[i]")))
+        );
         assert_eq!(
             md_link_ref_text("[text: url"),
             Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
@@ -445,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn test_md_escaped_link_destination_transform() {
+    fn test_md_escaped_str_transform() {
         assert_eq!(md_escaped_str_transform(""), Ok(("", Cow::from(""))));
         // Different than the link destination version.
         assert_eq!(md_escaped_str_transform("   "), Ok(("", Cow::from("   "))));
@@ -460,31 +479,6 @@ mod tests {
         assert_eq!(
             md_escaped_str_transform(r#"\(\)\\"#),
             Ok(("", Cow::from(r#"()\"#)))
-        );
-    }
-
-    #[test]
-    fn test_md_parse_link_title() {
-        assert_eq!(md_parse_link_title("(title)abc"), Ok(("abc", "title")));
-        assert_eq!(md_parse_link_title("(ti(t)le)abc"), Ok(("abc", "ti(t)le")));
-        assert_eq!(
-            md_parse_link_title(r#""1\\23\"4\'56"abc"#),
-            Ok(("abc", r#"1\\23\"4\'56"#))
-        );
-        assert_eq!(
-            md_parse_link_title("\"tu\nvwxy\"abc"),
-            Ok(("abc", "tu\nvwxy"))
-        );
-        assert_eq!(
-            md_parse_link_title("'tu\nv\\\'wxy'abc"),
-            Ok(("abc", "tu\nv\\\'wxy"))
-        );
-        assert_eq!(
-            md_parse_link_title("(ti\n\ntle)abc"),
-            Err(nom::Err::Error(nom::error::Error::new(
-                "(ti\n\ntle)abc",
-                ErrorKind::Verify
-            )))
         );
     }
 
@@ -509,6 +503,31 @@ mod tests {
         );
         assert_eq!(
             md_link_title("(ti\n\ntle)abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "(ti\n\ntle)abc",
+                ErrorKind::Verify
+            )))
+        );
+    }
+
+    #[test]
+    fn test_md_parse_link_title() {
+        assert_eq!(md_parse_link_title("(title)abc"), Ok(("abc", "title")));
+        assert_eq!(md_parse_link_title("(ti(t)le)abc"), Ok(("abc", "ti(t)le")));
+        assert_eq!(
+            md_parse_link_title(r#""1\\23\"4\'56"abc"#),
+            Ok(("abc", r#"1\\23\"4\'56"#))
+        );
+        assert_eq!(
+            md_parse_link_title("\"tu\nvwxy\"abc"),
+            Ok(("abc", "tu\nvwxy"))
+        );
+        assert_eq!(
+            md_parse_link_title("'tu\nv\\\'wxy'abc"),
+            Ok(("abc", "tu\nv\\\'wxy"))
+        );
+        assert_eq!(
+            md_parse_link_title("(ti\n\ntle)abc"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "(ti\n\ntle)abc",
                 ErrorKind::Verify
