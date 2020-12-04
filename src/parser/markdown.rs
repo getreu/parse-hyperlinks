@@ -29,14 +29,7 @@ const ESCAPABLE: &str = r#"\'"()[]{}<>"#;
 pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, link_text) = md_link_text(i)?;
     let (i, (link_destination, link_title)) = md_link_destination_enclosed(i)?;
-    Ok((
-        i,
-        (
-            Cow::Borrowed(link_text),
-            link_destination,
-            Cow::Borrowed(link_title),
-        ),
-    ))
+    Ok((i, (Cow::Borrowed(link_text), link_destination, link_title)))
 }
 
 /// Matches a Markdown link reference definition.
@@ -68,14 +61,7 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
     )(i)
     {
         let (i, link_title) = verify(md_link_title, |s: &str| s.find("\n\n").is_none())(i)?;
-        Ok((
-            i,
-            (
-                Cow::Borrowed(link_text),
-                link_destination,
-                Cow::Borrowed(link_title),
-            ),
-        ))
+        Ok((i, (Cow::Borrowed(link_text), link_destination, link_title)))
     } else {
         Ok((
             i,
@@ -123,13 +109,9 @@ fn md_link_ref_text(i: &str) -> nom::IResult<&str, &str> {
 }
 
 /// This is a wrapper around `md_parse_link_destination()`. It takes its result
-/// and transforms the escaped characters `\\`, \<` and `\>` into `\`, `<` and
-/// `>` with the help of `md_escaped_link_destination_transform()`.
+/// and removes the `\` before the escaped characters `ESCAPABLE`.
 fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
-    nom::combinator::map_parser(
-        md_parse_link_destination,
-        md_escaped_str_transform,
-    )(i)
+    nom::combinator::map_parser(md_parse_link_destination, md_escaped_str_transform)(i)
 }
 
 /// A [link destination](https://spec.commonmark.org/0.29/#link-destination)
@@ -178,7 +160,7 @@ fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
 }
 
 /// Matches `md_link_destination` in parenthesis.
-fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, &str)> {
+fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     let (rest, inner) =
         nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")"))(i)?;
     let (i, link_destination) = md_link_destination(inner)?;
@@ -186,8 +168,14 @@ fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, &str)>
         let (_, link_title) = md_link_title(i)?;
         Ok((rest, (link_destination, link_title)))
     } else {
-        Ok((rest, (link_destination, "")))
+        Ok((rest, (link_destination, Cow::from(""))))
     }
+}
+
+/// This is a wrapper around `md_parse_link_title()`. It takes its result
+/// and removes the `\` before the escaped characters `ESCAPABLE`.
+fn md_link_title(i: &str) -> nom::IResult<&str, Cow<str>> {
+    nom::combinator::map_parser(md_parse_link_title, md_escaped_str_transform)(i)
 }
 
 /// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-title)
@@ -206,7 +194,7 @@ fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, &str)>
 ///  Although [link titles](https://spec.commonmark.org/0.29/#link-title) may
 ///  span multiple lines, they may not contain a [blank
 ///  line](https://spec.commonmark.org/0.29/#blank-line).
-fn md_link_title(i: &str) -> nom::IResult<&str, &str> {
+fn md_parse_link_title(i: &str) -> nom::IResult<&str, &str> {
     verify(
         alt((
             nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
@@ -454,33 +442,13 @@ mod tests {
             md_parse_link_destination("ur()l abc"),
             Ok((" abc", "ur()l"))
         );
-        assert_eq!(
-            md_link_title("<url>>abc"),
-            Err(nom::Err::Error(nom::error::Error::new(
-                "<url>>abc",
-                ErrorKind::Tag
-            )))
-        );
-        assert_eq!(
-            md_link_title("<u<rl>abc"),
-            Err(nom::Err::Error(nom::error::Error::new(
-                "<u<rl>abc",
-                ErrorKind::Tag
-            )))
-        );
     }
 
     #[test]
     fn test_md_escaped_link_destination_transform() {
-        assert_eq!(
-            md_escaped_str_transform(""),
-            Ok(("", Cow::from("")))
-        );
+        assert_eq!(md_escaped_str_transform(""), Ok(("", Cow::from(""))));
         // Different than the link destination version.
-        assert_eq!(
-            md_escaped_str_transform("   "),
-            Ok(("", Cow::from("   ")))
-        );
+        assert_eq!(md_escaped_str_transform("   "), Ok(("", Cow::from("   "))));
         assert_eq!(
             md_escaped_str_transform(r#"abc`:<>abc"#),
             Ok(("", Cow::from(r#"abc`:<>abc"#)))
@@ -496,17 +464,48 @@ mod tests {
     }
 
     #[test]
-    fn test_md_link_title() {
-        assert_eq!(md_link_title("(title)abc"), Ok(("abc", "title")));
-        assert_eq!(md_link_title("(ti(t)le)abc"), Ok(("abc", "ti(t)le")));
+    fn test_md_parse_link_title() {
+        assert_eq!(md_parse_link_title("(title)abc"), Ok(("abc", "title")));
+        assert_eq!(md_parse_link_title("(ti(t)le)abc"), Ok(("abc", "ti(t)le")));
         assert_eq!(
-            md_link_title(r#""1\\23\"4\'56"abc"#),
+            md_parse_link_title(r#""1\\23\"4\'56"abc"#),
             Ok(("abc", r#"1\\23\"4\'56"#))
         );
-        assert_eq!(md_link_title("\"tu\nvwxy\"abc"), Ok(("abc", "tu\nvwxy")));
+        assert_eq!(
+            md_parse_link_title("\"tu\nvwxy\"abc"),
+            Ok(("abc", "tu\nvwxy"))
+        );
+        assert_eq!(
+            md_parse_link_title("'tu\nv\\\'wxy'abc"),
+            Ok(("abc", "tu\nv\\\'wxy"))
+        );
+        assert_eq!(
+            md_parse_link_title("(ti\n\ntle)abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "(ti\n\ntle)abc",
+                ErrorKind::Verify
+            )))
+        );
+    }
+
+    #[test]
+    fn test_md_link_title() {
+        assert_eq!(md_link_title("(title)abc"), Ok(("abc", Cow::from("title"))));
+        assert_eq!(
+            md_link_title("(ti(t)le)abc"),
+            Ok(("abc", Cow::from("ti(t)le")))
+        );
+        assert_eq!(
+            md_link_title(r#""1\\23\"4\'56"abc"#),
+            Ok(("abc", Cow::from(r#"1\23"4'56"#)))
+        );
+        assert_eq!(
+            md_link_title("\"tu\nvwxy\"abc"),
+            Ok(("abc", Cow::from("tu\nvwxy")))
+        );
         assert_eq!(
             md_link_title("'tu\nv\\\'wxy'abc"),
-            Ok(("abc", "tu\nv\\\'wxy"))
+            Ok(("abc", Cow::from("tu\nv\'wxy")))
         );
         assert_eq!(
             md_link_title("(ti\n\ntle)abc"),
