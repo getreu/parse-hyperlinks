@@ -11,6 +11,7 @@ use crate::parser::asciidoc::adoc_link;
 use crate::parser::html::html_link;
 use crate::parser::markdown::md_link;
 use crate::parser::markdown::md_link_ref_def;
+use crate::parser::markdown::md_ref;
 use crate::parser::restructured_text::rst_link;
 use crate::parser::restructured_text::rst_link_ref_def;
 use nom::branch::alt;
@@ -124,6 +125,33 @@ pub fn take_inline_or_ref_def_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow
 
 /// Consumes the input until it finds an _inline link_, a _reference link_ or a _link reference definition_.
 /// The parser consumes the finding and returns `Ok((remaining_input, Link))` or some error.
+/// # Basic usage
+///
+/// ```
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::take_link;
+/// use std::borrow::Cow;
+///
+/// let i = r#"[a]: b 'c'
+///            .. _d: e
+///            ---[f](g 'h')---`i <j>`_---
+///            ---[k][l]---
+///            ---<a href="m" title="n">o</a>---
+/// "#;
+///
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r, Link::RefDef(Cow::from("a"), Cow::from("b"), Cow::from("c")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r, Link::RefDef(Cow::from("d"), Cow::from("e"), Cow::from("")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r, Link::Inline(Cow::from("f"), Cow::from("g"), Cow::from("h")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r, Link::Inline(Cow::from("i"), Cow::from("j"), Cow::from("")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r, Link::Ref(Cow::from("k"), Cow::from("l")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r, Link::Inline(Cow::from("o"), Cow::from("m"), Cow::from("n")));
+/// ```
 pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
     let mut input_start = true;
     let res = loop {
@@ -189,9 +217,15 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
             break (j, r);
         };
 
+        // Now at the end, we check for _reference links_.
+        // TODO: at the moment there is only md.
+        if let Ok((j, r)) = md_ref(j) {
+            break (j, r);
+        };
+
         // This makes sure that we advance.
         let (j, _) = anychar(j)?;
-        // To be faster we skip whitespace, if there are any.
+        // To be faster, we skip whitespace, if there is any.
         let (j, _) = space0(j)?;
         i = j;
     };
