@@ -11,21 +11,21 @@ use nom::error::Error;
 use nom::error::ErrorKind;
 use std::borrow::Cow;
 
-/// Parse an HTML inline hyperlink.
+/// Parse an HTML _inline hyperlink_.
 /// It returns either `Ok((i, (link_text, link_destination, link_title)))` or some error.
 ///
 /// The parser expects to start at the link start (`<`) to succeed.
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::html::html_link;
+/// use parse_hyperlinks::parser::html::html_link_text2dest;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   html_link(r#"<a href="destination" title="title">name</a>abc"#),
-///   Ok(("abc", Link::TextDest(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
+///   html_link_text2dest(r#"<a href="destination" title="title">name</a>abc"#),
+///   Ok(("abc", Link::Text2Dest(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
-pub fn html_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn html_link_text2dest(i: &str) -> nom::IResult<&str, Link> {
     let (i, ((link_destination, link_title), link_text)) = nom::sequence::terminated(
         nom::sequence::pair(
             tag_a_opening,
@@ -39,7 +39,7 @@ pub fn html_link(i: &str) -> nom::IResult<&str, Link> {
         alt((tag("</a>"), tag("</A>"))),
     )(i)?;
     let link_text = decode_html_entities(link_text);
-    Ok((i, Link::TextDest(link_text, link_destination, link_title)))
+    Ok((i, Link::Text2Dest(link_text, link_destination, link_title)))
 }
 
 /// Parses a `<a ...>` opening tag and returns
@@ -133,50 +133,54 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_html_link() {
+    fn test_html_link_text2dest() {
         let expected = (
             "abc",
-            Link::TextDest(
+            Link::Text2Dest(
                 Cow::from("W3Schools"),
                 Cow::from("https://www.w3schools.com/"),
                 Cow::from("W3S"),
             ),
         );
         assert_eq!(
-            html_link(r#"<a title="W3S" href="https://www.w3schools.com/">W3Schools</a>abc"#)
-                .unwrap(),
+            html_link_text2dest(
+                r#"<a title="W3S" href="https://www.w3schools.com/">W3Schools</a>abc"#
+            )
+            .unwrap(),
             expected
         );
         assert_eq!(
-            html_link(r#"<A title="W3S" href="https://www.w3schools.com/">W3Schools</A>abc"#)
-                .unwrap(),
-            expected
-        );
-
-        let expected = (
-            "abc",
-            Link::TextDest(Cow::from("<n>"), Cow::from("h"), Cow::from("t")),
-        );
-        assert_eq!(
-            html_link(r#"<a title="t" href="h">&lt;n&gt;</a>abc"#).unwrap(),
+            html_link_text2dest(
+                r#"<A title="W3S" href="https://www.w3schools.com/">W3Schools</A>abc"#
+            )
+            .unwrap(),
             expected
         );
 
         let expected = (
             "abc",
-            Link::TextDest(Cow::from("name"), Cow::from("url"), Cow::from("")),
+            Link::Text2Dest(Cow::from("<n>"), Cow::from("h"), Cow::from("t")),
         );
         assert_eq!(
-            html_link(r#"<a href="url" title="" >name</a>abc"#).unwrap(),
+            html_link_text2dest(r#"<a title="t" href="h">&lt;n&gt;</a>abc"#).unwrap(),
             expected
         );
 
         let expected = (
             "abc",
-            Link::TextDest(Cow::from("na</me"), Cow::from("url"), Cow::from("")),
+            Link::Text2Dest(Cow::from("name"), Cow::from("url"), Cow::from("")),
         );
         assert_eq!(
-            html_link(r#"<a href="url" title="" >na</me</A>abc"#).unwrap(),
+            html_link_text2dest(r#"<a href="url" title="" >name</a>abc"#).unwrap(),
+            expected
+        );
+
+        let expected = (
+            "abc",
+            Link::Text2Dest(Cow::from("na</me"), Cow::from("url"), Cow::from("")),
+        );
+        assert_eq!(
+            html_link_text2dest(r#"<a href="url" title="" >na</me</A>abc"#).unwrap(),
             expected
         );
 

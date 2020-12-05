@@ -8,17 +8,18 @@ use nom::combinator::*;
 use nom::IResult;
 use std::borrow::Cow;
 
-/// Parse a RestructuredText hyperlink.
+/// Parse a RestructuredText _inline hyperlink_.
+///
 /// The parser expects to start at the link start (\`) to succeed.
 /// This parser always returns an empty `link_title=Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::restructured_text::rst_link;
+/// use parse_hyperlinks::parser::restructured_text::rst_link_text2dest;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   rst_link("`name <destination>`_abc"),
-///   Ok(("abc", Link::TextDest(Cow::from("name"), Cow::from("destination"), Cow::from(""))))
+///   rst_link_text2dest("`name <destination>`_abc"),
+///   Ok(("abc", Link::Text2Dest(Cow::from("name"), Cow::from("destination"), Cow::from(""))))
 /// );
 /// ```
 /// A hyperlink reference may directly embed a destination URI or (since Docutils
@@ -31,12 +32,12 @@ use std::borrow::Cow;
 /// before the end string. For more details see the
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases)
-pub fn rst_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn rst_link_text2dest(i: &str) -> nom::IResult<&str, Link> {
     let (i, (ln, ld)) = rst_parse_link(i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
-    Ok((i, Link::TextDest(ln, ld, Cow::Borrowed(""))))
+    Ok((i, Link::Text2Dest(ln, ld, Cow::Borrowed(""))))
 }
 
 /// Parse a RestructuredText _link reference definition_.
@@ -44,12 +45,12 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, Link> {
 /// This parser always returns an empty `link_title` as `Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::restructured_text::rst_link_ref_def;
+/// use parse_hyperlinks::parser::restructured_text::rst_link_label2dest;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   rst_link_ref_def("   .. _`label`: destination\nabc"),
-///   Ok(("\nabc", Link::LabelDest(Cow::from("label"), Cow::from("destination"), Cow::from(""))))
+///   rst_link_label2dest("   .. _`label`: destination\nabc"),
+///   Ok(("\nabc", Link::Label2Dest(Cow::from("label"), Cow::from("destination"), Cow::from(""))))
 /// );
 /// ```
 /// Here some examples for link references:
@@ -57,8 +58,8 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, Link> {
 /// .. _Python home page: http://www.python.org
 /// .. _`Python: home page`: http://www.python.org
 /// ```
-/// See unit test `test_rst_link_ref_def()` for more examples.
-pub fn rst_link_ref_def(i: &str) -> nom::IResult<&str, Link> {
+/// See unit test `test_rst_link_label2dest()` for more examples.
+pub fn rst_link_label2dest(i: &str) -> nom::IResult<&str, Link> {
     let my_err = |_| {
         nom::Err::Error(nom::error::Error::new(
             i,
@@ -70,7 +71,7 @@ pub fn rst_link_ref_def(i: &str) -> nom::IResult<&str, Link> {
 
     let (ln, ld) = match c {
         Cow::Borrowed(s) => {
-            let (_, (ln, ld)) = rst_parse_link_ref_def(s)?;
+            let (_, (ln, ld)) = rst_parse_link_label2dest(s)?;
             (
                 rst_escaped_link_text_transform(ln)?.1,
                 rst_escaped_link_destination_transform(ld)?.1,
@@ -78,7 +79,7 @@ pub fn rst_link_ref_def(i: &str) -> nom::IResult<&str, Link> {
         }
 
         Cow::Owned(strg) => {
-            let (_, (ln, ld)) = rst_parse_link_ref_def(&strg).map_err(my_err)?;
+            let (_, (ln, ld)) = rst_parse_link_label2dest(&strg).map_err(my_err)?;
             let ln = Cow::Owned(
                 rst_escaped_link_text_transform(ln)
                     .map_err(my_err)?
@@ -95,7 +96,7 @@ pub fn rst_link_ref_def(i: &str) -> nom::IResult<&str, Link> {
         }
     };
 
-    Ok((i, Link::LabelDest(ln, ld, Cow::Borrowed(""))))
+    Ok((i, Link::Label2Dest(ln, ld, Cow::Borrowed(""))))
 }
 
 /// This parser used by `rst_link()`, does all the work that can be
@@ -147,7 +148,7 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// * the colon must be backslash escaped.
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets)
-fn rst_parse_link_ref_def(i: &str) -> nom::IResult<&str, (&str, &str)> {
+fn rst_parse_link_label2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (i, _) = nom::character::complete::char('_')(i)?;
     let (link_destination, link_text) = alt((
         nom::sequence::delimited(
@@ -330,78 +331,81 @@ mod tests {
     fn test_rst_link() {
         let expected = (
             "abc",
-            Link::TextDest(
+            Link::Text2Dest(
                 Cow::from("Python home page"),
                 Cow::from("http://www.python.org"),
                 Cow::from(""),
             ),
         );
         assert_eq!(
-            rst_link("`Python home page <http://www.python.org>`_abc").unwrap(),
+            rst_link_text2dest("`Python home page <http://www.python.org>`_abc").unwrap(),
             expected
         );
         assert_eq!(
-            rst_link("`Python home page <http://www.python.org>`__abc").unwrap(),
+            rst_link_text2dest("`Python home page <http://www.python.org>`__abc").unwrap(),
             expected
         );
 
         let expected = (
             "",
-            Link::TextDest(
+            Link::Text2Dest(
                 Cow::from(r#"Python<home> page"#),
                 Cow::from("http://www.python.org"),
                 Cow::from(""),
             ),
         );
         assert_eq!(
-            rst_link(r#"`Python\ \<home\> page <http://www.python.org>`_"#).unwrap(),
+            rst_link_text2dest(r#"`Python\ \<home\> page <http://www.python.org>`_"#).unwrap(),
             expected
         );
 
         let expected = (
             "",
-            Link::TextDest(
+            Link::Text2Dest(
                 Cow::from(r#"my news at <http://python.org>"#),
                 Cow::from("http://news.python.org"),
                 Cow::from(""),
             ),
         );
         assert_eq!(
-            rst_link(r#"`my news at \<http://python.org\> <http://news.python.org>`_"#).unwrap(),
+            rst_link_text2dest(r#"`my news at \<http://python.org\> <http://news.python.org>`_"#)
+                .unwrap(),
             expected
         );
 
         let expected = (
             "",
-            Link::TextDest(
+            Link::Text2Dest(
                 Cow::from(r#"my news at <http://python.org>"#),
                 Cow::from(r#"http://news. <python>.org"#),
                 Cow::from(""),
             ),
         );
         assert_eq!(
-            rst_link(r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_"#)
-                .unwrap(),
+            rst_link_text2dest(
+                r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_"#
+            )
+            .unwrap(),
             expected
         );
     }
 
     #[test]
-    fn test_rst_link_ref_def() {
+    fn test_rst_link_label2dest() {
         let expected = (
             "\nabc",
-            Link::LabelDest(
+            Link::Label2Dest(
                 Cow::from("Python: home page"),
                 Cow::from("http://www.python.org"),
                 Cow::from(""),
             ),
         );
         assert_eq!(
-            rst_link_ref_def(".. _`Python: home page`: http://www.python.org\nabc").unwrap(),
+            rst_link_label2dest(".. _`Python: home page`: http://www.python.org\nabc").unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref_def("  .. _`Python: home page`: http://www.py\n     thon.org    \nabc")
+            rst_link_label2dest("  .. _`Python: home page`: http://www.py\n     thon.org    \nabc")
                 .unwrap(),
             expected
         );
@@ -411,65 +415,68 @@ mod tests {
             ErrorKind::Tag,
         ));
         assert_eq!(
-            rst_link_ref_def("x .. _`Python: home page`: http://www.python.org\nabc").unwrap_err(),
+            rst_link_label2dest("x .. _`Python: home page`: http://www.python.org\nabc")
+                .unwrap_err(),
             expected
         );
 
         let expected = (
             "",
-            Link::LabelDest(
+            Link::Label2Dest(
                 Cow::from("Python: `home page`"),
                 Cow::from("http://www.python .org"),
                 Cow::from(""),
             ),
         );
         assert_eq!(
-            rst_link_ref_def(r#".. _Python\: \`home page\`: http://www.python\ .org"#).unwrap(),
+            rst_link_label2dest(r#".. _Python\: \`home page\`: http://www.python\ .org"#).unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref_def(r#".. _`Python: \`home page\``: http://www.python\ .org"#).unwrap(),
+            rst_link_label2dest(r#".. _`Python: \`home page\``: http://www.python\ .org"#).unwrap(),
             expected
         );
 
         let expected = (
             "",
-            Link::LabelDest(
+            Link::Label2Dest(
                 Cow::from("my news at <http://python.org>"),
                 Cow::from("http://news.python.org"),
                 Cow::from(""),
             ),
         );
         assert_eq!(
-            rst_link_ref_def(r#".. _`my news at <http://python.org>`: http://news.python.org"#)
+            rst_link_label2dest(r#".. _`my news at <http://python.org>`: http://news.python.org"#)
                 .unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref_def(r#".. _`my news at \<http://python.org\>`: http://news.python.org"#)
-                .unwrap(),
+            rst_link_label2dest(
+                r#".. _`my news at \<http://python.org\>`: http://news.python.org"#
+            )
+            .unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref_def(r#".. _my news at \<http\://python.org\>: http://news.python.org"#)
+            rst_link_label2dest(r#".. _my news at \<http\://python.org\>: http://news.python.org"#)
                 .unwrap(),
             expected
         );
 
         let expected = (
             "",
-            Link::LabelDest(
+            Link::Label2Dest(
                 Cow::from("my news"),
                 Cow::from("http://news.<python>.org"),
                 Cow::from(""),
             ),
         );
         assert_eq!(
-            rst_link_ref_def(r#".. _my news: http://news.<python>.org"#).unwrap(),
+            rst_link_label2dest(r#".. _my news: http://news.<python>.org"#).unwrap(),
             expected
         );
         assert_eq!(
-            rst_link_ref_def(r#".. _my news: http://news.\<python\>.org"#).unwrap(),
+            rst_link_label2dest(r#".. _my news: http://news.\<python\>.org"#).unwrap(),
             expected
         );
     }
@@ -518,26 +525,26 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_parse_link_ref_def() {
+    fn test_rst_parse_link_label2dest() {
         let expected = ("", ("Python home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_ref_def("_Python home page: http://www.python.org").unwrap(),
+            rst_parse_link_label2dest("_Python home page: http://www.python.org").unwrap(),
             expected
         );
         assert_eq!(
-            rst_parse_link_ref_def("_`Python home page`: http://www.python.org").unwrap(),
+            rst_parse_link_label2dest("_`Python home page`: http://www.python.org").unwrap(),
             expected
         );
 
         let expected = ("", ("Python: home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_ref_def("_`Python: home page`: http://www.python.org").unwrap(),
+            rst_parse_link_label2dest("_`Python: home page`: http://www.python.org").unwrap(),
             expected
         );
 
         let expected = ("", (r#"Python\: home page"#, "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_ref_def(r#"_Python\: home page: http://www.python.org"#).unwrap(),
+            rst_parse_link_label2dest(r#"_Python\: home page: http://www.python.org"#).unwrap(),
             expected
         );
 
@@ -546,8 +553,10 @@ mod tests {
             ("my news at <http://python.org>", "http://news.python.org"),
         );
         assert_eq!(
-            rst_parse_link_ref_def(r#"_`my news at <http://python.org>`: http://news.python.org"#)
-                .unwrap(),
+            rst_parse_link_label2dest(
+                r#"_`my news at <http://python.org>`: http://news.python.org"#
+            )
+            .unwrap(),
             expected
         );
 
@@ -559,7 +568,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_link_ref_def(
+            rst_parse_link_label2dest(
                 r#"_`my news at \<http://python.org\>`: http://news.python.org"#
             )
             .unwrap(),
@@ -574,8 +583,10 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_link_ref_def(r#"_my news at \<http\://python.org\>: http://news.python.org"#)
-                .unwrap(),
+            rst_parse_link_label2dest(
+                r#"_my news at \<http\://python.org\>: http://news.python.org"#
+            )
+            .unwrap(),
             expected
         );
     }

@@ -7,13 +7,13 @@ pub mod html;
 pub mod markdown;
 pub mod restructured_text;
 
-use crate::parser::asciidoc::adoc_link;
-use crate::parser::html::html_link;
-use crate::parser::markdown::md_link;
-use crate::parser::markdown::md_link_ref_def;
-use crate::parser::markdown::md_ref;
-use crate::parser::restructured_text::rst_link;
-use crate::parser::restructured_text::rst_link_ref_def;
+use crate::parser::asciidoc::adoc_link_text2dest;
+use crate::parser::html::html_link_text2dest;
+use crate::parser::markdown::md_link_label2dest;
+use crate::parser::markdown::md_link_text2dest;
+use crate::parser::markdown::md_link_text2label;
+use crate::parser::restructured_text::rst_link_label2dest;
+use crate::parser::restructured_text::rst_link_text2dest;
 use nom::branch::alt;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
@@ -29,28 +29,28 @@ pub enum Link<'a> {
     /// immediately after the link text. When the _inline link_ is rendered, only
     /// the `link_text` is visible in the continuos text.
     ///
-    /// The tuple definition: `TextDest(link_text, link_destination, link_title)`
-    TextDest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
+    /// The tuple definition: `Text2Dest(link_text, link_destination, link_title)`
+    Text2Dest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
     /// In **reference links** the destination and title are defined elsewhere in
     /// the document in some _link reference definition_. When a _reference link_
     /// is rendered only the `link_text` is visible in the continuos text.
     ///
-    /// Tuple definition: `TextLabel(link_text, link_label)`
-    TextLabel(Cow<'a, str>, Cow<'a, str>),
+    /// Tuple definition: `Text2Label(link_text, link_label)`
+    Text2Label(Cow<'a, str>, Cow<'a, str>),
     /// A **link reference definition** refers to a _reference link_ with the
     /// same _link label_. A _link reference definition_ is not visible
     /// when the document is rendered.
     ///
-    /// Tuple definition: `LabelDest(link_label, link_destination, link_title)`
-    LabelDest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
+    /// Tuple definition: `Label2Dest(link_label, link_destination, link_title)`
+    Label2Dest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
     /// The **reference alias** defines an alternative link label
     /// `alt_link_label` for an existing `link_label` defined elsewhere in the
     /// document. At some point the `link_label` needs to be resolved to a
     /// `link_destination` by some _link_reference_definition_. A _reference
     /// alias_ is not visible when the document is rendered.
     ///
-    /// Tuple definition: `LabelLabel(alt_link_label, link_label)`
-    LabelLabel(Cow<'a, str>, Cow<'a, str>),
+    /// Tuple definition: `Label2Label(alt_link_label, link_label)`
+    Label2Label(Cow<'a, str>, Cow<'a, str>),
 }
 
 /// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or
@@ -123,8 +123,8 @@ pub fn take_inline_or_ref_def_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow
     let mut j = i;
     loop {
         match take_link(j) {
-            Ok((j, Link::TextDest(lte, ld, lti))) => return Ok((j, (lte, ld, lti))),
-            Ok((j, Link::LabelDest(ll, ld, lti))) => return Ok((j, (ll, ld, lti))),
+            Ok((j, Link::Text2Dest(lte, ld, lti))) => return Ok((j, (lte, ld, lti))),
+            Ok((j, Link::Label2Dest(ll, ld, lti))) => return Ok((j, (ll, ld, lti))),
             // We ignore `Link::Ref()` and `Link::RefAlias`. Instead we continue parsing.
             Ok((k, _)) => {
                 j = k;
@@ -152,17 +152,17 @@ pub fn take_inline_or_ref_def_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow
 /// "#;
 ///
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::LabelDest(Cow::from("a"), Cow::from("b"), Cow::from("c")));
+/// assert_eq!(r, Link::Label2Dest(Cow::from("a"), Cow::from("b"), Cow::from("c")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::LabelDest(Cow::from("d"), Cow::from("e"), Cow::from("")));
+/// assert_eq!(r, Link::Label2Dest(Cow::from("d"), Cow::from("e"), Cow::from("")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::TextDest(Cow::from("f"), Cow::from("g"), Cow::from("h")));
+/// assert_eq!(r, Link::Text2Dest(Cow::from("f"), Cow::from("g"), Cow::from("h")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::TextDest(Cow::from("i"), Cow::from("j"), Cow::from("")));
+/// assert_eq!(r, Link::Text2Dest(Cow::from("i"), Cow::from("j"), Cow::from("")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::TextLabel(Cow::from("k"), Cow::from("l")));
+/// assert_eq!(r, Link::Text2Label(Cow::from("k"), Cow::from("l")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::TextDest(Cow::from("o"), Cow::from("m"), Cow::from("n")));
+/// assert_eq!(r, Link::Text2Dest(Cow::from("o"), Cow::from("m"), Cow::from("n")));
 /// ```
 pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
     let mut input_start = true;
@@ -208,10 +208,10 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 
         // Are we at the beginning of a line?
         if line_start || input_start {
-            if let Ok((j, r)) = alt((md_link_ref_def, rst_link_ref_def))(j) {
+            if let Ok((j, r)) = alt((md_link_label2dest, rst_link_label2dest))(j) {
                 break (j, r);
             };
-            if let Ok((j, r)) = adoc_link(j) {
+            if let Ok((j, r)) = adoc_link_text2dest(j) {
                 break (j, r);
             };
         };
@@ -219,19 +219,19 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 
         // Are we on a whitespace? Then, check for `adoc_link`.
         if let Ok(_) = nom::character::complete::space1::<_, nom::error::Error<_>>(j) {
-            if let Ok((j, r)) = adoc_link(j) {
+            if let Ok((j, r)) = adoc_link_text2dest(j) {
                 break (j, r);
             };
         }
 
         // Regular links can start everywhere.
-        if let Ok((j, r)) = alt((rst_link, md_link, html_link))(j) {
+        if let Ok((j, r)) = alt((rst_link_text2dest, md_link_text2dest, html_link_text2dest))(j) {
             break (j, r);
         };
 
         // Now at the end, we check for _reference links_.
         // TODO: at the moment there is only md.
-        if let Ok((j, r)) = md_ref(j) {
+        if let Ok((j, r)) = md_link_text2label(j) {
             break (j, r);
         };
 
@@ -252,7 +252,7 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
     // recognized in the middle of a line.
     // It is sufficient to do this check once, because both parser guarantee to
     // consume the whole line in case of success.
-    if let Ok((i, _)) = alt((rst_link_ref_def, md_link_ref_def))(res.0) {
+    if let Ok((i, _)) = alt((rst_link_label2dest, md_link_label2dest))(res.0) {
         Ok((i, res.1))
     } else {
         Ok(res)
@@ -288,7 +288,7 @@ pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
 pub fn hyperlink_list(_i: &str) -> Result<Vec<Link>, nom::error::Error<&str>> {
     unimplemented!();
     // return something like.
-    // Ok(vec![Link::TextDest(Cow::from(""), Cow::from(""), Cow::from(""))])
+    // Ok(vec![Link::Text2Dest(Cow::from(""), Cow::from(""), Cow::from(""))])
 }
 */
 

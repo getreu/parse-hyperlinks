@@ -11,7 +11,7 @@ use nom::error::ErrorKind;
 use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
-/// Parses an Asciidoc inline link.
+/// Parses an Asciidoc _inline link_.
 ///
 /// This parser expects to start at the first letter of `http://`,
 /// `https://`, `link:http://` or `link:https://` (preceded by optional
@@ -26,22 +26,22 @@ use std::borrow::Cow;
 /// `link_title` is always the empty `Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::asciidoc::adoc_link;
+/// use parse_hyperlinks::parser::asciidoc::adoc_link_text2dest;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   adoc_link(r#"https://destination[name]abc"#),
-///   Ok(("abc", Link::TextDest(Cow::from("name"), Cow::from("https://destination"), Cow::from(""))))
+///   adoc_link_text2dest(r#"https://destination[name]abc"#),
+///   Ok(("abc", Link::Text2Dest(Cow::from("name"), Cow::from("https://destination"), Cow::from(""))))
 /// );
 /// ```
-pub fn adoc_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn adoc_link_text2dest(i: &str) -> nom::IResult<&str, Link> {
     let (i, (link_destination, link_text)) = nom::sequence::preceded(
         space0,
         nom::sequence::pair(adoc_link_destination, adoc_link_text),
     )(i)?;
     Ok((
         i,
-        Link::TextDest(link_text, link_destination, Cow::Borrowed("")),
+        Link::Text2Dest(link_text, link_destination, Cow::Borrowed("")),
     ))
 }
 
@@ -224,12 +224,12 @@ mod tests {
     use std::matches;
 
     #[test]
-    fn test_adoc_link() {
+    fn test_adoc_link_text2dest() {
         assert_eq!(
-            adoc_link("http://getreu.net[My blog]abc"),
+            adoc_link_text2dest("http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                Link::TextDest(
+                Link::Text2Dest(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -238,10 +238,10 @@ mod tests {
         );
 
         assert_eq!(
-            adoc_link("  \t  http://getreu.net[My blog]abc"),
+            adoc_link_text2dest("  \t  http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                Link::TextDest(
+                Link::Text2Dest(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -250,10 +250,10 @@ mod tests {
         );
 
         assert_eq!(
-            adoc_link(r#"http://getreu.net[My blog[1\]]abc"#),
+            adoc_link_text2dest(r#"http://getreu.net[My blog[1\]]abc"#),
             Ok((
                 "abc",
-                Link::TextDest(
+                Link::Text2Dest(
                     Cow::from("My blog[1]"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -262,10 +262,10 @@ mod tests {
         );
 
         assert_eq!(
-            adoc_link("http://getreu.net[My\n    blog]abc"),
+            adoc_link_text2dest("http://getreu.net[My\n    blog]abc"),
             Ok((
                 "abc",
-                Link::TextDest(
+                Link::Text2Dest(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -274,10 +274,10 @@ mod tests {
         );
 
         assert_eq!(
-            adoc_link("link:http://getreu.net[My blog]abc"),
+            adoc_link_text2dest("link:http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                Link::TextDest(
+                Link::Text2Dest(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -286,10 +286,10 @@ mod tests {
         );
 
         assert_eq!(
-            adoc_link("link:https://getreu.net/?q=%5Ba%20b%5D[My blog]abc"),
+            adoc_link_text2dest("link:https://getreu.net/?q=%5Ba%20b%5D[My blog]abc"),
             Ok((
                 "abc",
-                Link::TextDest(
+                Link::Text2Dest(
                     Cow::from("My blog"),
                     Cow::from("https://getreu.net/?q=[a b]"),
                     Cow::from("")
@@ -298,10 +298,10 @@ mod tests {
         );
 
         assert_eq!(
-            adoc_link("link:++https://getreu.net/?q=[a b]++[My blog]abc"),
+            adoc_link_text2dest("link:++https://getreu.net/?q=[a b]++[My blog]abc"),
             Ok((
                 "abc",
-                Link::TextDest(
+                Link::Text2Dest(
                     Cow::from("My blog"),
                     Cow::from("https://getreu.net/?q=[a b]"),
                     Cow::from("")
