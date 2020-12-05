@@ -22,6 +22,7 @@ use std::borrow::Cow;
 
 /// A link can be an _inline link_, a _reference link_ or a _link reference definition_.
 /// This is the main return type of this API.
+#[derive(Debug, PartialEq)]
 pub enum Link<'a> {
     /// In (stand alone) _inline links_ the destination and title are given
     /// immediately after the link text.
@@ -167,25 +168,25 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 
         // Are we at the beginning of a line?
         if line_start || input_start {
-            if let Ok((j, (ll, ld, lti))) = alt((md_link_ref_def, rst_link_ref_def))(j) {
-                break (j, Link::RefDef(ll, ld, lti));
+            if let Ok((j, r)) = alt((md_link_ref_def, rst_link_ref_def))(j) {
+                break (j, r);
             };
-            if let Ok((j, (ll, ld, lti))) = adoc_link(j) {
-                break (j, Link::Inline(ll, ld, lti));
+            if let Ok((j, r)) = adoc_link(j) {
+                break (j, r);
             };
         };
         input_start = false;
 
         // Are we on a whitespace? Then, check for `adoc_link`.
         if let Ok(_) = nom::character::complete::space1::<_, nom::error::Error<_>>(j) {
-            if let Ok((j, (ll, ld, lti))) = adoc_link(j) {
-                break (j, Link::Inline(ll, ld, lti));
+            if let Ok((j, r)) = adoc_link(j) {
+                break (j, r);
             };
         }
 
         // Regular links can start everywhere.
-        if let Ok((j, (ll, ld, lti))) = alt((rst_link, md_link, html_link))(j) {
-            break (j, Link::RefDef(ll, ld, lti));
+        if let Ok((j, r)) = alt((rst_link, md_link, html_link))(j) {
+            break (j, r);
         };
 
         // This makes sure that we advance.

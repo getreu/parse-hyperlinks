@@ -1,6 +1,7 @@
 //! This module implements parsers for HTML hyperlinks.
 #![allow(dead_code)]
 
+use crate::parser::Link;
 use html_escape::decode_html_entities;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
@@ -15,15 +16,16 @@ use std::borrow::Cow;
 ///
 /// The parser expects to start at the link start (`<`) to succeed.
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::html::html_link;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   html_link(r#"<a href="destination" title="title">name</a>abc"#),
-///   Ok(("abc", (Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
+///   Ok(("abc", Link::Inline(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
-pub fn html_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn html_link(i: &str) -> nom::IResult<&str, Link> {
     let (i, ((link_destination, link_title), link_text)) = nom::sequence::terminated(
         nom::sequence::pair(
             tag_a_opening,
@@ -37,7 +39,7 @@ pub fn html_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> 
         alt((tag("</a>"), tag("</A>"))),
     )(i)?;
     let link_text = decode_html_entities(link_text);
-    Ok((i, (link_text, link_destination, link_title)))
+    Ok((i, Link::Inline(link_text, link_destination, link_title)))
 }
 
 /// Parses a `<a ...>` opening tag and returns
@@ -134,7 +136,7 @@ mod tests {
     fn test_html_link() {
         let expected = (
             "abc",
-            (
+            Link::Inline(
                 Cow::from("W3Schools"),
                 Cow::from("https://www.w3schools.com/"),
                 Cow::from("W3S"),
@@ -151,13 +153,19 @@ mod tests {
             expected
         );
 
-        let expected = ("abc", (Cow::from("<n>"), Cow::from("h"), Cow::from("t")));
+        let expected = (
+            "abc",
+            Link::Inline(Cow::from("<n>"), Cow::from("h"), Cow::from("t")),
+        );
         assert_eq!(
             html_link(r#"<a title="t" href="h">&lt;n&gt;</a>abc"#).unwrap(),
             expected
         );
 
-        let expected = ("abc", (Cow::from("name"), Cow::from("url"), Cow::from("")));
+        let expected = (
+            "abc",
+            Link::Inline(Cow::from("name"), Cow::from("url"), Cow::from("")),
+        );
         assert_eq!(
             html_link(r#"<a href="url" title="" >name</a>abc"#).unwrap(),
             expected
@@ -165,7 +173,7 @@ mod tests {
 
         let expected = (
             "abc",
-            (Cow::from("na</me"), Cow::from("url"), Cow::from("")),
+            Link::Inline(Cow::from("na</me"), Cow::from("url"), Cow::from("")),
         );
         assert_eq!(
             html_link(r#"<a href="url" title="" >na</me</A>abc"#).unwrap(),

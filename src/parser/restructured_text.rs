@@ -1,6 +1,7 @@
 //! This module implements parsers for RestructuredText hyperlinks.
 #![allow(dead_code)]
 
+use crate::parser::Link;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::*;
@@ -9,15 +10,15 @@ use std::borrow::Cow;
 
 /// Parse a RestructuredText hyperlink.
 /// The parser expects to start at the link start (\`) to succeed.
-/// It returns either `Ok((i, (link_text, link_destination, link_title)))` or some error.
 /// This parser always returns an empty `link_title=Cow::Borrowed("")`.
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::restructured_text::rst_link;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   rst_link("`name <destination>`_abc"),
-///   Ok(("abc", (Cow::from("name"), Cow::from("destination"), Cow::from(""))))
+///   Ok(("abc", Link::Inline(Cow::from("name"), Cow::from("destination"), Cow::from(""))))
 /// );
 /// ```
 /// A hyperlink reference may directly embed a destination URI or (since Docutils
@@ -30,26 +31,25 @@ use std::borrow::Cow;
 /// before the end string. For more details see the
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases)
-pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn rst_link(i: &str) -> nom::IResult<&str, Link> {
     let (i, (ln, ld)) = rst_parse_link(i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
-    Ok((i, (ln, ld, Cow::Borrowed(""))))
+    Ok((i, Link::Inline(ln, ld, Cow::Borrowed(""))))
 }
 
-/// Parse a RestructuredText link reference definition.
-/// It returns either `Ok((i, (link_label, link_destination, link_title)))` or
-/// some error.
+/// Parse a RestructuredText _link reference definition_.
 ///
 /// This parser always returns an empty `link_title` as `Cow::Borrowed("")`.
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::restructured_text::rst_link_ref_def;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   rst_link_ref_def("   .. _`label`: destination\nabc"),
-///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from(""))))
+///   Ok(("\nabc", Link::RefDef(Cow::from("label"), Cow::from("destination"), Cow::from(""))))
 /// );
 /// ```
 /// Here some examples for link references:
@@ -58,7 +58,7 @@ pub fn rst_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
 /// .. _`Python: home page`: http://www.python.org
 /// ```
 /// See unit test `test_rst_link_ref_def()` for more examples.
-pub fn rst_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn rst_link_ref_def(i: &str) -> nom::IResult<&str, Link> {
     let my_err = |_| {
         nom::Err::Error(nom::error::Error::new(
             i,
@@ -95,7 +95,7 @@ pub fn rst_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<
         }
     };
 
-    Ok((i, (ln, ld, Cow::Borrowed(""))))
+    Ok((i, Link::RefDef(ln, ld, Cow::Borrowed(""))))
 }
 
 /// This parser used by `rst_link()`, does all the work that can be
@@ -330,7 +330,7 @@ mod tests {
     fn test_rst_link() {
         let expected = (
             "abc",
-            (
+            Link::Inline(
                 Cow::from("Python home page"),
                 Cow::from("http://www.python.org"),
                 Cow::from(""),
@@ -347,7 +347,7 @@ mod tests {
 
         let expected = (
             "",
-            (
+            Link::Inline(
                 Cow::from(r#"Python<home> page"#),
                 Cow::from("http://www.python.org"),
                 Cow::from(""),
@@ -360,7 +360,7 @@ mod tests {
 
         let expected = (
             "",
-            (
+            Link::Inline(
                 Cow::from(r#"my news at <http://python.org>"#),
                 Cow::from("http://news.python.org"),
                 Cow::from(""),
@@ -373,7 +373,7 @@ mod tests {
 
         let expected = (
             "",
-            (
+            Link::Inline(
                 Cow::from(r#"my news at <http://python.org>"#),
                 Cow::from(r#"http://news. <python>.org"#),
                 Cow::from(""),
@@ -390,7 +390,7 @@ mod tests {
     fn test_rst_link_ref_def() {
         let expected = (
             "\nabc",
-            (
+            Link::RefDef(
                 Cow::from("Python: home page"),
                 Cow::from("http://www.python.org"),
                 Cow::from(""),
@@ -417,7 +417,7 @@ mod tests {
 
         let expected = (
             "",
-            (
+            Link::RefDef(
                 Cow::from("Python: `home page`"),
                 Cow::from("http://www.python .org"),
                 Cow::from(""),
@@ -434,7 +434,7 @@ mod tests {
 
         let expected = (
             "",
-            (
+            Link::RefDef(
                 Cow::from("my news at <http://python.org>"),
                 Cow::from("http://news.python.org"),
                 Cow::from(""),
@@ -458,7 +458,7 @@ mod tests {
 
         let expected = (
             "",
-            (
+            Link::RefDef(
                 Cow::from("my news"),
                 Cow::from("http://news.<python>.org"),
                 Cow::from(""),

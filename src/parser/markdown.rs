@@ -1,6 +1,7 @@
 //! This module implements parsers for Markdown hyperlinks.
 #![allow(dead_code)]
 
+use crate::parser::Link;
 use crate::take_until_unbalanced;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -13,38 +14,36 @@ use std::borrow::Cow;
 const ESCAPABLE: &str = r#"\'"()[]{}<>"#;
 
 /// Parses a Markdown _inline link_.
-/// It returns either `Ok((i, (link_text, link_destination, link_title)))` or some
-/// error.
 ///
 /// This parser expects to start at the beginning of the link `[` to succeed.
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::markdown::md_link;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   md_link(r#"[name](<destination> "title")abc"#),
-///   Ok(("abc", (Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
+///   Ok(("abc", Link::Inline(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
-pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn md_link(i: &str) -> nom::IResult<&str, Link> {
     let (i, link_text) = md_link_text(i)?;
     let (i, (link_destination, link_title)) = md_link_destination_enclosed(i)?;
-    Ok((i, (link_text, link_destination, link_title)))
+    Ok((i, Link::Inline(link_text, link_destination, link_title)))
 }
 
 /// Matches a Markdown _link reference definition_.
-/// It returns either `Ok((i, (link_label, link_destination, link_title)))` or
-/// some error.
 ///
 /// The caller must guarantee, that the parser starts at first character of the
 /// input or at the first character of a line.
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::markdown::md_link_ref_def;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   md_link_ref_def("   [label]: <destination> 'title'\nabc"),
-///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
+///   Ok(("\nabc", Link::RefDef(Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
 /// CommonMark Spec: A [link reference definition] consists of a [link
@@ -67,7 +66,7 @@ pub fn md_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
 /// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
 /// [non-whitespace characters]: https://spec.commonmark.org/0.29/#non-whitespace-character
 ///
-pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, Link> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
     let (i, link_text) = md_link_label(i)?;
@@ -82,15 +81,16 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
     )(i)
     {
         let (i, link_title) = verify(md_link_title, |s: &str| s.find("\n\n").is_none())(i)?;
-        Ok((i, (link_text, link_destination, link_title)))
+        Ok((i, Link::RefDef(link_text, link_destination, link_title)))
     } else {
-        Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
+        Ok((
+            i,
+            Link::RefDef(link_text, link_destination, Cow::Borrowed("")),
+        ))
     }
 }
 
 /// Parse a Markdown _reference link_.
-/// The parser returns either `Ok((i, (link_text, link_destination,
-/// Cow::from(""))))` or some error.
 ///
 /// There are three kinds of reference links: full, collapsed, and shortcut.
 /// 1. A full reference link consists of a link text immediately followed by a
@@ -110,30 +110,32 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
 /// This parser expects to start at the beginning of the link `[` to succeed.
 /// It should always run at last position after all other parsers.
 /// ```rust
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::markdown::md_ref;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   md_ref("[link text][link label]abc"),
-///   Ok(("abc", (Cow::from("link text"), Cow::from("link label"))))
+///   Ok(("abc", Link::Ref(Cow::from("link text"), Cow::from("link label"))))
 /// );
 /// assert_eq!(
 ///   md_ref("[link text][]abc"),
-///   Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
+///   Ok(("abc", Link::Ref(Cow::from("link text"), Cow::from("link text"))))
 /// );
 /// assert_eq!(
 ///   md_ref("[link text]abc"),
-///   Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
+///   Ok(("abc", Link::Ref(Cow::from("link text"), Cow::from("link text"))))
 /// );
 /// ```
-pub fn md_ref(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
-    alt((
+pub fn md_ref(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (link_text, link_label)) = alt((
         nom::sequence::pair(md_link_text, md_link_label),
         nom::combinator::map(nom::sequence::terminated(md_link_text, tag("[]")), |s| {
             (s.clone(), s)
         }),
         nom::combinator::map(md_link_text, |s| (s.clone(), s)),
-    ))(i)
+    ))(i)?;
+    Ok((i, Link::Ref(link_text, link_label)))
 }
 
 /// Parses _link text_.
@@ -156,7 +158,7 @@ fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// be at least one non-whitespace character. Unescaped square bracket characters
 /// are not allowed inside the opening and closing square brackets of link
 /// labels. A link label can have at most 999 characters inside the square
-/// brackets.
+/// brackets (TODO).
 /// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-label)
 fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
@@ -291,20 +293,23 @@ mod tests {
     fn test_md_link() {
         assert_eq!(
             md_link("[text](url)abc"),
-            Ok(("abc", (Cow::from("text"), Cow::from("url"), Cow::from(""))))
+            Ok((
+                "abc",
+                Link::Inline(Cow::from("text"), Cow::from("url"), Cow::from(""))
+            ))
         );
         assert_eq!(
             md_link("[text[i]](url)abc"),
             Ok((
                 "abc",
-                (Cow::from("text[i]"), Cow::from("url"), Cow::from(""))
+                Link::Inline(Cow::from("text[i]"), Cow::from("url"), Cow::from(""))
             ))
         );
         assert_eq!(
             md_link("[text[i]](ur(l))abc"),
             Ok((
                 "abc",
-                (Cow::from("text[i]"), Cow::from("ur(l)"), Cow::from(""))
+                Link::Inline(Cow::from("text[i]"), Cow::from("ur(l)"), Cow::from(""))
             ))
         );
         assert_eq!(
@@ -313,20 +318,23 @@ mod tests {
         );
         assert_eq!(
             md_link("[text](<url>)abc"),
-            Ok(("abc", (Cow::from("text"), Cow::from("url"), Cow::from(""))))
+            Ok((
+                "abc",
+                Link::Inline(Cow::from("text"), Cow::from("url"), Cow::from(""))
+            ))
         );
         assert_eq!(
             md_link("[text](<url> \"link title\")abc"),
             Ok((
                 "abc",
-                (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
+                Link::Inline(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
         assert_eq!(
             md_link("[text](url \"link title\")abc"),
             Ok((
                 "abc",
-                (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
+                Link::Inline(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
     }
@@ -335,11 +343,17 @@ mod tests {
     fn test_md_link_ref_def() {
         assert_eq!(
             md_link_ref_def("[text]: url\n\"abc\""),
-            Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from("abc"))))
+            Ok((
+                "",
+                Link::RefDef(Cow::from("text"), Cow::from("url"), Cow::from("abc"))
+            ))
         );
         assert_eq!(
             md_link_ref_def("   [text]: url\n\"abc\""),
-            Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from("abc"))))
+            Ok((
+                "",
+                Link::RefDef(Cow::from("text"), Cow::from("url"), Cow::from("abc"))
+            ))
         );
         assert_eq!(
             md_link_ref_def("abc[text]: url\n\"abc\""),
@@ -360,7 +374,7 @@ mod tests {
             md_link_ref_def(r#"[text\[i\]]: ur(l)url"#),
             Ok((
                 "",
-                (Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
+                Link::RefDef(Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
             ))
         );
         // Nested but balanced not allowed for link labels.
@@ -374,7 +388,10 @@ mod tests {
         // Whitespace can have one newline.
         assert_eq!(
             md_link_ref_def("[text]: \nurl"),
-            Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from(""))))
+            Ok((
+                "",
+                Link::RefDef(Cow::from("text"), Cow::from("url"), Cow::from(""))
+            ))
         );
         // But only one newline is allowed.
         assert_eq!(
@@ -399,14 +416,14 @@ mod tests {
             md_link_ref_def("[text]: url \"link title\"\nabc"),
             Ok((
                 "\nabc",
-                (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
+                Link::RefDef(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
         assert_eq!(
             md_link_ref_def("[text]: url \"link\ntitle\"\nabc"),
             Ok((
                 "\nabc",
-                (
+                Link::RefDef(
                     Cow::from("text"),
                     Cow::from("url"),
                     Cow::from("link\ntitle")
@@ -424,7 +441,7 @@ mod tests {
             md_link_ref_def("[text]:\nurl \"link\ntitle\"\nabc"),
             Ok((
                 "\nabc",
-                (
+                Link::RefDef(
                     Cow::from("text"),
                     Cow::from("url"),
                     Cow::from("link\ntitle")

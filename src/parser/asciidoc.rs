@@ -1,6 +1,7 @@
 //! This module implements parsers for Asciidoc hyperlinks.
 #![allow(dead_code)]
 
+use crate::parser::Link;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::char;
@@ -10,9 +11,7 @@ use nom::error::ErrorKind;
 use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
-/// Parses an Asciidoc inline link. The parser returns either `Ok((i, (link_text,
-/// link_destination, link_title)))` or some error. `link_title` is always the empty
-/// `Cow::Borrowed("")`.
+/// Parses an Asciidoc inline link.
 ///
 /// This parser expects to start at the first letter of `http://`,
 /// `https://`, `link:http://` or `link:https://` (preceded by optional
@@ -23,21 +22,27 @@ use std::borrow::Cow;
 /// * the preceding byte is a newline `\n`.
 ///
 /// When ist starts at a whitespace no further guarantee is required.
+///
+/// `link_title` is always the empty `Cow::Borrowed("")`.
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::asciidoc::adoc_link;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   adoc_link(r#"https://destination[name]abc"#),
-///   Ok(("abc", (Cow::from("name"), Cow::from("https://destination"), Cow::from(""))))
+///   Ok(("abc", Link::Inline(Cow::from("name"), Cow::from("https://destination"), Cow::from(""))))
 /// );
 /// ```
-pub fn adoc_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn adoc_link(i: &str) -> nom::IResult<&str, Link> {
     let (i, (link_destination, link_text)) = nom::sequence::preceded(
         space0,
         nom::sequence::pair(adoc_link_destination, adoc_link_text),
     )(i)?;
-    Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
+    Ok((
+        i,
+        Link::Inline(link_text, link_destination, Cow::Borrowed("")),
+    ))
 }
 
 /// Parses the link name. To succeed the first letter must be `[` and the
@@ -224,7 +229,7 @@ mod tests {
             adoc_link("http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                (
+                Link::Inline(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -236,7 +241,7 @@ mod tests {
             adoc_link("  \t  http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                (
+                Link::Inline(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -248,7 +253,7 @@ mod tests {
             adoc_link(r#"http://getreu.net[My blog[1\]]abc"#),
             Ok((
                 "abc",
-                (
+                Link::Inline(
                     Cow::from("My blog[1]"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -260,7 +265,7 @@ mod tests {
             adoc_link("http://getreu.net[My\n    blog]abc"),
             Ok((
                 "abc",
-                (
+                Link::Inline(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -272,7 +277,7 @@ mod tests {
             adoc_link("link:http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                (
+                Link::Inline(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -284,7 +289,7 @@ mod tests {
             adoc_link("link:https://getreu.net/?q=%5Ba%20b%5D[My blog]abc"),
             Ok((
                 "abc",
-                (
+                Link::Inline(
                     Cow::from("My blog"),
                     Cow::from("https://getreu.net/?q=[a b]"),
                     Cow::from("")
@@ -296,7 +301,7 @@ mod tests {
             adoc_link("link:++https://getreu.net/?q=[a b]++[My blog]abc"),
             Ok((
                 "abc",
-                (
+                Link::Inline(
                     Cow::from("My blog"),
                     Cow::from("https://getreu.net/?q=[a b]"),
                     Cow::from("")
