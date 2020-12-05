@@ -23,7 +23,7 @@ use std::borrow::Cow;
 
 /// A link can be an _inline link_, a _reference link_ or a _link reference
 /// definition_. This is the main return type of this API.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Link<'a> {
     /// In (stand alone) **inline links** the destination and title are given
     /// immediately after the link text. When the _inline link_ is rendered, only
@@ -257,11 +257,19 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
     // recognized in the middle of a line.
     // It is sufficient to do this check once, because both parser guarantee to
     // consume the whole line in case of success.
-    if let Ok((i, _)) = alt((rst_label2dest_link, md_label2dest_link))(res.0) {
-        Ok((i, res.1))
-    } else {
-        Ok(res)
-    }
+    let (mut i, link) = res;
+    if !matches!(&link, Link::Label2Dest{..}) {
+        // Just consume, the result does not matter.
+        let (j, _) = alt((
+            rst_label2dest_link,
+            md_label2dest_link,
+            // If none was found do nothing.
+            nom::combinator::success(link.clone()),
+        ))(i)?;
+        i = j;
+    };
+
+    Ok((i, link))
 }
 
 /// Recognizes hyperlinks in Markdown, RestructuredText, Asciidoc or
@@ -274,7 +282,7 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 /// use parse_hyperlinks::parser::first_hyperlink;
 /// use std::borrow::Cow;
 ///
-/// let i = "abc\n   [u]: v \"w\"abc";
+/// let i = "abc\n   [u]: v \"w\"\nabc";
 ///
 /// let r = first_hyperlink(i);
 /// assert_eq!(r, Some((Cow::from("u"), Cow::from("v"), Cow::from("w"))));
@@ -302,14 +310,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_take_text2dest_label2dest() {
+    fn test_take_link() {
         let expected = nom::Err::Error(nom::error::Error::new("", nom::error::ErrorKind::Eof));
-        let err = take_text2dest_label2dest("").unwrap_err();
+        let err = take_link("").unwrap_err();
         assert_eq!(err, expected);
 
         let i = r#"[md link name]: md_link_destination "md link title"
-abc [md link name](md_link_destination "md link title")abc
-   [md link name]: md_link_destination "md link title"[no-md]: no[no-md]: no
+abc [md link name](md_link_destination "md link title")[no md]: abc[no md]: abc
+   [md link name]: md_link_destination "md link title"
 abc`rst link name <rst_link_destination>`_abc
 abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
 .. _rst link name: rst_link_destination
@@ -320,73 +328,97 @@ abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
 abc https://adoc_link_destination[adoc link name] abc
 "#;
 
-        let expected = (
+        let expected = Link::Label2Dest(
             Cow::from("md link name"),
             Cow::from("md_link_destination"),
             Cow::from("md link title"),
         );
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
-        assert_eq!(res, expected);
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
-        assert_eq!(res, expected);
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
-        let expected = (
+        let expected = Link::Text2Dest(
+            Cow::from("md link name"),
+            Cow::from("md_link_destination"),
+            Cow::from("md link title"),
+        );
+        let (i, res) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Text2Label(Cow::from("no md"), Cow::from("no md"));
+        let (i, res) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+        let (i, res) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Label2Dest(
+            Cow::from("md link name"),
+            Cow::from("md_link_destination"),
+            Cow::from("md link title"),
+        );
+        let (i, res) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Text2Dest(
             Cow::from("rst link name"),
             Cow::from("rst_link_destination"),
             Cow::from(""),
         );
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_link(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
-        assert_eq!(res, expected);
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
-        assert_eq!(res, expected);
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
-        let expected = (
+        let expected = Link::Label2Dest(
+            Cow::from("rst link name"),
+            Cow::from("rst_link_destination"),
+            Cow::from(""),
+        );
+        let (i, res) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+        let (i, res) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Text2Dest(
             Cow::from("html link name"),
             Cow::from("html_link_destination"),
             Cow::from("html link title"),
         );
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
-        let expected = (
+        let expected = Link::Text2Dest(
             Cow::from("adoc link name"),
             Cow::from("https://adoc_link_destination"),
             Cow::from(""),
         );
-        let (_, res) = take_text2dest_label2dest(i).unwrap();
+        let (_, res) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
         // Do we find at the input start also?
         let i = ".. _`My: home page`: http://getreu.net\nabc";
-        let expected = (
+        let expected = Link::Label2Dest(
             Cow::from("My: home page"),
             Cow::from("http://getreu.net"),
             Cow::from(""),
         );
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_link(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(i, "\nabc");
 
         let i = "https://adoc_link_destination[adoc link name]abc";
-        let expected = (
+        let expected = Link::Text2Dest(
             Cow::from("adoc link name"),
             Cow::from("https://adoc_link_destination"),
             Cow::from(""),
         );
-        let (i, res) = take_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_link(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(i, "abc");
     }
 
     #[test]
     fn test_first_hyperlink() {
-        let i = "abc\n   [md link name]: md_link_destination \"md link title\"abc";
+        let i = "abc\n   [md link name]: md_link_destination \"md link title\"  \nabc";
 
         let expected = (
             Cow::from("md link name"),
