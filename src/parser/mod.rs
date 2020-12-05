@@ -7,13 +7,13 @@ pub mod html;
 pub mod markdown;
 pub mod restructured_text;
 
-use crate::parser::asciidoc::adoc_link_text2dest;
-use crate::parser::html::html_link_text2dest;
-use crate::parser::markdown::md_link_label2dest;
-use crate::parser::markdown::md_link_text2dest;
-use crate::parser::markdown::md_link_text2label;
-use crate::parser::restructured_text::rst_link_label2dest;
-use crate::parser::restructured_text::rst_link_text2dest;
+use crate::parser::asciidoc::adoc_text2dest_link;
+use crate::parser::html::html_text2dest_link;
+use crate::parser::markdown::md_label2dest_link;
+use crate::parser::markdown::md_text2dest_link;
+use crate::parser::markdown::md_text2label_link;
+use crate::parser::restructured_text::rst_label2dest_link;
+use crate::parser::restructured_text::rst_text2dest_link;
 use nom::branch::alt;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
@@ -54,10 +54,12 @@ pub enum Link<'a> {
 }
 
 /// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or
-/// HTML _inline hyperlink_ or _link reference definition_. Returns
-/// `Ok((remaining_input, (link_text_or_label, link_destination, link_title)))`.
-/// The parser recognizes only stand alone _inline links_ and _link reference
-/// definitions_, but no _reference links_.
+/// HTML formatted _inline link_ (`Text2Dest`) or
+/// or _link reference definition_ (`Label2Dest`).
+///
+/// Returns `Ok((remaining_input, (link_text_or_label, link_destination,
+/// link_title)))`. The parser recognizes only stand alone _inline links_ and
+/// _link reference definitions_, but no _reference links_.
 ///
 /// # Limitations:
 /// Link reference labels are never resolved into link text. This limitation only
@@ -91,7 +93,7 @@ pub enum Link<'a> {
 /// # Basic usage
 ///
 /// ```
-/// use parse_hyperlinks::parser::take_link_text2dest_label2dest;
+/// use parse_hyperlinks::parser::take_text2dest_label2dest;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"[a]: b 'c'
@@ -99,15 +101,15 @@ pub enum Link<'a> {
 ///            ---[f](g 'h')---`i <j>`_---
 ///            ---<a href="l" title="m">k</a>"#;
 ///
-/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
+/// let (i, r) = take_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("a"), Cow::from("b"), Cow::from("c")));
-/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
+/// let (i, r) = take_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("d"), Cow::from("e"), Cow::from("")));
-/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
+/// let (i, r) = take_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("f"), Cow::from("g"), Cow::from("h")));
-/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
+/// let (i, r) = take_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("i"), Cow::from("j"), Cow::from("")));
-/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
+/// let (i, r) = take_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("k"), Cow::from("l"), Cow::from("m")));
 /// ```
 /// The parser might silently consume some additional bytes after the actual finding: This happens,
@@ -119,9 +121,7 @@ pub enum Link<'a> {
 /// Technically, this parser is a wrapper around `take_link()`, that erases the
 /// link type information and ignores all _reference links_. As it does not
 /// resolve _reference links_, it is much faster than the `hyperlink_list()` function.
-pub fn take_link_text2dest_label2dest(
-    i: &str,
-) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let mut j = i;
     loop {
         match take_link(j) {
@@ -137,7 +137,10 @@ pub fn take_link_text2dest_label2dest(
     }
 }
 
-/// Consumes the input until it finds an _inline link_, a _reference link_ or a _link reference definition_.
+/// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or
+/// HTML formatted _inline link_ (`Text2Dest`), _reference link_ (`Text2Label`),
+/// _link reference definition_ (`Label2Dest`) or _reference alias_ (`Label2Label`).
+///
 /// The parser consumes the finding and returns `Ok((remaining_input, Link))` or some error.
 /// # Basic usage
 ///
@@ -210,10 +213,10 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 
         // Are we at the beginning of a line?
         if line_start || input_start {
-            if let Ok((j, r)) = alt((md_link_label2dest, rst_link_label2dest))(j) {
+            if let Ok((j, r)) = alt((md_label2dest_link, rst_label2dest_link))(j) {
                 break (j, r);
             };
-            if let Ok((j, r)) = adoc_link_text2dest(j) {
+            if let Ok((j, r)) = adoc_text2dest_link(j) {
                 break (j, r);
             };
         };
@@ -221,19 +224,19 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 
         // Are we on a whitespace? Then, check for `adoc_link`.
         if let Ok(_) = nom::character::complete::space1::<_, nom::error::Error<_>>(j) {
-            if let Ok((j, r)) = adoc_link_text2dest(j) {
+            if let Ok((j, r)) = adoc_text2dest_link(j) {
                 break (j, r);
             };
         }
 
         // Regular links can start everywhere.
-        if let Ok((j, r)) = alt((rst_link_text2dest, md_link_text2dest, html_link_text2dest))(j) {
+        if let Ok((j, r)) = alt((rst_text2dest_link, md_text2dest_link, html_text2dest_link))(j) {
             break (j, r);
         };
 
         // Now at the end, we check for _reference links_.
         // TODO: at the moment there is only md.
-        if let Ok((j, r)) = md_link_text2label(j) {
+        if let Ok((j, r)) = md_text2label_link(j) {
             break (j, r);
         };
 
@@ -254,19 +257,19 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
     // recognized in the middle of a line.
     // It is sufficient to do this check once, because both parser guarantee to
     // consume the whole line in case of success.
-    if let Ok((i, _)) = alt((rst_link_label2dest, md_link_label2dest))(res.0) {
+    if let Ok((i, _)) = alt((rst_label2dest_link, md_label2dest_link))(res.0) {
         Ok((i, res.1))
     } else {
         Ok(res)
     }
 }
 
-/// Searches for the first hyperlink or link reference definition in the input
-/// text and returns the finding as a tuple:
-/// `Some((link_text_or_label, link_destination, link_title))`
-/// The function recognizes hyperlinks in Markdown, RestructuredText, Asciidoc or
-/// HTML format. See function `take_link_text2dest_label2dest()` for limitations.
+/// Recognizes hyperlinks in Markdown, RestructuredText, Asciidoc or
+/// HTML format and returns the first hyperlink found as tuple:
+/// `Some((link_text_or_label, link_destination, link_title))`.
 ///
+/// It returns `None` if no hyperlinks were found.
+/// See function `take_text2dest_label2dest()` for limitations.
 /// ```
 /// use parse_hyperlinks::parser::first_hyperlink;
 /// use std::borrow::Cow;
@@ -277,7 +280,7 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 /// assert_eq!(r, Some((Cow::from("u"), Cow::from("v"), Cow::from("w"))));
 /// ```
 pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
-    if let Ok((_, result)) = take_link_text2dest_label2dest(i) {
+    if let Ok((_, result)) = take_text2dest_label2dest(i) {
         Some(result)
     } else {
         None
@@ -289,7 +292,7 @@ pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
 /// vector of the extracted hyperlinks `Vec<Link>` or some error.
 pub fn hyperlink_list(_i: &str) -> Result<Vec<Link>, nom::error::Error<&str>> {
     unimplemented!();
-    // return something like.
+    // returns something like.
     // Ok(vec![Link::Text2Dest(Cow::from(""), Cow::from(""), Cow::from(""))])
 }
 */
@@ -299,9 +302,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_take_link_text2dest_label2dest() {
+    fn test_take_text2dest_label2dest() {
         let expected = nom::Err::Error(nom::error::Error::new("", nom::error::ErrorKind::Eof));
-        let err = take_link_text2dest_label2dest("").unwrap_err();
+        let err = take_text2dest_label2dest("").unwrap_err();
         assert_eq!(err, expected);
 
         let i = r#"[md link name]: md_link_destination "md link title"
@@ -322,11 +325,11 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("md_link_destination"),
             Cow::from("md link title"),
         );
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = (
@@ -334,13 +337,13 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("rst_link_destination"),
             Cow::from(""),
         );
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = (
@@ -348,7 +351,7 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("html_link_destination"),
             Cow::from("html link title"),
         );
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = (
@@ -356,7 +359,7 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("https://adoc_link_destination"),
             Cow::from(""),
         );
-        let (_, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (_, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
 
         // Do we find at the input start also?
@@ -366,7 +369,7 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("http://getreu.net"),
             Cow::from(""),
         );
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(i, "\nabc");
 
@@ -376,7 +379,7 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("https://adoc_link_destination"),
             Cow::from(""),
         );
-        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
+        let (i, res) = take_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(i, "abc");
     }

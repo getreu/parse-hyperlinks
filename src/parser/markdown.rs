@@ -13,23 +13,37 @@ use std::borrow::Cow;
 /// destination_ and _link title_.
 const ESCAPABLE: &str = r#"\'"()[]{}<>"#;
 
+/// Wrapper around `md_text2dest()` that packs the result in
+/// `Link::Text2Dest`.
+pub fn md_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (te, de, ti)) = md_text2dest(i)?;
+    Ok((i, Link::Text2Dest(te, de, ti)))
+}
+
 /// Parses a Markdown _inline link_.
 ///
 /// This parser expects to start at the beginning of the link `[` to succeed.
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::markdown::md_link_text2dest;
+/// use parse_hyperlinks::parser::markdown::md_text2dest;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   md_link_text2dest(r#"[name](<destination> "title")abc"#),
-///   Ok(("abc", Link::Text2Dest(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
+///   md_text2dest(r#"[text](<destination> "title")abc"#),
+///   Ok(("abc", (Cow::from("text"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
-pub fn md_link_text2dest(i: &str) -> nom::IResult<&str, Link> {
+pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, link_text) = md_link_text(i)?;
     let (i, (link_destination, link_title)) = md_link_destination_enclosed(i)?;
-    Ok((i, Link::Text2Dest(link_text, link_destination, link_title)))
+    Ok((i, (link_text, link_destination, link_title)))
+}
+
+/// Wrapper around `md_label2dest()` that packs the result in
+/// `Link::Label2Dest`.
+pub fn md_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (l, d, t)) = md_label2dest(i)?;
+    Ok((i, Link::Label2Dest(l, d, t)))
 }
 
 /// Matches a Markdown _link reference definition_.
@@ -38,12 +52,12 @@ pub fn md_link_text2dest(i: &str) -> nom::IResult<&str, Link> {
 /// input or at the first character of a line.
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::markdown::md_link_label2dest;
+/// use parse_hyperlinks::parser::markdown::md_label2dest;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   md_link_label2dest("   [label]: <destination> 'title'\nabc"),
-///   Ok(("\nabc", Link::Label2Dest(Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
+///   md_label2dest("   [label]: <destination> 'title'\nabc"),
+///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
 /// CommonMark Spec: A [link reference definition] consists of a [link
@@ -66,7 +80,7 @@ pub fn md_link_text2dest(i: &str) -> nom::IResult<&str, Link> {
 /// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
 /// [non-whitespace characters]: https://spec.commonmark.org/0.29/#non-whitespace-character
 ///
-pub fn md_link_label2dest(i: &str) -> nom::IResult<&str, Link> {
+pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
     let (i, link_text) = md_link_label(i)?;
@@ -81,13 +95,17 @@ pub fn md_link_label2dest(i: &str) -> nom::IResult<&str, Link> {
     )(i)
     {
         let (i, link_title) = verify(md_link_title, |s: &str| s.find("\n\n").is_none())(i)?;
-        Ok((i, Link::Label2Dest(link_text, link_destination, link_title)))
+        Ok((i, (link_text, link_destination, link_title)))
     } else {
-        Ok((
-            i,
-            Link::Label2Dest(link_text, link_destination, Cow::Borrowed("")),
-        ))
+        Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
     }
+}
+
+/// Wrapper around `md_text2label()` that packs the result in
+/// `Link::Text2Label`.
+pub fn md_text2label_link(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (t, l)) = md_text2label(i)?;
+    Ok((i, Link::Text2Label(t, l)))
 }
 
 /// Parse a Markdown _reference link_.
@@ -111,23 +129,23 @@ pub fn md_link_label2dest(i: &str) -> nom::IResult<&str, Link> {
 /// It should always run at last position after all other parsers.
 /// ```rust
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::markdown::md_link_text2label;
+/// use parse_hyperlinks::parser::markdown::md_text2label;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   md_link_text2label("[link text][link label]abc"),
-///   Ok(("abc", Link::Text2Label(Cow::from("link text"), Cow::from("link label"))))
+///   md_text2label("[link text][link label]abc"),
+///   Ok(("abc", (Cow::from("link text"), Cow::from("link label"))))
 /// );
 /// assert_eq!(
-///   md_link_text2label("[link text][]abc"),
-///   Ok(("abc", Link::Text2Label(Cow::from("link text"), Cow::from("link text"))))
+///   md_text2label("[link text][]abc"),
+///   Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
 /// );
 /// assert_eq!(
-///   md_link_text2label("[link text]abc"),
-///   Ok(("abc", Link::Text2Label(Cow::from("link text"), Cow::from("link text"))))
+///   md_text2label("[link text]abc"),
+///   Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
 /// );
 /// ```
-pub fn md_link_text2label(i: &str) -> nom::IResult<&str, Link> {
+pub fn md_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     let (i, (link_text, link_label)) = alt((
         nom::sequence::pair(md_link_text, md_link_label),
         nom::combinator::map(nom::sequence::terminated(md_link_text, tag("[]")), |s| {
@@ -135,7 +153,7 @@ pub fn md_link_text2label(i: &str) -> nom::IResult<&str, Link> {
         }),
         nom::combinator::map(md_link_text, |s| (s.clone(), s)),
     ))(i)?;
-    Ok((i, Link::Text2Label(link_text, link_label)))
+    Ok((i, (link_text, link_label)))
 }
 
 /// Parses _link text_.
@@ -290,80 +308,68 @@ mod tests {
     use nom::error::ErrorKind;
 
     #[test]
-    fn test_md_link_text2dest() {
+    fn test_md_text2dest() {
         assert_eq!(
-            md_link_text2dest("[text](url)abc"),
+            md_text2dest("[text](url)abc"),
+            Ok(("abc", (Cow::from("text"), Cow::from("url"), Cow::from(""))))
+        );
+        assert_eq!(
+            md_text2dest("[text[i]](url)abc"),
             Ok((
                 "abc",
-                Link::Text2Dest(Cow::from("text"), Cow::from("url"), Cow::from(""))
+                (Cow::from("text[i]"), Cow::from("url"), Cow::from(""))
             ))
         );
         assert_eq!(
-            md_link_text2dest("[text[i]](url)abc"),
+            md_text2dest("[text[i]](ur(l))abc"),
             Ok((
                 "abc",
-                Link::Text2Dest(Cow::from("text[i]"), Cow::from("url"), Cow::from(""))
+                (Cow::from("text[i]"), Cow::from("ur(l)"), Cow::from(""))
             ))
         );
         assert_eq!(
-            md_link_text2dest("[text[i]](ur(l))abc"),
-            Ok((
-                "abc",
-                Link::Text2Dest(Cow::from("text[i]"), Cow::from("ur(l)"), Cow::from(""))
-            ))
-        );
-        assert_eq!(
-            md_link_text2dest("[text(url)"),
+            md_text2dest("[text(url)"),
             Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
         );
         assert_eq!(
-            md_link_text2dest("[text](<url>)abc"),
+            md_text2dest("[text](<url>)abc"),
+            Ok(("abc", (Cow::from("text"), Cow::from("url"), Cow::from(""))))
+        );
+        assert_eq!(
+            md_text2dest("[text](<url> \"link title\")abc"),
             Ok((
                 "abc",
-                Link::Text2Dest(Cow::from("text"), Cow::from("url"), Cow::from(""))
+                (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
         assert_eq!(
-            md_link_text2dest("[text](<url> \"link title\")abc"),
+            md_text2dest("[text](url \"link title\")abc"),
             Ok((
                 "abc",
-                Link::Text2Dest(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
-            ))
-        );
-        assert_eq!(
-            md_link_text2dest("[text](url \"link title\")abc"),
-            Ok((
-                "abc",
-                Link::Text2Dest(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
+                (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
     }
 
     #[test]
-    fn test_md_link_label2dest() {
+    fn test_md_label2dest() {
         assert_eq!(
-            md_link_label2dest("[text]: url\n\"abc\""),
-            Ok((
-                "",
-                Link::Label2Dest(Cow::from("text"), Cow::from("url"), Cow::from("abc"))
-            ))
+            md_label2dest("[text]: url\n\"abc\""),
+            Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from("abc"))))
         );
         assert_eq!(
-            md_link_label2dest("   [text]: url\n\"abc\""),
-            Ok((
-                "",
-                Link::Label2Dest(Cow::from("text"), Cow::from("url"), Cow::from("abc"))
-            ))
+            md_label2dest("   [text]: url\n\"abc\""),
+            Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from("abc"))))
         );
         assert_eq!(
-            md_link_label2dest("abc[text]: url\n\"abc\""),
+            md_label2dest("abc[text]: url\n\"abc\""),
             Err(nom::Err::Error(nom::error::Error::new(
                 "abc[text]: url\n\"abc\"",
                 ErrorKind::Tag
             )))
         );
         assert_eq!(
-            md_link_label2dest("    [text]: url\n\"abc\""),
+            md_label2dest("    [text]: url\n\"abc\""),
             Err(nom::Err::Error(nom::error::Error::new(
                 " [text]: url\n\"abc\"",
                 ErrorKind::Tag
@@ -371,15 +377,15 @@ mod tests {
         );
         // Nested brackets.
         assert_eq!(
-            md_link_label2dest(r#"[text\[i\]]: ur(l)url"#),
+            md_label2dest(r#"[text\[i\]]: ur(l)url"#),
             Ok((
                 "",
-                Link::Label2Dest(Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
+                (Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
             ))
         );
         // Nested but balanced not allowed for link labels.
         assert_eq!(
-            md_link_label2dest("[text[i]]: ur(l)(url"),
+            md_label2dest("[text[i]]: ur(l)(url"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "[i]]: ur(l)(url",
                 ErrorKind::Tag
@@ -387,43 +393,40 @@ mod tests {
         );
         // Whitespace can have one newline.
         assert_eq!(
-            md_link_label2dest("[text]: \nurl"),
-            Ok((
-                "",
-                Link::Label2Dest(Cow::from("text"), Cow::from("url"), Cow::from(""))
-            ))
+            md_label2dest("[text]: \nurl"),
+            Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from(""))))
         );
         // But only one newline is allowed.
         assert_eq!(
-            md_link_label2dest("[text]: \n\nurl"),
+            md_label2dest("[text]: \n\nurl"),
             Err(nom::Err::Error(nom::error::Error::new(
                 " \n\nurl",
                 ErrorKind::Verify
             )))
         );
         assert_eq!(
-            md_link_label2dest("[text: url"),
+            md_label2dest("[text: url"),
             Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
         );
         assert_eq!(
-            md_link_label2dest("[text] url"),
+            md_label2dest("[text] url"),
             Err(nom::Err::Error(nom::error::Error::new(
                 " url",
                 ErrorKind::Char
             )))
         );
         assert_eq!(
-            md_link_label2dest("[text]: url \"link title\"\nabc"),
+            md_label2dest("[text]: url \"link title\"\nabc"),
             Ok((
                 "\nabc",
-                Link::Label2Dest(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
+                (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
         assert_eq!(
-            md_link_label2dest("[text]: url \"link\ntitle\"\nabc"),
+            md_label2dest("[text]: url \"link\ntitle\"\nabc"),
             Ok((
                 "\nabc",
-                Link::Label2Dest(
+                (
                     Cow::from("text"),
                     Cow::from("url"),
                     Cow::from("link\ntitle")
@@ -431,17 +434,17 @@ mod tests {
             ))
         );
         assert_eq!(
-            md_link_label2dest("[text]: url \"link\n\ntitle\"\nabc"),
+            md_label2dest("[text]: url \"link\n\ntitle\"\nabc"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "\"link\n\ntitle\"\nabc",
                 ErrorKind::Verify
             )))
         );
         assert_eq!(
-            md_link_label2dest("[text]:\nurl \"link\ntitle\"\nabc"),
+            md_label2dest("[text]:\nurl \"link\ntitle\"\nabc"),
             Ok((
                 "\nabc",
-                Link::Label2Dest(
+                (
                     Cow::from("text"),
                     Cow::from("url"),
                     Cow::from("link\ntitle")
@@ -449,7 +452,7 @@ mod tests {
             ))
         );
         assert_eq!(
-            md_link_label2dest("[text]:\n\nurl \"link title\"\nabc"),
+            md_label2dest("[text]:\n\nurl \"link title\"\nabc"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "\n\nurl \"link title\"\nabc",
                 ErrorKind::Verify
