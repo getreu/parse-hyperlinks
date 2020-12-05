@@ -91,7 +91,7 @@ pub enum Link<'a> {
 /// # Basic usage
 ///
 /// ```
-/// use parse_hyperlinks::parser::take_inline_or_ref_def_link;
+/// use parse_hyperlinks::parser::take_link_text2dest_label2dest;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"[a]: b 'c'
@@ -99,15 +99,15 @@ pub enum Link<'a> {
 ///            ---[f](g 'h')---`i <j>`_---
 ///            ---<a href="l" title="m">k</a>"#;
 ///
-/// let (i, r) = take_inline_or_ref_def_link(i).unwrap();
+/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("a"), Cow::from("b"), Cow::from("c")));
-/// let (i, r) = take_inline_or_ref_def_link(i).unwrap();
+/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("d"), Cow::from("e"), Cow::from("")));
-/// let (i, r) = take_inline_or_ref_def_link(i).unwrap();
+/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("f"), Cow::from("g"), Cow::from("h")));
-/// let (i, r) = take_inline_or_ref_def_link(i).unwrap();
+/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("i"), Cow::from("j"), Cow::from("")));
-/// let (i, r) = take_inline_or_ref_def_link(i).unwrap();
+/// let (i, r) = take_link_text2dest_label2dest(i).unwrap();
 /// assert_eq!(r, (Cow::from("k"), Cow::from("l"), Cow::from("m")));
 /// ```
 /// The parser might silently consume some additional bytes after the actual finding: This happens,
@@ -119,7 +119,9 @@ pub enum Link<'a> {
 /// Technically, this parser is a wrapper around `take_link()`, that erases the
 /// link type information and ignores all _reference links_. As it does not
 /// resolve _reference links_, it is much faster than the `hyperlink_list()` function.
-pub fn take_inline_or_ref_def_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn take_link_text2dest_label2dest(
+    i: &str,
+) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let mut j = i;
     loop {
         match take_link(j) {
@@ -263,7 +265,7 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 /// text and returns the finding as a tuple:
 /// `Some((link_text_or_label, link_destination, link_title))`
 /// The function recognizes hyperlinks in Markdown, RestructuredText, Asciidoc or
-/// HTML format. See function `take_inline_or_ref_def_link()` for limitations.
+/// HTML format. See function `take_link_text2dest_label2dest()` for limitations.
 ///
 /// ```
 /// use parse_hyperlinks::parser::first_hyperlink;
@@ -275,7 +277,7 @@ pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
 /// assert_eq!(r, Some((Cow::from("u"), Cow::from("v"), Cow::from("w"))));
 /// ```
 pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
-    if let Ok((_, result)) = take_inline_or_ref_def_link(i) {
+    if let Ok((_, result)) = take_link_text2dest_label2dest(i) {
         Some(result)
     } else {
         None
@@ -297,9 +299,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_take_inline_or_ref_def_link() {
+    fn test_take_link_text2dest_label2dest() {
         let expected = nom::Err::Error(nom::error::Error::new("", nom::error::ErrorKind::Eof));
-        let err = take_inline_or_ref_def_link("").unwrap_err();
+        let err = take_link_text2dest_label2dest("").unwrap_err();
         assert_eq!(err, expected);
 
         let i = r#"[md link name]: md_link_destination "md link title"
@@ -320,11 +322,11 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("md_link_destination"),
             Cow::from("md link title"),
         );
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = (
@@ -332,13 +334,13 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("rst_link_destination"),
             Cow::from(""),
         );
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = (
@@ -346,7 +348,7 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("html_link_destination"),
             Cow::from("html link title"),
         );
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = (
@@ -354,7 +356,7 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("https://adoc_link_destination"),
             Cow::from(""),
         );
-        let (_, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (_, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
 
         // Do we find at the input start also?
@@ -364,7 +366,7 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("http://getreu.net"),
             Cow::from(""),
         );
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(i, "\nabc");
 
@@ -374,7 +376,7 @@ abc https://adoc_link_destination[adoc link name] abc
             Cow::from("https://adoc_link_destination"),
             Cow::from(""),
         );
-        let (i, res) = take_inline_or_ref_def_link(i).unwrap();
+        let (i, res) = take_link_text2dest_label2dest(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(i, "abc");
     }
