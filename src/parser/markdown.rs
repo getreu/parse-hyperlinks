@@ -49,7 +49,8 @@ pub fn md_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// Matches a Markdown _link reference definition_.
 ///
 /// The caller must guarantee, that the parser starts at first character of the
-/// input or at the first character of a line.
+/// input or at the first character of a line. The parser consumes all bytes
+/// until the end of the line.
 /// ```
 /// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::markdown::md_label2dest;
@@ -83,22 +84,37 @@ pub fn md_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
+    // Take label.
     let (i, link_text) = md_link_label(i)?;
     let (i, _) = nom::character::complete::char(':')(i)?;
+    // Take spaces.
     let (i, _) = verify(nom::character::complete::multispace1, |s: &str| {
         s.find("\n\n").is_none()
     })(i)?;
+    // Take destination.
     let (i, link_destination) = md_link_destination(i)?;
-    if let Ok((i, _)) = verify(
-        nom::character::complete::multispace1::<_, (_, ErrorKind)>,
-        |s: &str| s.find("\n\n").is_none(),
-    )(i)
-    {
-        let (i, link_title) = verify(md_link_title, |s: &str| s.find("\n\n").is_none())(i)?;
-        Ok((i, (link_text, link_destination, link_title)))
-    } else {
-        Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
+    // Try, but do not fail.
+    let (i, link_title) = alt((
+        nom::sequence::preceded(
+            // Take space.
+            verify(nom::character::complete::multispace1, |s: &str| {
+                s.find("\n\n").is_none()
+            }),
+            // Take link title.
+            verify(md_link_title, |s: &str| s.find("\n\n").is_none()),
+        ),
+        nom::combinator::success(Cow::from("")),
+    ))(i)?;
+
+    // Now consume as much whitespace as possible.
+    let (i, _) = nom::character::complete::space0(i)?;
+
+    // Check if there is newline coming. Do not consume.
+    if i != "" {
+        let _ = nom::character::complete::newline(i)?;
     }
+
+    Ok((i, (link_text, link_destination, link_title)))
 }
 
 /// Wrapper around `md_text2label()` that packs the result in
@@ -434,10 +450,10 @@ mod tests {
             ))
         );
         assert_eq!(
-            md_label2dest("[text]: url \"link\n\ntitle\"\nabc"),
+            md_label2dest("[text]: url \"link\ntitle\"abc"),
             Err(nom::Err::Error(nom::error::Error::new(
-                "\"link\n\ntitle\"\nabc",
-                ErrorKind::Verify
+                "abc",
+                ErrorKind::Char
             )))
         );
         assert_eq!(
@@ -450,6 +466,13 @@ mod tests {
                     Cow::from("link\ntitle")
                 )
             ))
+        );
+        assert_eq!(
+            md_label2dest("[text]: url \"link\n\ntitle\"\nabc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "\"link\n\ntitle\"\nabc",
+                ErrorKind::Char
+            )))
         );
         assert_eq!(
             md_label2dest("[text]:\n\nurl \"link title\"\nabc"),

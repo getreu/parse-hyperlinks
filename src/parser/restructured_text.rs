@@ -18,7 +18,8 @@ pub fn rst_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// Parse a RestructuredText _inline hyperlink_.
 ///
 /// The parser expects to start at the link start (\`) to succeed.
-/// This parser always returns an empty `link_title=Cow::Borrowed("")`.
+/// As rst does not know about link titles,
+/// the parser always returns an empty `link_title` as `Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::restructured_text::rst_text2dest;
@@ -54,9 +55,10 @@ pub fn rst_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
     Ok((i, Link::Label2Dest(l, d, t)))
 }
 
-/// Parse a RestructuredText _link reference definition_.
+/// Parse a reStructuredText _link reference definition_.
 ///
-/// This parser always returns an empty `link_title` as `Cow::Borrowed("")`.
+/// This parser consumes until the end of the line. As rst does not know about link titles,
+/// the parser always returns an empty `link_title` as `Cow::Borrowed("")`.
 /// ```
 /// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::restructured_text::rst_label2dest;
@@ -109,6 +111,10 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
             (ln, ld)
         }
     };
+
+    // We do not need to consume whitespace until the end of the line,
+    // because `rst_explicit_markup_block()` had stripped the whitespace
+    // already.
 
     Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
