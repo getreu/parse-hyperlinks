@@ -23,13 +23,13 @@ const ESCAPABLE: &str = r#"\'"()[]{}<>"#;
 ///
 /// assert_eq!(
 ///   md_link(r#"[name](<destination> "title")abc"#),
-///   Ok(("abc", Link::Inline(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
+///   Ok(("abc", Link::TextDest(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
 pub fn md_link(i: &str) -> nom::IResult<&str, Link> {
     let (i, link_text) = md_link_text(i)?;
     let (i, (link_destination, link_title)) = md_link_destination_enclosed(i)?;
-    Ok((i, Link::Inline(link_text, link_destination, link_title)))
+    Ok((i, Link::TextDest(link_text, link_destination, link_title)))
 }
 
 /// Matches a Markdown _link reference definition_.
@@ -43,7 +43,7 @@ pub fn md_link(i: &str) -> nom::IResult<&str, Link> {
 ///
 /// assert_eq!(
 ///   md_link_ref_def("   [label]: <destination> 'title'\nabc"),
-///   Ok(("\nabc", Link::RefDef(Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
+///   Ok(("\nabc", Link::LabelDest(Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
 /// CommonMark Spec: A [link reference definition] consists of a [link
@@ -81,11 +81,11 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, Link> {
     )(i)
     {
         let (i, link_title) = verify(md_link_title, |s: &str| s.find("\n\n").is_none())(i)?;
-        Ok((i, Link::RefDef(link_text, link_destination, link_title)))
+        Ok((i, Link::LabelDest(link_text, link_destination, link_title)))
     } else {
         Ok((
             i,
-            Link::RefDef(link_text, link_destination, Cow::Borrowed("")),
+            Link::LabelDest(link_text, link_destination, Cow::Borrowed("")),
         ))
     }
 }
@@ -116,15 +116,15 @@ pub fn md_link_ref_def(i: &str) -> nom::IResult<&str, Link> {
 ///
 /// assert_eq!(
 ///   md_ref("[link text][link label]abc"),
-///   Ok(("abc", Link::Ref(Cow::from("link text"), Cow::from("link label"))))
+///   Ok(("abc", Link::TextLabel(Cow::from("link text"), Cow::from("link label"))))
 /// );
 /// assert_eq!(
 ///   md_ref("[link text][]abc"),
-///   Ok(("abc", Link::Ref(Cow::from("link text"), Cow::from("link text"))))
+///   Ok(("abc", Link::TextLabel(Cow::from("link text"), Cow::from("link text"))))
 /// );
 /// assert_eq!(
 ///   md_ref("[link text]abc"),
-///   Ok(("abc", Link::Ref(Cow::from("link text"), Cow::from("link text"))))
+///   Ok(("abc", Link::TextLabel(Cow::from("link text"), Cow::from("link text"))))
 /// );
 /// ```
 pub fn md_ref(i: &str) -> nom::IResult<&str, Link> {
@@ -135,7 +135,7 @@ pub fn md_ref(i: &str) -> nom::IResult<&str, Link> {
         }),
         nom::combinator::map(md_link_text, |s| (s.clone(), s)),
     ))(i)?;
-    Ok((i, Link::Ref(link_text, link_label)))
+    Ok((i, Link::TextLabel(link_text, link_label)))
 }
 
 /// Parses _link text_.
@@ -295,21 +295,21 @@ mod tests {
             md_link("[text](url)abc"),
             Ok((
                 "abc",
-                Link::Inline(Cow::from("text"), Cow::from("url"), Cow::from(""))
+                Link::TextDest(Cow::from("text"), Cow::from("url"), Cow::from(""))
             ))
         );
         assert_eq!(
             md_link("[text[i]](url)abc"),
             Ok((
                 "abc",
-                Link::Inline(Cow::from("text[i]"), Cow::from("url"), Cow::from(""))
+                Link::TextDest(Cow::from("text[i]"), Cow::from("url"), Cow::from(""))
             ))
         );
         assert_eq!(
             md_link("[text[i]](ur(l))abc"),
             Ok((
                 "abc",
-                Link::Inline(Cow::from("text[i]"), Cow::from("ur(l)"), Cow::from(""))
+                Link::TextDest(Cow::from("text[i]"), Cow::from("ur(l)"), Cow::from(""))
             ))
         );
         assert_eq!(
@@ -320,21 +320,21 @@ mod tests {
             md_link("[text](<url>)abc"),
             Ok((
                 "abc",
-                Link::Inline(Cow::from("text"), Cow::from("url"), Cow::from(""))
+                Link::TextDest(Cow::from("text"), Cow::from("url"), Cow::from(""))
             ))
         );
         assert_eq!(
             md_link("[text](<url> \"link title\")abc"),
             Ok((
                 "abc",
-                Link::Inline(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
+                Link::TextDest(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
         assert_eq!(
             md_link("[text](url \"link title\")abc"),
             Ok((
                 "abc",
-                Link::Inline(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
+                Link::TextDest(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
     }
@@ -345,14 +345,14 @@ mod tests {
             md_link_ref_def("[text]: url\n\"abc\""),
             Ok((
                 "",
-                Link::RefDef(Cow::from("text"), Cow::from("url"), Cow::from("abc"))
+                Link::LabelDest(Cow::from("text"), Cow::from("url"), Cow::from("abc"))
             ))
         );
         assert_eq!(
             md_link_ref_def("   [text]: url\n\"abc\""),
             Ok((
                 "",
-                Link::RefDef(Cow::from("text"), Cow::from("url"), Cow::from("abc"))
+                Link::LabelDest(Cow::from("text"), Cow::from("url"), Cow::from("abc"))
             ))
         );
         assert_eq!(
@@ -374,7 +374,7 @@ mod tests {
             md_link_ref_def(r#"[text\[i\]]: ur(l)url"#),
             Ok((
                 "",
-                Link::RefDef(Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
+                Link::LabelDest(Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
             ))
         );
         // Nested but balanced not allowed for link labels.
@@ -390,7 +390,7 @@ mod tests {
             md_link_ref_def("[text]: \nurl"),
             Ok((
                 "",
-                Link::RefDef(Cow::from("text"), Cow::from("url"), Cow::from(""))
+                Link::LabelDest(Cow::from("text"), Cow::from("url"), Cow::from(""))
             ))
         );
         // But only one newline is allowed.
@@ -416,14 +416,14 @@ mod tests {
             md_link_ref_def("[text]: url \"link title\"\nabc"),
             Ok((
                 "\nabc",
-                Link::RefDef(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
+                Link::LabelDest(Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
         );
         assert_eq!(
             md_link_ref_def("[text]: url \"link\ntitle\"\nabc"),
             Ok((
                 "\nabc",
-                Link::RefDef(
+                Link::LabelDest(
                     Cow::from("text"),
                     Cow::from("url"),
                     Cow::from("link\ntitle")
@@ -441,7 +441,7 @@ mod tests {
             md_link_ref_def("[text]:\nurl \"link\ntitle\"\nabc"),
             Ok((
                 "\nabc",
-                Link::RefDef(
+                Link::LabelDest(
                     Cow::from("text"),
                     Cow::from("url"),
                     Cow::from("link\ntitle")

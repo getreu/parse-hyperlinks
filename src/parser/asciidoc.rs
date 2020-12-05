@@ -31,7 +31,7 @@ use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   adoc_link(r#"https://destination[name]abc"#),
-///   Ok(("abc", Link::Inline(Cow::from("name"), Cow::from("https://destination"), Cow::from(""))))
+///   Ok(("abc", Link::TextDest(Cow::from("name"), Cow::from("https://destination"), Cow::from(""))))
 /// );
 /// ```
 pub fn adoc_link(i: &str) -> nom::IResult<&str, Link> {
@@ -41,7 +41,7 @@ pub fn adoc_link(i: &str) -> nom::IResult<&str, Link> {
     )(i)?;
     Ok((
         i,
-        Link::Inline(link_text, link_destination, Cow::Borrowed("")),
+        Link::TextDest(link_text, link_destination, Cow::Borrowed("")),
     ))
 }
 
@@ -229,7 +229,7 @@ mod tests {
             adoc_link("http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                Link::Inline(
+                Link::TextDest(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -241,7 +241,7 @@ mod tests {
             adoc_link("  \t  http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                Link::Inline(
+                Link::TextDest(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -253,7 +253,7 @@ mod tests {
             adoc_link(r#"http://getreu.net[My blog[1\]]abc"#),
             Ok((
                 "abc",
-                Link::Inline(
+                Link::TextDest(
                     Cow::from("My blog[1]"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -265,7 +265,7 @@ mod tests {
             adoc_link("http://getreu.net[My\n    blog]abc"),
             Ok((
                 "abc",
-                Link::Inline(
+                Link::TextDest(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -277,7 +277,7 @@ mod tests {
             adoc_link("link:http://getreu.net[My blog]abc"),
             Ok((
                 "abc",
-                Link::Inline(
+                Link::TextDest(
                     Cow::from("My blog"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
@@ -289,7 +289,7 @@ mod tests {
             adoc_link("link:https://getreu.net/?q=%5Ba%20b%5D[My blog]abc"),
             Ok((
                 "abc",
-                Link::Inline(
+                Link::TextDest(
                     Cow::from("My blog"),
                     Cow::from("https://getreu.net/?q=[a b]"),
                     Cow::from("")
@@ -301,7 +301,7 @@ mod tests {
             adoc_link("link:++https://getreu.net/?q=[a b]++[My blog]abc"),
             Ok((
                 "abc",
-                Link::Inline(
+                Link::TextDest(
                     Cow::from("My blog"),
                     Cow::from("https://getreu.net/?q=[a b]"),
                     Cow::from("")

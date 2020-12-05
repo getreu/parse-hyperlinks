@@ -22,7 +22,7 @@ use std::borrow::Cow;
 ///
 /// assert_eq!(
 ///   html_link(r#"<a href="destination" title="title">name</a>abc"#),
-///   Ok(("abc", Link::Inline(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
+///   Ok(("abc", Link::TextDest(Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
 pub fn html_link(i: &str) -> nom::IResult<&str, Link> {
@@ -39,7 +39,7 @@ pub fn html_link(i: &str) -> nom::IResult<&str, Link> {
         alt((tag("</a>"), tag("</A>"))),
     )(i)?;
     let link_text = decode_html_entities(link_text);
-    Ok((i, Link::Inline(link_text, link_destination, link_title)))
+    Ok((i, Link::TextDest(link_text, link_destination, link_title)))
 }
 
 /// Parses a `<a ...>` opening tag and returns
@@ -136,7 +136,7 @@ mod tests {
     fn test_html_link() {
         let expected = (
             "abc",
-            Link::Inline(
+            Link::TextDest(
                 Cow::from("W3Schools"),
                 Cow::from("https://www.w3schools.com/"),
                 Cow::from("W3S"),
@@ -155,7 +155,7 @@ mod tests {
 
         let expected = (
             "abc",
-            Link::Inline(Cow::from("<n>"), Cow::from("h"), Cow::from("t")),
+            Link::TextDest(Cow::from("<n>"), Cow::from("h"), Cow::from("t")),
         );
         assert_eq!(
             html_link(r#"<a title="t" href="h">&lt;n&gt;</a>abc"#).unwrap(),
@@ -164,7 +164,7 @@ mod tests {
 
         let expected = (
             "abc",
-            Link::Inline(Cow::from("name"), Cow::from("url"), Cow::from("")),
+            Link::TextDest(Cow::from("name"), Cow::from("url"), Cow::from("")),
         );
         assert_eq!(
             html_link(r#"<a href="url" title="" >name</a>abc"#).unwrap(),
@@ -173,7 +173,7 @@ mod tests {
 
         let expected = (
             "abc",
-            Link::Inline(Cow::from("na</me"), Cow::from("url"), Cow::from("")),
+            Link::TextDest(Cow::from("na</me"), Cow::from("url"), Cow::from("")),
         );
         assert_eq!(
             html_link(r#"<a href="url" title="" >na</me</A>abc"#).unwrap(),

@@ -21,31 +21,43 @@ use nom::character::complete::space0;
 use nom::combinator::*;
 use std::borrow::Cow;
 
-/// A link can be an _inline link_, a _reference link_ or a _link reference definition_.
-/// This is the main return type of this API.
+/// A link can be an _inline link_, a _reference link_ or a _link reference
+/// definition_. This is the main return type of this API.
 #[derive(Debug, PartialEq)]
 pub enum Link<'a> {
-    /// In (stand alone) _inline links_ the destination and title are given
-    /// immediately after the link text.
+    /// In (stand alone) **inline links** the destination and title are given
+    /// immediately after the link text. When the _inline link_ is rendered, only
+    /// the `link_text` is visible in the continuos text.
     ///
-    /// The tuple definition: `Inline(link_text, link_destination, link_title)`
-    Inline(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
-    /// In _reference links_ the destination and title are defined elsewhere in the document
-    /// in some _link reference definition_.
+    /// The tuple definition: `TextDest(link_text, link_destination, link_title)`
+    TextDest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
+    /// In **reference links** the destination and title are defined elsewhere in
+    /// the document in some _link reference definition_. When a _reference link_
+    /// is rendered only the `link_text` is visible in the continuos text.
     ///
-    /// Tuple definition: `Ref(link_text, link_label)`
-    Ref(Cow<'a, str>, Cow<'a, str>),
-    /// A _link reference definition_ refers to a _reference link_ with the same _link label_.
+    /// Tuple definition: `TextLabel(link_text, link_label)`
+    TextLabel(Cow<'a, str>, Cow<'a, str>),
+    /// A **link reference definition** refers to a _reference link_ with the
+    /// same _link label_. A _link reference definition_ is not visible
+    /// when the document is rendered.
     ///
-    /// Tuple definition: `RefDef(link_label, link_destination, link_title)`
-    RefDef(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
+    /// Tuple definition: `LabelDest(link_label, link_destination, link_title)`
+    LabelDest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
+    /// The **reference alias** defines an alternative link label
+    /// `alt_link_label` for an existing `link_label` defined elsewhere in the
+    /// document. At some point the `link_label` needs to be resolved to a
+    /// `link_destination` by some _link_reference_definition_. A _reference
+    /// alias_ is not visible when the document is rendered.
+    ///
+    /// Tuple definition: `LabelLabel(alt_link_label, link_label)`
+    LabelLabel(Cow<'a, str>, Cow<'a, str>),
 }
 
 /// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or
-/// HTML _inline hyperlink_ or _link reference definition_. Returns `Ok((remaining_input,
-/// (link_text_or_label, link_destination, link_title)))`. The parser recognizes
-/// only stand alone _inline links_ and _link reference definitions_, but no
-/// _reference links_.
+/// HTML _inline hyperlink_ or _link reference definition_. Returns
+/// `Ok((remaining_input, (link_text_or_label, link_destination, link_title)))`.
+/// The parser recognizes only stand alone _inline links_ and _link reference
+/// definitions_, but no _reference links_.
 ///
 /// # Limitations:
 /// Link reference labels are never resolved into link text. This limitation only
@@ -111,10 +123,10 @@ pub fn take_inline_or_ref_def_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow
     let mut j = i;
     loop {
         match take_link(j) {
-            Ok((j, Link::Inline(lte, ld, lti))) => return Ok((j, (lte, ld, lti))),
-            Ok((j, Link::RefDef(ll, ld, lti))) => return Ok((j, (ll, ld, lti))),
-            // We ignore `Link::Ref()`. Instead we continue parsing.
-            Ok((k, Link::Ref(_, _))) => {
+            Ok((j, Link::TextDest(lte, ld, lti))) => return Ok((j, (lte, ld, lti))),
+            Ok((j, Link::LabelDest(ll, ld, lti))) => return Ok((j, (ll, ld, lti))),
+            // We ignore `Link::Ref()` and `Link::RefAlias`. Instead we continue parsing.
+            Ok((k, _)) => {
                 j = k;
                 continue;
             }
@@ -140,17 +152,17 @@ pub fn take_inline_or_ref_def_link(i: &str) -> nom::IResult<&str, (Cow<str>, Cow
 /// "#;
 ///
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::RefDef(Cow::from("a"), Cow::from("b"), Cow::from("c")));
+/// assert_eq!(r, Link::LabelDest(Cow::from("a"), Cow::from("b"), Cow::from("c")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::RefDef(Cow::from("d"), Cow::from("e"), Cow::from("")));
+/// assert_eq!(r, Link::LabelDest(Cow::from("d"), Cow::from("e"), Cow::from("")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::Inline(Cow::from("f"), Cow::from("g"), Cow::from("h")));
+/// assert_eq!(r, Link::TextDest(Cow::from("f"), Cow::from("g"), Cow::from("h")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::Inline(Cow::from("i"), Cow::from("j"), Cow::from("")));
+/// assert_eq!(r, Link::TextDest(Cow::from("i"), Cow::from("j"), Cow::from("")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::Ref(Cow::from("k"), Cow::from("l")));
+/// assert_eq!(r, Link::TextLabel(Cow::from("k"), Cow::from("l")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r, Link::Inline(Cow::from("o"), Cow::from("m"), Cow::from("n")));
+/// assert_eq!(r, Link::TextDest(Cow::from("o"), Cow::from("m"), Cow::from("n")));
 /// ```
 pub fn take_link(mut i: &str) -> nom::IResult<&str, Link> {
     let mut input_start = true;
@@ -276,7 +288,7 @@ pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
 pub fn hyperlink_list(_i: &str) -> Result<Vec<Link>, nom::error::Error<&str>> {
     unimplemented!();
     // return something like.
-    // Ok(vec![Link::Inline(Cow::from(""), Cow::from(""), Cow::from(""))])
+    // Ok(vec![Link::TextDest(Cow::from(""), Cow::from(""), Cow::from(""))])
 }
 */
 
