@@ -12,6 +12,7 @@ use nom::error::ErrorKind;
 use std::borrow::Cow;
 
 /// Parse an HTML _inline hyperlink_.
+///
 /// It returns either `Ok((i, (link_text, link_destination, link_title)))` or some error.
 ///
 /// The parser expects to start at the link start (`<`) to succeed.
