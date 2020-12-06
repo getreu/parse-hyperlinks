@@ -87,6 +87,7 @@ mod tests {
 
     #[test]
     fn test_take_until_unmatched() {
+        assert_eq!(take_until_unbalanced('(', ')')("abc"), Ok(("", "abc")));
         assert_eq!(
             take_until_unbalanced('(', ')')("url)abc"),
             Ok((")abc", "url"))
