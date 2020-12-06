@@ -4,8 +4,11 @@
 FROM rust:latest
 
 # [Optional] Uncomment this section to install additional packages.
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive
      #&& apt-get -y install --no-install-recommends xorg-dev libxcb-xfixes0-dev libxcb-shape0-dev libgtk-3-dev
 
-RUN rustup component add rustfmt
 #RUN cargo install cargo-edit
+RUN rustup component add rustfmt
+
+#rust-analyzer needs this
+RUN rustup component add rust-src
