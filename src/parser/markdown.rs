@@ -5,8 +5,8 @@ use crate::parser::Link;
 use crate::take_until_unbalanced;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
+use nom::character::complete::multispace1;
 use nom::combinator::*;
-use nom::error::ErrorKind;
 use std::borrow::Cow;
 
 /// The following character are escapable in _link text_, _link label_, _link
@@ -95,14 +95,8 @@ pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str
     let (i, link_destination) = md_link_destination(i)?;
     // Try, but do not fail.
     let (i, link_title) = alt((
-        nom::sequence::preceded(
-            // Take space.
-            verify(nom::character::complete::multispace1, |s: &str| {
-                s.find("\n\n").is_none()
-            }),
-            // Take link title.
-            verify(md_link_title, |s: &str| s.find("\n\n").is_none()),
-        ),
+        // Take link title.
+        md_link_title,
         nom::combinator::success(Cow::from("")),
     ))(i)?;
 
@@ -249,12 +243,13 @@ fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<st
     let (rest, inner) =
         nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")"))(i)?;
     let (i, link_destination) = md_link_destination(inner)?;
-    if let Ok((i, _)) = nom::character::complete::multispace1::<_, (_, ErrorKind)>(i) {
-        let (_, link_title) = md_link_title(i)?;
-        Ok((rest, (link_destination, link_title)))
-    } else {
-        Ok((rest, (link_destination, Cow::from(""))))
-    }
+    let (_i, link_title) = alt((
+        // Take link title.
+        md_link_title,
+        nom::combinator::success(Cow::from("")),
+    ))(i)?;
+
+    Ok((rest, (link_destination, link_title)))
 }
 
 /// This is a wrapper around `md_parse_link_title()`. It takes its result
@@ -263,6 +258,8 @@ fn md_link_title(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(md_parse_link_title, md_escaped_str_transform)(i)
 }
 
+/// A link title is always preceded one or more whitespace inluding
+/// one newline.
 /// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-title)
 /// A [link title](https://spec.commonmark.org/0.29/#link-title) consists of either
 ///
@@ -280,29 +277,32 @@ fn md_link_title(i: &str) -> nom::IResult<&str, Cow<str>> {
 ///  span multiple lines, they may not contain a [blank
 ///  line](https://spec.commonmark.org/0.29/#blank-line).
 fn md_parse_link_title(i: &str) -> nom::IResult<&str, &str> {
-    verify(
-        alt((
-            nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
-            nom::sequence::delimited(
-                tag("'"),
-                nom::bytes::complete::escaped(
-                    nom::character::complete::none_of(r#"\'"#),
-                    '\\',
-                    nom::character::complete::one_of(ESCAPABLE),
+    nom::sequence::preceded(
+        verify(multispace1, |s: &str| s.find("\n\n").is_none()),
+        verify(
+            alt((
+                nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
+                nom::sequence::delimited(
+                    tag("'"),
+                    nom::bytes::complete::escaped(
+                        nom::character::complete::none_of(r#"\'"#),
+                        '\\',
+                        nom::character::complete::one_of(ESCAPABLE),
+                    ),
+                    tag("'"),
                 ),
-                tag("'"),
-            ),
-            nom::sequence::delimited(
-                tag("\""),
-                nom::bytes::complete::escaped(
-                    nom::character::complete::none_of(r#"\""#),
-                    '\\',
-                    nom::character::complete::one_of(ESCAPABLE),
+                nom::sequence::delimited(
+                    tag("\""),
+                    nom::bytes::complete::escaped(
+                        nom::character::complete::none_of(r#"\""#),
+                        '\\',
+                        nom::character::complete::one_of(ESCAPABLE),
+                    ),
+                    tag("\""),
                 ),
-                tag("\""),
-            ),
-        )),
-        |s: &str| s.find("\n\n").is_none(),
+            )),
+            |s: &str| s.find("\n\n").is_none(),
+        ),
     )(i)
 }
 
@@ -370,32 +370,66 @@ mod tests {
     #[test]
     fn test_md_label2dest() {
         assert_eq!(
-            md_label2dest("[text]: url\n\"abc\""),
-            Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from("abc"))))
+            md_label2dest("[text]: url\nabc"),
+            Ok((
+                "\nabc",
+                (Cow::from("text"), Cow::from("url"), Cow::from(""))
+            ))
         );
         assert_eq!(
-            md_label2dest("   [text]: url\n\"abc\""),
-            Ok(("", (Cow::from("text"), Cow::from("url"), Cow::from("abc"))))
+            md_label2dest("[text]: url  \nabc"),
+            Ok((
+                "\nabc",
+                (Cow::from("text"), Cow::from("url"), Cow::from(""))
+            ))
         );
         assert_eq!(
-            md_label2dest("abc[text]: url\n\"abc\""),
+            md_label2dest("[text]: <url url> \nabc"),
+            Ok((
+                "\nabc",
+                (Cow::from("text"), Cow::from("url url"), Cow::from(""))
+            ))
+        );
+        assert_eq!(
+            md_label2dest("[text]: url \"title\"\nabc"),
+            Ok((
+                "\nabc",
+                (Cow::from("text"), Cow::from("url"), Cow::from("title"))
+            ))
+        );
+        assert_eq!(
+            md_label2dest("[text]: url\n\"title\"\nabc"),
+            Ok((
+                "\nabc",
+                (Cow::from("text"), Cow::from("url"), Cow::from("title"))
+            ))
+        );
+        assert_eq!(
+            md_label2dest("   [text]: url\n\"title\"\nabc"),
+            Ok((
+                "\nabc",
+                (Cow::from("text"), Cow::from("url"), Cow::from("title"))
+            ))
+        );
+        assert_eq!(
+            md_label2dest("abc[text]: url\n\"title\""),
             Err(nom::Err::Error(nom::error::Error::new(
-                "abc[text]: url\n\"abc\"",
+                "abc[text]: url\n\"title\"",
                 ErrorKind::Tag
             )))
         );
         assert_eq!(
-            md_label2dest("    [text]: url\n\"abc\""),
+            md_label2dest("    [text]: url\n\"title\" abc"),
             Err(nom::Err::Error(nom::error::Error::new(
-                " [text]: url\n\"abc\"",
+                " [text]: url\n\"title\" abc",
                 ErrorKind::Tag
             )))
         );
         // Nested brackets.
         assert_eq!(
-            md_label2dest(r#"[text\[i\]]: ur(l)url"#),
+            md_label2dest("[text\\[i\\]]: ur(l)url\nabc"),
             Ok((
-                "",
+                "\nabc",
                 (Cow::from("text[i]"), Cow::from("ur(l)url"), Cow::from(""))
             ))
         );
@@ -529,12 +563,33 @@ mod tests {
     #[test]
     fn test_md_link_destination() {
         assert_eq!(
+            md_link_destination("url  abc"),
+            Ok(("  abc", Cow::from("url")))
+        );
+        assert_eq!(md_link_destination("url"), Ok(("", Cow::from("url"))));
+        assert_eq!(
+            md_link_destination("url\nabc"),
+            Ok(("\nabc", Cow::from("url")))
+        );
+        assert_eq!(
             md_link_destination("<url>abc"),
             Ok(("abc", Cow::from("url")))
         );
         assert_eq!(
             md_link_destination(r#"<u\<r\>l>abc"#),
             Ok(("abc", Cow::from(r#"u<r>l"#)))
+        );
+        assert_eq!(
+            md_link_destination(r#"u\)r\(l abc"#),
+            Ok((" abc", Cow::from(r#"u)r(l"#)))
+        );
+        assert_eq!(
+            md_link_destination(r#"u(r)l abc"#),
+            Ok((" abc", Cow::from(r#"u(r)l"#)))
+        );
+        assert_eq!(
+            md_link_destination("u(r)l\nabc"),
+            Ok(("\nabc", Cow::from(r#"u(r)l"#)))
         );
     }
 
@@ -544,6 +599,14 @@ mod tests {
         assert_eq!(
             md_parse_link_destination(r#"<u\<r\>l>abc"#),
             Ok(("abc", r#"u\<r\>l"#))
+        );
+        assert_eq!(
+            md_link_destination("<url> abc"),
+            Ok((" abc", Cow::from("url")))
+        );
+        assert_eq!(
+            md_link_destination("<url>\nabc"),
+            Ok(("\nabc", Cow::from("url")))
         );
         assert_eq!(
             md_parse_link_destination("<url 2>abc"),
@@ -561,6 +624,10 @@ mod tests {
         assert_eq!(
             md_parse_link_destination("ur()l abc"),
             Ok((" abc", "ur()l"))
+        );
+        assert_eq!(
+            md_parse_link_destination("ur()l\nabc"),
+            Ok(("\nabc", "ur()l"))
         );
     }
 
@@ -585,25 +652,32 @@ mod tests {
 
     #[test]
     fn test_md_link_title() {
-        assert_eq!(md_link_title("(title)abc"), Ok(("abc", Cow::from("title"))));
         assert_eq!(
-            md_link_title("(ti(t)le)abc"),
+            md_link_title(" (title)abc"),
+            Ok(("abc", Cow::from("title")))
+        );
+        assert_eq!(
+            md_link_title(" (ti(t)le)abc"),
             Ok(("abc", Cow::from("ti(t)le")))
         );
         assert_eq!(
-            md_link_title(r#""1\\23\"4\'56"abc"#),
+            md_link_title(r#" (ti\(t\)le)abc"#),
+            Ok(("abc", Cow::from("ti(t)le")))
+        );
+        assert_eq!(
+            md_link_title(r#" "1\\23\"4\'56"abc"#),
             Ok(("abc", Cow::from(r#"1\23"4'56"#)))
         );
         assert_eq!(
-            md_link_title("\"tu\nvwxy\"abc"),
+            md_link_title(" \"tu\nvwxy\"abc"),
             Ok(("abc", Cow::from("tu\nvwxy")))
         );
         assert_eq!(
-            md_link_title("'tu\nv\\\'wxy'abc"),
+            md_link_title(" 'tu\nv\\\'wxy'abc"),
             Ok(("abc", Cow::from("tu\nv\'wxy")))
         );
         assert_eq!(
-            md_link_title("(ti\n\ntle)abc"),
+            md_link_title(" (ti\n\ntle)abc"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "(ti\n\ntle)abc",
                 ErrorKind::Verify
@@ -613,22 +687,22 @@ mod tests {
 
     #[test]
     fn test_md_parse_link_title() {
-        assert_eq!(md_parse_link_title("(title)abc"), Ok(("abc", "title")));
-        assert_eq!(md_parse_link_title("(ti(t)le)abc"), Ok(("abc", "ti(t)le")));
+        assert_eq!(md_parse_link_title(" (title)abc"), Ok(("abc", "title")));
+        assert_eq!(md_parse_link_title(" (ti(t)le)abc"), Ok(("abc", "ti(t)le")));
         assert_eq!(
-            md_parse_link_title(r#""1\\23\"4\'56"abc"#),
+            md_parse_link_title(r#" "1\\23\"4\'56"abc"#),
             Ok(("abc", r#"1\\23\"4\'56"#))
         );
         assert_eq!(
-            md_parse_link_title("\"tu\nvwxy\"abc"),
+            md_parse_link_title(" \"tu\nvwxy\"abc"),
             Ok(("abc", "tu\nvwxy"))
         );
         assert_eq!(
-            md_parse_link_title("'tu\nv\\\'wxy'abc"),
+            md_parse_link_title(" 'tu\nv\\\'wxy'abc"),
             Ok(("abc", "tu\nv\\\'wxy"))
         );
         assert_eq!(
-            md_parse_link_title("(ti\n\ntle)abc"),
+            md_parse_link_title(" (ti\n\ntle)abc"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "(ti\n\ntle)abc",
                 ErrorKind::Verify
