@@ -381,12 +381,14 @@ fn rst_escaped_link_text_transform(i: &str) -> IResult<&str, Cow<str>> {
         nom::bytes::complete::escaped_transform(
             nom::bytes::complete::is_not("\\"),
             '\\',
+            // This list is the same as `ESCAPABLE`.
             alt((
-                value("\\", tag("\\")),
-                value("`", tag("`")),
-                value(":", tag(":")),
-                value("<", tag("<")),
-                value(">", tag(">")),
+                tag("\\"),
+                tag("`"),
+                tag(":"),
+                tag("<"),
+                tag(">"),
+                tag("_"),
                 value("", tag(" ")),
             )),
         ),
@@ -435,21 +437,21 @@ fn rst_escaped_link_destination_transform(i: &str) -> IResult<&str, Cow<str>> {
         ))
     };
 
-    let (j, c) = remove_whitespace(i)?;
+    let c = &*remove_whitespace(i)?.1;
 
-    let (_, s) =
-        nom::bytes::complete::escaped_transform::<_, nom::error::Error<_>, _, _, _, _, _, _>(
-            nom::bytes::complete::is_not("\\"),
-            '\\',
-            nom::character::complete::one_of(ESCAPABLE),
-        )(&*c)
-        .map_err(my_err)?;
+    let s = nom::bytes::complete::escaped_transform::<_, nom::error::Error<_>, _, _, _, _, _, _>(
+        nom::bytes::complete::is_not("\\"),
+        '\\',
+        nom::character::complete::one_of(ESCAPABLE),
+    )(c)
+    .map_err(my_err)?
+    .1;
 
     // When nothing was changed we can continue with `Borrowed`.
     if s == i {
-        Ok((j, Cow::Borrowed(i)))
+        Ok(("", Cow::Borrowed(i)))
     } else {
-        Ok((j, Cow::Owned(s.to_owned())))
+        Ok(("", Cow::Owned(s.to_owned())))
     }
 }
 
