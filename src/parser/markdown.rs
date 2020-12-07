@@ -163,6 +163,12 @@ pub fn md_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
         }),
         nom::combinator::map(md_link_text, |s| (s.clone(), s)),
     ))(i)?;
+
+    // Check that there is no `[` or `(` following.
+    if i != "" {
+        let _ = nom::character::complete::none_of("[(")(i)?;
+    }
+
     Ok((i, (link_text, link_label)))
 }
 
@@ -364,6 +370,53 @@ mod tests {
                 "abc",
                 (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
+        );
+    }
+
+    #[test]
+    fn test_md_text2label() {
+        assert_eq!(
+            md_text2label("[link text][link label]abc"),
+            Ok(("abc", (Cow::from("link text"), Cow::from("link label"))))
+        );
+        assert_eq!(
+            md_text2label("[link text][]abc"),
+            Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
+        );
+        assert_eq!(
+            md_text2label("[link text]abc"),
+            Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
+        );
+        assert_eq!(
+            md_text2label("[]abc"),
+            Ok(("abc", (Cow::from(""), Cow::from(""))))
+        );
+        assert_eq!(
+            md_text2label(""),
+            Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
+        );
+        // Check end of input position.
+        assert_eq!(
+            md_text2label("[text]"),
+            Ok(("", (Cow::from("text"), Cow::from("text"))))
+        );
+        assert_eq!(
+            md_text2label("[text][text]"),
+            Ok(("", (Cow::from("text"), Cow::from("text"))))
+        );
+        assert_eq!(
+            md_text2label("[text][label url"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "[label url",
+                ErrorKind::NoneOf
+            )))
+        );
+        assert_eq!(
+            md_text2label("[text](url)abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "(url)abc",
+                ErrorKind::NoneOf
+            )))
         );
     }
 
