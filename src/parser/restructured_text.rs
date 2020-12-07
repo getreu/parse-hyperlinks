@@ -8,6 +8,9 @@ use nom::combinator::*;
 use nom::IResult;
 use std::borrow::Cow;
 
+/// Character that can be escaped with `\`.
+const ESCAPABLE: &str = r#" `:<>_\"#;
+
 /// Wrapper around `rst_text2dest()` that packs the result in
 /// `Link::Text2Dest`.
 pub fn rst_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
@@ -57,10 +60,11 @@ fn rst_parse_text2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
         nom::bytes::complete::escaped(
             nom::character::complete::none_of(r#"\`"#),
             '\\',
-            nom::character::complete::one_of(r#" `:<>\"#),
+            nom::character::complete::one_of(ESCAPABLE),
         ),
         tag("`_"),
     )(i)?;
+    // TODO: double `__` is not allowed for inline links:
     // Consume another optional pending `_`, if there is one. This can not fail.
     let (i, _) = nom::combinator::opt(nom::bytes::complete::tag("_"))(i)?;
 
@@ -69,7 +73,7 @@ fn rst_parse_text2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (j, link_text): (&str, &str) = nom::bytes::complete::escaped(
         nom::character::complete::none_of(r#"\<"#),
         '\\',
-        nom::character::complete::one_of(r#" `:<>"#),
+        nom::character::complete::one_of(ESCAPABLE),
     )(j)?;
     // Trim trailing whitespace.
     let link_text = link_text.trim_end();
@@ -78,7 +82,7 @@ fn rst_parse_text2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
         nom::bytes::complete::escaped(
             nom::character::complete::none_of(r#"\<>"#),
             '\\',
-            nom::character::complete::one_of(r#" `:<>"#),
+            nom::character::complete::one_of(ESCAPABLE),
         ),
         tag(">"),
     )(j)?;
@@ -86,6 +90,120 @@ fn rst_parse_text2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (_, _) = nom::combinator::eof(j)?;
 
     Ok((i, (link_text, link_destination)))
+}
+
+/// Wrapper around `rst_text2dest()` that packs the result in
+/// `Link::Text2Dest`.
+pub fn rst_text2label_link(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (te, la)) = rst_text2label(i)?;
+    Ok((i, Link::Text2Label(te, la)))
+}
+
+/// TODO
+///
+/// ```rust
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::restructured_text::rst_text2label;
+/// use std::borrow::Cow;
+///
+/// assert_eq!(
+///   rst_text2label("linktext_ abc"),
+///   Ok((" abc", (Cow::from("linktext"), Cow::from("linktext"))))
+/// );
+/// assert_eq!(
+///   rst_text2label("`link text`_ abc"),
+///   Ok((" abc", (Cow::from("link text"), Cow::from("link text"))))
+/// );
+/// assert_eq!(
+///   rst_text2label("`link text`__ abc"),
+///   Ok((" abc", (Cow::from("link text"), Cow::from("_"))))
+/// );
+/// ```
+///
+pub fn rst_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+    let (i, (te, la)) = rst_parse_text2label(i)?;
+    let te = rst_escaped_link_text_transform(te)?.1;
+    let la = rst_escaped_link_text_transform(la)?.1;
+
+    Ok((i, (te, la)))
+}
+
+/// Parses a _reference link_. (Doctree element `reference`).
+///
+/// Named hyperlink references:
+/// No start-string, end-string = `_.
+/// Start-string = "`", end-string = `\`_`. (Phrase references.)
+/// Anonymous hyperlink references:
+/// No start-string, end-string = `__`.
+/// Start-string = "`", end-string = `\`__`. (Phrase references.)
+///
+///
+/// Hyperlink references are indicated by a trailing underscore, "_", except for
+/// standalone hyperlinks which are recognized independently.
+///
+/// Important: before this parser try `rst_text2dest()` first!
+///
+/// The caller must guarantee, that either:
+/// * we are at the input start -or-
+/// * the byte just before was a whitespace (including newline)!
+///
+/// For named references in reStructuredText `link_text` and `link_label`
+/// are the same. By convention we return for anonymous references:
+/// `link_label='_'`.
+///
+/// The parser checks that this _reference link_ is followed by a whitespace
+/// without consuming it.
+///
+fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
+    // Consumes and returns a word ending with `_`.
+    // Strips off one the trailing `_` before returning the result.
+    fn take_word_consume_first_ending_underscore(i: &str) -> nom::IResult<&str, &str> {
+        let mut i = i;
+        let (k, mut r) =
+            nom::bytes::complete::take_till1(|c| c == ' ' || c == '\t' || c == '\n')(i)?;
+        // Is `r` ending with `__`?
+        if r.len() >= 2 && &r[r.len() - 2..r.len()] == "__" {
+            // Consume one `_`, but keep one `_` in remaining bytes.
+            i = &i[r.len() - 1..];
+            // Strip two `__` from result.
+            r = &r[..r.len() - 2];
+        } else {
+            // Make sure that at least the last byte is `_`.
+            let _ = tag("_")(&r[r.len() - 1..r.len()])?;
+            // Consume it.
+            i = k;
+            // Strip it from result.
+            r = &r[..r.len() - 1]
+        };
+
+        Ok((i, r))
+    }
+
+    let (mut i, link_text) = alt((
+        nom::sequence::delimited(
+            tag("`"),
+            nom::bytes::complete::escaped(
+                nom::character::complete::none_of(r#"\`"#),
+                '\\',
+                nom::character::complete::one_of(ESCAPABLE),
+            ),
+            tag("`_"),
+        ),
+        take_word_consume_first_ending_underscore,
+    ))(i)?;
+
+    // For named references in reStructuredText `link_text` and `link_label`
+    // are the same. By convention we define for anonymous references the
+    // `link_label='_'`.
+    let mut link_label = link_text;
+
+    // Is this an anonymous reference? Consume the second `_` also.
+    if let Ok((j, _)) = nom::character::complete::char::<_, nom::error::Error<_>>('_')(i) {
+        link_label = "_";
+        i = j;
+    };
+
+    Ok((i, (link_text, link_label)))
 }
 
 /// Wrapper around `rst_label2dest()` that packs the result in
@@ -323,14 +441,7 @@ fn rst_escaped_link_destination_transform(i: &str) -> IResult<&str, Cow<str>> {
         nom::bytes::complete::escaped_transform::<_, nom::error::Error<_>, _, _, _, _, _, _>(
             nom::bytes::complete::is_not("\\"),
             '\\',
-            alt((
-                value("\\", tag("\\")),
-                value("`", tag("`")),
-                value(":", tag(":")),
-                value("<", tag("<")),
-                value(">", tag(">")),
-                value(" ", tag(" ")),
-            )),
+            nom::character::complete::one_of(ESCAPABLE),
         )(&*c)
         .map_err(my_err)?;
 
@@ -450,6 +561,60 @@ mod tests {
             )
             .unwrap(),
             expected
+        );
+    }
+
+    #[test]
+    fn test_rst_text2label() {
+        assert_eq!(
+            rst_text2label(r#"li\<nktext_ abc"#),
+            Ok((" abc", (Cow::from("li<nktext"), Cow::from("li<nktext"))))
+        );
+        assert_eq!(
+            rst_text2label(r#"`li\:nk text`_ abc"#),
+            Ok((" abc", (Cow::from("li:nk text"), Cow::from("li:nk text"))))
+        );
+        assert_eq!(
+            rst_text2label("`link text`__ abc"),
+            Ok((" abc", (Cow::from("link text"), Cow::from("_"))))
+        );
+    }
+
+    #[test]
+    fn test_rst_parse_text2label() {
+        assert_eq!(
+            rst_parse_text2label("linktext_ abc"),
+            Ok((" abc", ("linktext", "linktext")))
+        );
+
+        assert_eq!(
+            rst_parse_text2label("linktext__ abc"),
+            Ok((" abc", ("linktext", "_")))
+        );
+
+        assert_eq!(
+            rst_parse_text2label("link_text_ abc"),
+            Ok((" abc", ("link_text", "link_text")))
+        );
+
+        assert_eq!(
+            rst_parse_text2label("`link text`_ abc"),
+            Ok((" abc", ("link text", "link text")))
+        );
+
+        assert_eq!(
+            rst_parse_text2label("`link text`_abc"),
+            Ok(("abc", ("link text", "link text")))
+        );
+
+        assert_eq!(
+            rst_parse_text2label("`link_text`_ abc"),
+            Ok((" abc", ("link_text", "link_text")))
+        );
+
+        assert_eq!(
+            rst_parse_text2label("`link text`__ abc"),
+            Ok((" abc", ("link text", "_")))
         );
     }
 
