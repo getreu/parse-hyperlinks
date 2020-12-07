@@ -164,7 +164,7 @@ pub fn md_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
         nom::combinator::map(md_link_text, |s| (s.clone(), s)),
     ))(i)?;
 
-    // Check that there is no `[` or `(` following.
+    // Check that there is no `[` or `(` following. Do not consume.
     if i != "" {
         let _ = nom::character::complete::none_of("[(")(i)?;
     }

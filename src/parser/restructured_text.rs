@@ -41,11 +41,51 @@ pub fn rst_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#embedded-uris-and-aliases)
 pub fn rst_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, (ln, ld)) = rst_parse_link(i)?;
+    let (i, (ln, ld)) = rst_parse_text2dest(i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
     Ok((i, (ln, ld, Cow::Borrowed(""))))
+}
+
+/// This parser used by `rst_link()`, does all the work that can be
+/// done without allocating new strings.
+/// Removing of escaped characters is not performed here.
+fn rst_parse_text2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
+    let (i, j) = nom::sequence::delimited(
+        tag("`"),
+        nom::bytes::complete::escaped(
+            nom::character::complete::none_of(r#"\`"#),
+            '\\',
+            nom::character::complete::one_of(r#" `:<>\"#),
+        ),
+        tag("`_"),
+    )(i)?;
+    // Consume another optional pending `_`, if there is one. This can not fail.
+    let (i, _) = nom::combinator::opt(nom::bytes::complete::tag("_"))(i)?;
+
+    // From here on, we only deal with the inner result of the above.
+    // Take everything until the first unescaped `<`
+    let (j, link_text): (&str, &str) = nom::bytes::complete::escaped(
+        nom::character::complete::none_of(r#"\<"#),
+        '\\',
+        nom::character::complete::one_of(r#" `:<>"#),
+    )(j)?;
+    // Trim trailing whitespace.
+    let link_text = link_text.trim_end();
+    let (j, link_destination) = nom::sequence::delimited(
+        tag("<"),
+        nom::bytes::complete::escaped(
+            nom::character::complete::none_of(r#"\<>"#),
+            '\\',
+            nom::character::complete::one_of(r#" `:<>"#),
+        ),
+        tag(">"),
+    )(j)?;
+    // Fail if there are bytes left between `>` and `\``.
+    let (_, _) = nom::combinator::eof(j)?;
+
+    Ok((i, (link_text, link_destination)))
 }
 
 /// Wrapper around `rst_label2dest()` that packs the result in
@@ -87,7 +127,7 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
 
     let (ln, ld) = match c {
         Cow::Borrowed(s) => {
-            let (_, (ln, ld)) = rst_parse_link_label2dest(s)?;
+            let (_, (ln, ld)) = rst_parse_label2dest(s)?;
             (
                 rst_escaped_link_text_transform(ln)?.1,
                 rst_escaped_link_destination_transform(ld)?.1,
@@ -95,7 +135,7 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
         }
 
         Cow::Owned(strg) => {
-            let (_, (ln, ld)) = rst_parse_link_label2dest(&strg).map_err(my_err)?;
+            let (_, (ln, ld)) = rst_parse_label2dest(&strg).map_err(my_err)?;
             let ln = Cow::Owned(
                 rst_escaped_link_text_transform(ln)
                     .map_err(my_err)?
@@ -119,46 +159,6 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
     Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
 
-/// This parser used by `rst_link()`, does all the work that can be
-/// done without allocating new strings.
-/// Removing of escaped characters is not performed here.
-fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
-    let (i, j) = nom::sequence::delimited(
-        tag("`"),
-        nom::bytes::complete::escaped(
-            nom::character::complete::none_of(r#"\`"#),
-            '\\',
-            nom::character::complete::one_of(r#" `:<>\"#),
-        ),
-        tag("`_"),
-    )(i)?;
-    // Consume another optional pending `_`, if there is one. This can not fail.
-    let (i, _) = nom::combinator::opt(nom::bytes::complete::tag("_"))(i)?;
-
-    // From here on, we only deal with the inner result of the above.
-    // Take everything until the first unescaped `<`
-    let (j, link_text): (&str, &str) = nom::bytes::complete::escaped(
-        nom::character::complete::none_of(r#"\<"#),
-        '\\',
-        nom::character::complete::one_of(r#" `:<>"#),
-    )(j)?;
-    // Trim trailing whitespace.
-    let link_text = link_text.trim_end();
-    let (j, link_destination) = nom::sequence::delimited(
-        tag("<"),
-        nom::bytes::complete::escaped(
-            nom::character::complete::none_of(r#"\<>"#),
-            '\\',
-            nom::character::complete::one_of(r#" `:<>"#),
-        ),
-        tag(">"),
-    )(j)?;
-    // Fail if there are bytes left between `>` and `\``.
-    let (_, _) = nom::combinator::eof(j)?;
-
-    Ok((i, (link_text, link_destination)))
-}
-
 /// This parser detects the position of the link name and the link destination.
 /// It does not perform any transformation.
 /// The caller must guarantee, that the parser starts at first character of the
@@ -168,7 +168,7 @@ fn rst_parse_link(i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// * the colon must be backslash escaped.
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets)
-fn rst_parse_link_label2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
+fn rst_parse_label2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (i, _) = nom::character::complete::char('_')(i)?;
     let (link_destination, link_text) = alt((
         nom::sequence::delimited(
@@ -348,7 +348,7 @@ mod tests {
     use nom::error::ErrorKind;
 
     #[test]
-    fn test_rst_link() {
+    fn test_rst_text2dest() {
         let expected = (
             "abc",
             (
@@ -403,6 +403,49 @@ mod tests {
         );
         assert_eq!(
             rst_text2dest(
+                r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_"#
+            )
+            .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_rst_parse_text2dest() {
+        let expected = ("abc", ("Python home page", "http://www.python.org"));
+        assert_eq!(
+            rst_parse_text2dest("`Python home page <http://www.python.org>`_abc").unwrap(),
+            expected
+        );
+
+        let expected = ("", (r#"Python\ \<home\> page"#, "http://www.python.org"));
+        assert_eq!(
+            rst_parse_text2dest(r#"`Python\ \<home\> page <http://www.python.org>`_"#).unwrap(),
+            expected
+        );
+
+        let expected = (
+            "",
+            (
+                r#"my news at \<http://python.org\>"#,
+                "http://news.python.org",
+            ),
+        );
+        assert_eq!(
+            rst_parse_text2dest(r#"`my news at \<http://python.org\> <http://news.python.org>`_"#)
+                .unwrap(),
+            expected
+        );
+
+        let expected = (
+            "",
+            (
+                r#"my news at \<http\://python.org\>"#,
+                r#"http:// news.\ \<python\>.org"#,
+            ),
+        );
+        assert_eq!(
+            rst_parse_text2dest(
                 r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_"#
             )
             .unwrap(),
@@ -499,69 +542,26 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_parse_link() {
-        let expected = ("abc", ("Python home page", "http://www.python.org"));
-        assert_eq!(
-            rst_parse_link("`Python home page <http://www.python.org>`_abc").unwrap(),
-            expected
-        );
-
-        let expected = ("", (r#"Python\ \<home\> page"#, "http://www.python.org"));
-        assert_eq!(
-            rst_parse_link(r#"`Python\ \<home\> page <http://www.python.org>`_"#).unwrap(),
-            expected
-        );
-
-        let expected = (
-            "",
-            (
-                r#"my news at \<http://python.org\>"#,
-                "http://news.python.org",
-            ),
-        );
-        assert_eq!(
-            rst_parse_link(r#"`my news at \<http://python.org\> <http://news.python.org>`_"#)
-                .unwrap(),
-            expected
-        );
-
-        let expected = (
-            "",
-            (
-                r#"my news at \<http\://python.org\>"#,
-                r#"http:// news.\ \<python\>.org"#,
-            ),
-        );
-        assert_eq!(
-            rst_parse_link(
-                r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_"#
-            )
-            .unwrap(),
-            expected
-        );
-    }
-
-    #[test]
     fn test_rst_parse_link_label2dest() {
         let expected = ("", ("Python home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_label2dest("_Python home page: http://www.python.org").unwrap(),
+            rst_parse_label2dest("_Python home page: http://www.python.org").unwrap(),
             expected
         );
         assert_eq!(
-            rst_parse_link_label2dest("_`Python home page`: http://www.python.org").unwrap(),
+            rst_parse_label2dest("_`Python home page`: http://www.python.org").unwrap(),
             expected
         );
 
         let expected = ("", ("Python: home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_label2dest("_`Python: home page`: http://www.python.org").unwrap(),
+            rst_parse_label2dest("_`Python: home page`: http://www.python.org").unwrap(),
             expected
         );
 
         let expected = ("", (r#"Python\: home page"#, "http://www.python.org"));
         assert_eq!(
-            rst_parse_link_label2dest(r#"_Python\: home page: http://www.python.org"#).unwrap(),
+            rst_parse_label2dest(r#"_Python\: home page: http://www.python.org"#).unwrap(),
             expected
         );
 
@@ -570,10 +570,8 @@ mod tests {
             ("my news at <http://python.org>", "http://news.python.org"),
         );
         assert_eq!(
-            rst_parse_link_label2dest(
-                r#"_`my news at <http://python.org>`: http://news.python.org"#
-            )
-            .unwrap(),
+            rst_parse_label2dest(r#"_`my news at <http://python.org>`: http://news.python.org"#)
+                .unwrap(),
             expected
         );
 
@@ -585,10 +583,8 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_link_label2dest(
-                r#"_`my news at \<http://python.org\>`: http://news.python.org"#
-            )
-            .unwrap(),
+            rst_parse_label2dest(r#"_`my news at \<http://python.org\>`: http://news.python.org"#)
+                .unwrap(),
             expected
         );
 
@@ -600,10 +596,8 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_link_label2dest(
-                r#"_my news at \<http\://python.org\>: http://news.python.org"#
-            )
-            .unwrap(),
+            rst_parse_label2dest(r#"_my news at \<http\://python.org\>: http://news.python.org"#)
+                .unwrap(),
             expected
         );
     }
