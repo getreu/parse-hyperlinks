@@ -78,7 +78,7 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "html-escape",
  "nom",
