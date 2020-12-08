@@ -1,6 +1,6 @@
 [package]
 name = "parse-hyperlinks"
-version = "0.17.1"
+version = "0.17.2"
 authors = ["Jens Getreu <getreu@getreu@web.de>"]
 edition = "2018"
 keywords = ["parser", "markup", "hyperlink", "markdown", "restructuredtext"]
