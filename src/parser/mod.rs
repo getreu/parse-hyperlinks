@@ -14,6 +14,7 @@ use crate::parser::markdown::md_text2dest_link;
 use crate::parser::markdown::md_text2label_link;
 use crate::parser::restructured_text::rst_label2dest_link;
 use crate::parser::restructured_text::rst_text2dest_link;
+use crate::parser::restructured_text::rst_text_label2dest_link;
 use nom::branch::alt;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
@@ -50,8 +51,9 @@ pub enum Link<'a> {
     ///    http://link_dest[link_text]
     ///    ```
     /// The tuple is defined as follows:
-    ///
-    ///     Text2Dest(link_text, link_destination, link_title)
+    /// ```text
+    /// Text2Dest(link_text, link_destination, link_title)
+    /// ```
     Text2Dest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
 
     /// In **reference links** the destination and title are defined elsewhere in
@@ -77,8 +79,9 @@ pub enum Link<'a> {
     ///   ```
     ///
     /// The tuple is defined as follows:
-    ///
-    ///     Text2Label(link_text, link_label)
+    /// ```text
+    /// Text2Label(link_text, link_label)
+    /// ```
     Text2Label(Cow<'a, str>, Cow<'a, str>),
 
     /// A **link reference definition** refers to a _reference link_ with the
@@ -105,8 +108,9 @@ pub enum Link<'a> {
     ///   ```
     ///
     /// The tuple is defined as follows:
-    ///
-    ///     Label2Dest(link_label, link_destination, link_title)
+    /// ```text
+    /// Label2Dest(link_label, link_destination, link_title)
+    /// ```
     Label2Dest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
 
     /// This type represents a combined **inline link** and **link reference
@@ -126,8 +130,9 @@ pub enum Link<'a> {
     ///   label_ of the second link `Label2Dest("a", "b", "")`.
     ///
     /// The tuple is defined as follows:
-    ///
-    ///     Label2Dest(link_text_label, link_destination, link_title)
+    /// ```text
+    /// Label2Dest(link_text_label, link_destination, link_title)
+    /// ```
     TextLabel2Dest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
 
     /// The **reference alias** defines an alternative link label
@@ -141,8 +146,9 @@ pub enum Link<'a> {
     /// ```
     ///
     /// The tuple is defined as follows:
-    ///
-    ///     Label2Label(alt_link_label, link_label)
+    /// ```text
+    /// Label2Label(alt_link_label, link_label)
+    /// ```
     Label2Label(Cow<'a, str>, Cow<'a, str>),
 }
 
@@ -219,6 +225,7 @@ pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
     loop {
         match take_link(j) {
             Ok((j, (_, Link::Text2Dest(lte, ld, lti)))) => return Ok((j, (lte, ld, lti))),
+            Ok((j, (_, Link::TextLabel2Dest(lte, ld, lti)))) => return Ok((j, (lte, ld, lti))),
             Ok((j, (_, Link::Label2Dest(ll, ld, lti)))) => return Ok((j, (ll, ld, lti))),
             // We ignore `Link::Ref()` and `Link::RefAlias`. Instead we continue parsing.
             Ok((k, _)) => {
@@ -246,9 +253,10 @@ pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
 /// let i = r#"foo
 /// [a]: b 'c'
 /// .. _d: e
-/// ---[f](g 'h')---`i <j>`_---
+/// ---[f](g 'h')---`i <j>`__---
 /// ---[k][l]---
 /// ---<a href="m" title="n">o</a>---
+/// ---`p <q>`_---
 /// "#;
 ///
 /// let (i, r) = take_link(i).unwrap();
@@ -265,6 +273,9 @@ pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
 /// let (i, r) = take_link(i).unwrap();
 /// assert_eq!(r.0, "---\n---");
 /// assert_eq!(r.1, Link::Text2Dest(Cow::from("o"), Cow::from("m"), Cow::from("n")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.0, "---\n---");
+/// assert_eq!(r.1, Link::TextLabel2Dest(Cow::from("p"), Cow::from("q"), Cow::from("")));
 /// ```
 pub fn take_link(input: &str) -> nom::IResult<&str, (&str, Link)> {
     let mut i = input;
@@ -332,7 +343,13 @@ pub fn take_link(input: &str) -> nom::IResult<&str, (&str, Link)> {
         }
 
         // Regular links can start everywhere.
-        if let Ok((j, r)) = alt((rst_text2dest_link, md_text2dest_link, html_text2dest_link))(j) {
+        if let Ok((j, r)) = alt((
+            md_text2dest_link,
+            rst_text2dest_link,
+            rst_text_label2dest_link,
+            html_text2dest_link,
+        ))(j)
+        {
             break (j, r);
         };
 
@@ -424,8 +441,8 @@ mod tests {
         let i = r#"[md link name]: md_link_destination "md link title"
 abc [md link name](md_link_destination "md link title")[no md]: abc[no md]: abc
    [md link name]: md_link_destination "md link title"
-abc`rst link name <rst_link_destination>`_abc
-abc`rst link name <rst_link_destination>`_ .. _norst: no .. _norst: no
+abc`rst link name <rst_link_destination>`__abc
+abc`rst link name <rst_link_destination>`__ .. _norst: no .. _norst: no
 .. _rst link name: rst_link_destination
   .. _rst link name: rst_link_d
      estination
