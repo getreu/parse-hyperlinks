@@ -285,7 +285,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let res = loop {
         // Are we on a new line character? consume it.
         line_start = false;
-        if let Ok((k, _)) = nom::character::complete::newline::<_, nom::error::Error<_>>(j) {
+        if let (k, Some(_)) = nom::combinator::opt(nom::character::complete::newline)(j)? {
             skip_count += j.len() - k.len();
             j = k;
             line_start = true;
@@ -308,7 +308,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 
         // Are we on a whitespace? Consume them.
         whitespace = false;
-        if let Ok((k, _)) = nom::character::complete::space1::<_, nom::error::Error<_>>(j) {
+        if let (k, Some(_)) = nom::combinator::opt(nom::character::complete::space1)(j)? {
             skip_count += j.len() - k.len();
             j = k;
             whitespace = true;
@@ -398,11 +398,9 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 /// assert_eq!(r, Some((Cow::from("u"), Cow::from("v"), Cow::from("w"))));
 /// ```
 pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
-    if let Ok((_, result)) = take_text2dest_label2dest(i) {
-        Some(result)
-    } else {
-        None
-    }
+    nom::combinator::opt(take_text2dest_label2dest)(i)
+        .unwrap()
+        .1
 }
 
 /*

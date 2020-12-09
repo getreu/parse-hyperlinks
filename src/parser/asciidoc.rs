@@ -100,9 +100,8 @@ fn remove_newline_take_till<'a>(
 
             // If there is a character left, inspect. Then either quit or advance at least one character.
             // Therefor no endless is loop possible.
-            if let Ok((_, c)) = nom::combinator::peek::<_, _, nom::error::Error<_>, _>(
-                nom::character::complete::anychar,
-            )(k)
+            if let (_, Some(c)) =
+                nom::combinator::opt(nom::combinator::peek(nom::character::complete::anychar))(k)?
             {
                 let m = match c {
                     // We completed our mission and found `pat`.

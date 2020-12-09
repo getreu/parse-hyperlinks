@@ -291,7 +291,7 @@ fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
     ))(i)?;
 
     // Is this an anonymous reference? Consume the second `_` also.
-    if let Ok((j, _)) = nom::character::complete::char::<_, nom::error::Error<_>>('_')(i) {
+    if let (j, Some(_)) = nom::combinator::opt(nom::character::complete::char('_'))(i)? {
         link_label = "_";
         i = j;
     };
