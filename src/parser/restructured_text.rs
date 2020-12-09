@@ -380,25 +380,26 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets)
 fn rst_parse_label2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
-    let (i, _) = nom::character::complete::char('_')(i)?;
     let (link_destination, link_text) = alt((
         nom::sequence::delimited(
-            tag("`"),
+            tag("_`"),
             nom::bytes::complete::escaped(
                 nom::character::complete::none_of(r#"\`"#),
                 '\\',
-                nom::character::complete::one_of(r#" `:<>"#),
+                nom::character::complete::one_of(ESCAPABLE),
             ),
             tag("`: "),
         ),
-        nom::sequence::terminated(
+        nom::sequence::delimited(
+            tag("_"),
             nom::bytes::complete::escaped(
                 nom::character::complete::none_of(r#"\:"#),
                 '\\',
-                nom::character::complete::one_of(r#" `:<>"#),
+                nom::character::complete::one_of(ESCAPABLE),
             ),
             tag(": "),
         ),
+        nom::combinator::value("_", tag("__: ")),
     ))(i)?;
 
     Ok(("", (link_text, link_destination)))
@@ -872,7 +873,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_parse_link_label2dest() {
+    fn test_rst_parse_label2dest() {
         let expected = ("", ("Python home page", "http://www.python.org"));
         assert_eq!(
             rst_parse_label2dest("_Python home page: http://www.python.org").unwrap(),
@@ -928,6 +929,12 @@ mod tests {
         assert_eq!(
             rst_parse_label2dest(r#"_my news at \<http\://python.org\>: http://news.python.org"#)
                 .unwrap(),
+            expected
+        );
+
+        let expected = ("", ("_", "http://news.python.org"));
+        assert_eq!(
+            rst_parse_label2dest(r#"__: http://news.python.org"#).unwrap(),
             expected
         );
     }
