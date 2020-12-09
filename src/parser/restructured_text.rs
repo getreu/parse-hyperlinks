@@ -295,6 +295,13 @@ pub fn rst_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// ```
 /// See unit test `test_rst_label2dest()` for more examples.
 pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+    rst_label2target(i)
+}
+
+/// Parser for _link_reference_definitions_:
+/// * `label==false`:  the link is of type `Label2Dest`
+/// * `label==true`: the link is of type `Label2Label`
+fn rst_label2target(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let my_err = |_| {
         nom::Err::Error(nom::error::Error::new(
             i,
@@ -353,6 +360,18 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
     Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
 
+/// Wrapper around `rst_label2label()` that packs the result in
+/// `Link::Label2Label`.
+pub fn rst_label2label_link(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (l1, l2)) = rst_label2label(i)?;
+    Ok((i, Link::Label2Label(l1, l2)))
+}
+
+/// TODO
+pub fn rst_label2label(_i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+    Ok(("", (Cow::from(""), Cow::from(""))))
+}
+
 /// The parser recognizes `Label2Dest` links (`label==false`):
 ///     _label: dest
 /// or `Label2Label` links (`label==true):
@@ -392,23 +411,6 @@ fn rst_parse_label2target(label: bool) -> impl Fn(&str) -> IResult<&str, (&str, 
 
         Ok(("", (link_text, link_target)))
     }
-}
-
-/// Wrapper around `rst_label2label()` that packs the result in
-/// `Link::Label2Label`.
-pub fn rst_label2label_link(i: &str) -> nom::IResult<&str, Link> {
-    let (i, (l1, l2)) = rst_label2label(i)?;
-    Ok((i, Link::Label2Label(l1, l2)))
-}
-
-/// TODO
-pub fn rst_label2label(_i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
-    Ok(("", (Cow::from(""), Cow::from(""))))
-}
-
-/// TODO
-fn rst_parse_label2label(_i: &str) -> nom::IResult<&str, (&str, &str)> {
-    Ok(("", ("", "")))
 }
 
 /// This parser consumes a simple label:
