@@ -235,18 +235,22 @@ fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
         let (k, mut r) =
             nom::bytes::complete::take_till1(|c| c == ' ' || c == '\t' || c == '\n')(i)?;
         // Is `r` ending with `__`?
-        if r.len() >= 2 && &r[r.len() - 2..r.len()] == "__" {
+        if r.len() >= 2 && r.is_char_boundary(r.len() - 2) && &r[r.len() - 2..] == "__" {
             // Consume one `_`, but keep one `_` in remaining bytes.
             i = &i[r.len() - 1..];
             // Strip two `__` from result.
             r = &r[..r.len() - 2];
-        } else {
-            // Make sure that at least the last byte is `_`.
-            let _ = tag("_")(&r[r.len() - 1..r.len()])?;
-            // Consume it.
+        // Is `r` ending with `_`?
+        } else if r.len() >= 1 && r.is_char_boundary(r.len() - 1) && &r[r.len() - 1..] == "_" {
+            // Remaining bytes.
             i = k;
-            // Strip it from result.
+            // Strip `_` from result.
             r = &r[..r.len() - 1]
+        } else {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                k,
+                nom::error::ErrorKind::Tag,
+            )));
         };
 
         Ok((i, r))
