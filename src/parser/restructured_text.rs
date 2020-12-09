@@ -253,6 +253,7 @@ fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
     }
 
     let (mut i, (link_text, mut link_label)) = alt((
+        rst_parse_text2dest_label(false, true),
         nom::combinator::map(
             nom::sequence::delimited(
                 tag("`"),
@@ -745,6 +746,11 @@ mod tests {
         assert_eq!(
             rst_parse_text2label("`link text`__ abc"),
             Ok((" abc", ("link text", "_")))
+        );
+
+        assert_eq!(
+            rst_parse_text2label("`link text<link label_>`_ abc"),
+            Ok((" abc", ("link text", "link label")))
         );
     }
 
