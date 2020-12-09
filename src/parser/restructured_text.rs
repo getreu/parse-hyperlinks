@@ -356,7 +356,7 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
             let (_, (ln, ld)) = if block_header_is__ {
                 ("", ("_", s))
             } else {
-                rst_parse_label2dest(s)?
+                rst_parse_label2target(false)(s)?
             };
             (
                 rst_escaped_link_text_transform(ln)?.1,
@@ -368,7 +368,7 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
             let (_, (ln, ld)) = if block_header_is__ {
                 ("", ("_", strg.as_str()))
             } else {
-                rst_parse_label2dest(&strg).map_err(my_err)?
+                rst_parse_label2target(false)(&strg).map_err(my_err)?
             };
             let ln = Cow::Owned(
                 rst_escaped_link_text_transform(ln)
@@ -402,7 +402,8 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
 /// * the colon must be backslash escaped.
 /// [reStructuredText Markup
 /// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets)
-fn rst_parse_label2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
+fn rst_parse_label2target(label: bool) -> impl Fn(&str) -> IResult<&str, (&str, &str)> {
+    move |i: &str| {
     let (link_destination, link_text) = alt((
         nom::sequence::delimited(
             tag("_`"),
@@ -426,7 +427,7 @@ fn rst_parse_label2dest(i: &str) -> nom::IResult<&str, (&str, &str)> {
     ))(i)?;
 
     Ok(("", (link_text, link_destination)))
-}
+}}
 
 /// Wrapper around `rst_label2label()` that packs the result in
 /// `Link::Label2Label`.
@@ -920,23 +921,23 @@ mod tests {
     fn test_rst_parse_label2dest() {
         let expected = ("", ("Python home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_label2dest("_Python home page: http://www.python.org").unwrap(),
+            rst_parse_label2target(false)("_Python home page: http://www.python.org").unwrap(),
             expected
         );
         assert_eq!(
-            rst_parse_label2dest("_`Python home page`: http://www.python.org").unwrap(),
+            rst_parse_label2target(false)("_`Python home page`: http://www.python.org").unwrap(),
             expected
         );
 
         let expected = ("", ("Python: home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_label2dest("_`Python: home page`: http://www.python.org").unwrap(),
+            rst_parse_label2target(false)("_`Python: home page`: http://www.python.org").unwrap(),
             expected
         );
 
         let expected = ("", (r#"Python\: home page"#, "http://www.python.org"));
         assert_eq!(
-            rst_parse_label2dest(r#"_Python\: home page: http://www.python.org"#).unwrap(),
+            rst_parse_label2target(false)(r#"_Python\: home page: http://www.python.org"#).unwrap(),
             expected
         );
 
@@ -945,7 +946,7 @@ mod tests {
             ("my news at <http://python.org>", "http://news.python.org"),
         );
         assert_eq!(
-            rst_parse_label2dest(r#"_`my news at <http://python.org>`: http://news.python.org"#)
+            rst_parse_label2target(false)(r#"_`my news at <http://python.org>`: http://news.python.org"#)
                 .unwrap(),
             expected
         );
@@ -958,7 +959,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_label2dest(r#"_`my news at \<http://python.org\>`: http://news.python.org"#)
+            rst_parse_label2target(false)(r#"_`my news at \<http://python.org\>`: http://news.python.org"#)
                 .unwrap(),
             expected
         );
@@ -971,14 +972,14 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_label2dest(r#"_my news at \<http\://python.org\>: http://news.python.org"#)
+            rst_parse_label2target(false)(r#"_my news at \<http\://python.org\>: http://news.python.org"#)
                 .unwrap(),
             expected
         );
 
         let expected = ("", ("_", "http://news.python.org"));
         assert_eq!(
-            rst_parse_label2dest(r#"__: http://news.python.org"#).unwrap(),
+            rst_parse_label2target(false)(r#"__: http://news.python.org"#).unwrap(),
             expected
         );
     }
