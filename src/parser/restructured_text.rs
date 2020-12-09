@@ -319,6 +319,14 @@ pub fn rst_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///   rst_label2dest("   .. _`label`: destination\nabc"),
 ///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from(""))))
 /// );
+/// assert_eq!(
+///   rst_label2dest("   .. __: destination\nabc"),
+///   Ok(("\nabc", (Cow::from("_"), Cow::from("destination"), Cow::from(""))))
+/// );
+/// assert_eq!(
+///   rst_label2dest("   __ destination\nabc"),
+///   Ok(("\nabc", (Cow::from("_"), Cow::from("destination"), Cow::from(""))))
+/// );
 /// ```
 /// Here some examples for link references:
 /// ```rst
@@ -334,11 +342,22 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
         ))
     };
 
-    let (i, c) = rst_explicit_markup_block(".. ")(i)?;
+    // If there is a block, what kind?
+    let (i, c, block_header_is__) =
+        if let (i, Some(c)) = nom::combinator::opt(rst_explicit_markup_block(".. "))(i)? {
+            (i, c, false)
+        } else {
+            let (i, c) = rst_explicit_markup_block("__ ")(i)?;
+            (i, c, true)
+        };
 
     let (ln, ld) = match c {
         Cow::Borrowed(s) => {
-            let (_, (ln, ld)) = rst_parse_label2dest(s)?;
+            let (_, (ln, ld)) = if block_header_is__ {
+                ("", ("_", s))
+            } else {
+                rst_parse_label2dest(s)?
+            };
             (
                 rst_escaped_link_text_transform(ln)?.1,
                 rst_escaped_link_destination_transform(ld)?.1,
@@ -346,7 +365,11 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
         }
 
         Cow::Owned(strg) => {
-            let (_, (ln, ld)) = rst_parse_label2dest(&strg).map_err(my_err)?;
+            let (_, (ln, ld)) = if block_header_is__ {
+                ("", ("_", strg.as_str()))
+            } else {
+                rst_parse_label2dest(&strg).map_err(my_err)?
+            };
             let ln = Cow::Owned(
                 rst_escaped_link_text_transform(ln)
                     .map_err(my_err)?
@@ -443,7 +466,9 @@ fn rst_parse_label2label(_i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// hyperlink target may begin on the same line as the explicit markup start
 /// or the next line. It may also be split over multiple lines, in which case
 /// the lines are joined with whitespace before being normalized.
-fn rst_explicit_markup_block<'a>(block_header: &'a str) -> impl Fn(&'a str) -> IResult<&'a str, Cow<'a, str>> {
+fn rst_explicit_markup_block<'a>(
+    block_header: &'a str,
+) -> impl Fn(&'a str) -> IResult<&'a str, Cow<'a, str>> {
     move |i: &'a str| {
         fn indent<'a>(wsp1: &'a str, wsp2: &'a str) -> impl Fn(&'a str) -> IResult<&'a str, ()> {
             move |i: &str| {
@@ -870,6 +895,23 @@ mod tests {
         );
         assert_eq!(
             rst_label2dest(r#".. _my news: http://news.\<python\>.org"#).unwrap(),
+            expected
+        );
+
+        let expected = (
+            "",
+            (
+                Cow::from("_"),
+                Cow::from("http://news.python.org"),
+                Cow::from(""),
+            ),
+        );
+        assert_eq!(
+            rst_label2dest(r#".. __: http://news.python.org"#).unwrap(),
+            expected
+        );
+        assert_eq!(
+            rst_label2dest(r#"__ http://news.python.org"#).unwrap(),
             expected
         );
     }
