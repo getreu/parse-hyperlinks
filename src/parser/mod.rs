@@ -13,6 +13,7 @@ use crate::parser::markdown::md_label2dest_link;
 use crate::parser::markdown::md_text2dest_link;
 use crate::parser::markdown::md_text2label_link;
 use crate::parser::restructured_text::rst_label2dest_link;
+use crate::parser::restructured_text::rst_label2label_link;
 use crate::parser::restructured_text::rst_text2dest_link;
 use crate::parser::restructured_text::rst_text2label_link;
 use crate::parser::restructured_text::rst_text_label2dest_link;
@@ -295,6 +296,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         if line_start || input_start {
             if let Ok((k, r)) = alt((
                 md_label2dest_link,
+                rst_label2label_link,
                 rst_label2dest_link,
                 rst_text2label_link,
                 adoc_text2dest_link,
@@ -428,9 +430,10 @@ abc [md text](md_destination "md title")[md text]: abc[md text]: abc
    [md text]: md_destination "md title"
 abc `rst text <rst_destination>`__abc
 abc `rst text <rst_label_>`_ .. _norst: no .. _norst: no
-.. _rst text: rst_destination
-  .. _rst text: rst_d
+.. _rst label: rst_destination
+  .. _rst label: rst_d
      estination
+__ rst_label_
 <a href="html_destination"
    title="html title">html text</a>
 abc https://adoc_destination[adoc text] abc
@@ -480,12 +483,16 @@ abc https://adoc_destination[adoc text] abc
         assert_eq!(res, expected);
 
         let expected = Link::Label2Dest(
-            Cow::from("rst text"),
+            Cow::from("rst label"),
             Cow::from("rst_destination"),
             Cow::from(""),
         );
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Label2Label(Cow::from("_"), Cow::from("rst_label"));
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
