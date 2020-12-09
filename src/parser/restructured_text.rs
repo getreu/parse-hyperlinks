@@ -245,49 +245,9 @@ pub fn rst_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 /// without consuming it.
 ///
 fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
-    // Consumes and returns a word ending with `_`.
-    // Strips off one the trailing `_` before returning the result.
-    fn take_word_consume_first_ending_underscore(i: &str) -> nom::IResult<&str, &str> {
-        let mut i = i;
-        let (k, mut r) =
-            nom::bytes::complete::take_till1(|c| c == ' ' || c == '\t' || c == '\n')(i)?;
-        // Is `r` ending with `__`?
-        if r.len() >= 2 && r.is_char_boundary(r.len() - 2) && &r[r.len() - 2..] == "__" {
-            // Consume one `_`, but keep one `_` in remaining bytes.
-            i = &i[r.len() - 1..];
-            // Strip two `__` from result.
-            r = &r[..r.len() - 2];
-        // Is `r` ending with `_`?
-        } else if r.len() >= 1 && r.is_char_boundary(r.len() - 1) && &r[r.len() - 1..] == "_" {
-            // Remaining bytes.
-            i = k;
-            // Strip `_` from result.
-            r = &r[..r.len() - 1]
-        } else {
-            return Err(nom::Err::Error(nom::error::Error::new(
-                k,
-                nom::error::ErrorKind::Tag,
-            )));
-        };
-
-        Ok((i, r))
-    }
-
     let (mut i, (link_text, mut link_label)) = alt((
         rst_parse_text2target(false, true),
-        nom::combinator::map(
-            nom::sequence::delimited(
-                tag("`"),
-                nom::bytes::complete::escaped(
-                    nom::character::complete::none_of(r#"\`"#),
-                    '\\',
-                    nom::character::complete::one_of(ESCAPABLE),
-                ),
-                tag("`_"),
-            ),
-            |s| (s, s),
-        ),
-        nom::combinator::map(take_word_consume_first_ending_underscore, |s| (s, s)),
+        nom::combinator::map(rst_parse_simple_label, |s| (s, s)),
     ))(i)?;
 
     // Is this an anonymous reference? Consume the second `_` also.
@@ -393,41 +353,46 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
     Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
 
-/// This parser detects the position of the link name and the link destination.
-/// It does not perform any transformation.
-/// The caller must guarantee, that the parser starts at first character of the
-/// input or at the first character of a line.
-/// If the reference name contains any colons, either:
-/// * the phrase must be enclosed in backquotes, or
-/// * the colon must be backslash escaped.
-/// [reStructuredText Markup
-/// Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-targets)
+/// The parser recognizes `Label2Dest` links (`label==false`):
+///     _label: dest
+/// or `Label2Label` links (`label==true):
+///     _alt_label: label_
+/// It does not perform any escape character transformation.
 fn rst_parse_label2target(label: bool) -> impl Fn(&str) -> IResult<&str, (&str, &str)> {
     move |i: &str| {
-    let (link_destination, link_text) = alt((
-        nom::sequence::delimited(
-            tag("_`"),
-            nom::bytes::complete::escaped(
-                nom::character::complete::none_of(r#"\`"#),
-                '\\',
-                nom::character::complete::one_of(ESCAPABLE),
+        let (i, link_text) = alt((
+            nom::sequence::delimited(
+                tag("_`"),
+                nom::bytes::complete::escaped(
+                    nom::character::complete::none_of(r#"\`"#),
+                    '\\',
+                    nom::character::complete::one_of(ESCAPABLE),
+                ),
+                tag("`: "),
             ),
-            tag("`: "),
-        ),
-        nom::sequence::delimited(
-            tag("_"),
-            nom::bytes::complete::escaped(
-                nom::character::complete::none_of(r#"\:"#),
-                '\\',
-                nom::character::complete::one_of(ESCAPABLE),
+            nom::sequence::delimited(
+                tag("_"),
+                nom::bytes::complete::escaped(
+                    nom::character::complete::none_of(r#"\:"#),
+                    '\\',
+                    nom::character::complete::one_of(ESCAPABLE),
+                ),
+                tag(": "),
             ),
-            tag(": "),
-        ),
-        nom::combinator::value("_", tag("__: ")),
-    ))(i)?;
+            nom::combinator::value("_", tag("__: ")),
+        ))(i)?;
 
-    Ok(("", (link_text, link_destination)))
-}}
+        let link_target = if label {
+            // The target is another label.
+            rst_parse_simple_label(i)?.1
+        } else {
+            // The target is a destination.
+            i
+        };
+
+        Ok(("", (link_text, link_target)))
+    }
+}
 
 /// Wrapper around `rst_label2label()` that packs the result in
 /// `Link::Label2Label`.
@@ -444,6 +409,58 @@ pub fn rst_label2label(_i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 /// TODO
 fn rst_parse_label2label(_i: &str) -> nom::IResult<&str, (&str, &str)> {
     Ok(("", ("", "")))
+}
+
+/// This parser consumes a simple label:
+///     one_word_label_
+/// or
+///     `more words label`_
+fn rst_parse_simple_label(i: &str) -> nom::IResult<&str, &str> {
+    // Consumes and returns a word ending with `_`.
+    // Strips off one the trailing `_` before returning the result.
+    fn take_word_consume_first_ending_underscore(i: &str) -> nom::IResult<&str, &str> {
+        let mut i = i;
+        let (k, mut r) =
+            nom::bytes::complete::take_till1(|c| c == ' ' || c == '\t' || c == '\n')(i)?;
+        // Is `r` ending with `__`? There should be at least 2 bytes: `"__".len()`
+        if r.len() >= 3 && r.is_char_boundary(r.len() - 2) && &r[r.len() - 2..] == "__" {
+            // Consume one `_`, but keep one `_` in remaining bytes.
+            i = &i[r.len() - 1..];
+            // Strip two `__` from result.
+            r = &r[..r.len() - 2];
+        // Is `r` ending with `_`? There should be at least 1 byte: `"_".len()`.
+        } else if r.len() >= 1 && r.is_char_boundary(r.len() - 1) && &r[r.len() - 1..] == "_" {
+            // Remaining bytes.
+            i = k;
+            // Strip `_` from result.
+            r = &r[..r.len() - 1]
+        } else {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                k,
+                nom::error::ErrorKind::Tag,
+            )));
+        };
+
+        Ok((i, r))
+    }
+
+    let (i, r) = alt((
+        nom::sequence::delimited(
+            tag("`"),
+            nom::bytes::complete::escaped(
+                nom::character::complete::none_of(r#"\`"#),
+                '\\',
+                nom::character::complete::one_of(ESCAPABLE),
+            ),
+            tag("`_"),
+        ),
+        take_word_consume_first_ending_underscore,
+    ))(i)?;
+
+    // Return error if label is empty.
+    let _ = nom::combinator::not(alt((nom::combinator::eof, tag("``"))))(r)?;
+
+    Ok((i, r))
 }
 
 /// This parses an explicit markup block.
@@ -918,7 +935,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_parse_label2dest() {
+    fn test_rst_parse_label2target() {
         let expected = ("", ("Python home page", "http://www.python.org"));
         assert_eq!(
             rst_parse_label2target(false)("_Python home page: http://www.python.org").unwrap(),
@@ -946,8 +963,10 @@ mod tests {
             ("my news at <http://python.org>", "http://news.python.org"),
         );
         assert_eq!(
-            rst_parse_label2target(false)(r#"_`my news at <http://python.org>`: http://news.python.org"#)
-                .unwrap(),
+            rst_parse_label2target(false)(
+                r#"_`my news at <http://python.org>`: http://news.python.org"#
+            )
+            .unwrap(),
             expected
         );
 
@@ -959,8 +978,10 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_label2target(false)(r#"_`my news at \<http://python.org\>`: http://news.python.org"#)
-                .unwrap(),
+            rst_parse_label2target(false)(
+                r#"_`my news at \<http://python.org\>`: http://news.python.org"#
+            )
+            .unwrap(),
             expected
         );
 
@@ -972,8 +993,10 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_label2target(false)(r#"_my news at \<http\://python.org\>: http://news.python.org"#)
-                .unwrap(),
+            rst_parse_label2target(false)(
+                r#"_my news at \<http\://python.org\>: http://news.python.org"#
+            )
+            .unwrap(),
             expected
         );
 
@@ -981,6 +1004,56 @@ mod tests {
         assert_eq!(
             rst_parse_label2target(false)(r#"__: http://news.python.org"#).unwrap(),
             expected
+        );
+
+        let expected = ("", ("alt_label", "one_word_label"));
+        assert_eq!(
+            rst_parse_label2target(true)("_alt_label: one_word_label_").unwrap(),
+            expected
+        );
+
+        let expected = ("", ("alt label", "more words label"));
+        assert_eq!(
+            rst_parse_label2target(true)("_`alt label`: `more words label`_").unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_parse_simple_label() {
+        let expected = ("", "one_word_label");
+        assert_eq!(rst_parse_simple_label("one_word_label_").unwrap(), expected);
+
+        let expected = (" abc", "one_word_label");
+        assert_eq!(
+            rst_parse_simple_label("one_word_label_ abc").unwrap(),
+            expected
+        );
+        assert_eq!(
+            rst_parse_simple_label("`one_word_label`_ abc").unwrap(),
+            expected
+        );
+
+        let expected = ("", "more words label");
+        assert_eq!(
+            rst_parse_simple_label("`more words label`_").unwrap(),
+            expected
+        );
+
+        let expected = (" abc", "more words label");
+        assert_eq!(
+            rst_parse_simple_label("`more words label`_ abc").unwrap(),
+            expected
+        );
+
+        assert_eq!(
+            rst_parse_simple_label("_").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("", ErrorKind::Not)),
+        );
+
+        assert_eq!(
+            rst_parse_simple_label("``_").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("``", ErrorKind::Not)),
         );
     }
 
