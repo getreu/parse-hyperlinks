@@ -42,7 +42,7 @@ pub fn rst_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// The bracketed URI must be preceded by whitespace and be the last text
 /// before the end string.
 pub fn rst_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, (ln, ld)) = rst_parse_text2dest_label(true, i)?;
+    let (i, (ln, ld)) = rst_parse_text2dest_label(true, false, i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
@@ -80,20 +80,23 @@ pub fn rst_text_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// The bracketed URI must be preceded by whitespace and be the last text
 /// before the end string.
 pub fn rst_text_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, (ln, ld)) = rst_parse_text2dest_label(false, i)?;
+    let (i, (ln, ld)) = rst_parse_text2dest_label(false, false, i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
     Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
 
-/// This parser used by `rst_link()`, does all the work that can be
-/// done without allocating new strings.
-/// Removing of escaped characters is not performed here.
-/// If `anonym==true` it reconizes `\`*<*?>\`__`, otherwise `\`*<*?>\`_`.
+/// This parser finds rst links of type `\`*<*>_\`` or `\`*<*>_\``.
+/// Escape sequences are recognized and skipped, but not replaced here.
+/// If `anonym==true` it reconizes `\`*<*>\`__`, otherwise `\`*<*>\`_`.
 /// If `label==true` it reconizes `\`*<*_>\`_?`, otherwise `\`*<*>\`_?`.
-fn rst_parse_text2dest_label(anonym: bool, i: &str) -> nom::IResult<&str, (&str, &str)> {
-    let (mut i, j) = nom::sequence::delimited(
+fn rst_parse_text2dest_label(
+    anonym: bool,
+    label: bool,
+    i: &str,
+) -> nom::IResult<&str, (&str, &str)> {
+    let (mut i, inner) = nom::sequence::delimited(
         tag("`"),
         nom::bytes::complete::escaped(
             nom::character::complete::none_of(r#"\`"#),
@@ -115,14 +118,15 @@ fn rst_parse_text2dest_label(anonym: bool, i: &str) -> nom::IResult<&str, (&str,
 
     // From here on, we only deal with the inner result of the above.
     // Take everything until the first unescaped `<`
-    let (j, link_text): (&str, &str) = nom::bytes::complete::escaped(
+    let (inner_rest, link_text): (&str, &str) = nom::bytes::complete::escaped(
         nom::character::complete::none_of(r#"\<"#),
         '\\',
         nom::character::complete::one_of(ESCAPABLE),
-    )(j)?;
+    )(inner)?;
     // Trim trailing whitespace.
     let link_text = link_text.trim_end();
-    let (j, link_destination) = nom::sequence::delimited(
+
+    let (j, mut link_dest_label) = nom::sequence::delimited(
         tag("<"),
         nom::bytes::complete::escaped(
             nom::character::complete::none_of(r#"\<>"#),
@@ -130,11 +134,34 @@ fn rst_parse_text2dest_label(anonym: bool, i: &str) -> nom::IResult<&str, (&str,
             nom::character::complete::one_of(ESCAPABLE),
         ),
         tag(">"),
-    )(j)?;
+    )(inner_rest)?;
+
     // Fail if there are bytes left between `>` and `\``.
     let (_, _) = nom::combinator::eof(j)?;
 
-    Ok((i, (link_text, link_destination)))
+    // Now check if `link_dest_label` is what we are expecting (which depends
+    // on `label`).
+
+    // Fail if `link_dest_label` is empty.
+    let (_, _) = nom::combinator::not(nom::combinator::eof)(link_dest_label)?;
+
+    // Get last char.
+    let last_char_is_ = link_dest_label.is_char_boundary(link_dest_label.len() - 1)
+        && &link_dest_label[link_dest_label.len() - 1..] == "_";
+    // If (`label==true`), we expect trailing `_`, fail otherwise.
+    // If (`label==false`), we fail when there is a trailing `_`.
+    if (label && !last_char_is_) || (!label && last_char_is_) {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            i,
+            nom::error::ErrorKind::Tag,
+        )));
+    };
+    // When label, strip trailing `_`.
+    if label {
+        link_dest_label = &link_dest_label[..link_dest_label.len() - 1];
+    };
+
+    Ok((i, (link_text, link_dest_label)))
 }
 
 /// Wrapper around `rst_text2dest()` that packs the result in
@@ -582,25 +609,50 @@ mod tests {
     }
 
     #[test]
-    fn test_rst_parse_text2dest() {
+    fn test_rst_parse_text2dest_label() {
         let expected = ("abc", ("Python home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_text2dest_label(false, "`Python home page <http://www.python.org>`_abc").unwrap(),
+            rst_parse_text2dest_label(
+                false,
+                false,
+                "`Python home page <http://www.python.org>`_abc"
+            )
+            .unwrap(),
+            expected
+        );
+
+        let expected = nom::Err::Error(nom::error::Error::new("abc", ErrorKind::Tag));
+        assert_eq!(
+            rst_parse_text2dest_label(
+                false,
+                false,
+                "`Python home page <http://www.python.org_>`_abc"
+            )
+            .unwrap_err(),
             expected
         );
 
         let expected = nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag));
-        assert_eq!(rst_parse_text2dest_label(false, "`_abc").unwrap_err(), expected);
+        assert_eq!(
+            rst_parse_text2dest_label(false, false, "`_abc").unwrap_err(),
+            expected
+        );
 
         let expected = ("abc", ("Python home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_text2dest_label(true, "`Python home page <http://www.python.org>`__abc").unwrap(),
+            rst_parse_text2dest_label(
+                true,
+                false,
+                "`Python home page <http://www.python.org>`__abc"
+            )
+            .unwrap(),
             expected
         );
 
         let expected = ("abc", (r#"Python\ \<home\> page"#, "http://www.python.org"));
         assert_eq!(
             rst_parse_text2dest_label(
+                false,
                 false,
                 r#"`Python\ \<home\> page <http://www.python.org>`_abc"#
             )
@@ -618,6 +670,7 @@ mod tests {
         assert_eq!(
             rst_parse_text2dest_label(
                 false,
+                false,
                 r#"`my news at \<http://python.org\> <http://news.python.org>`_abc"#
             )
             .unwrap(),
@@ -634,9 +687,22 @@ mod tests {
         assert_eq!(
             rst_parse_text2dest_label(
                 false,
+                false,
                 r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_abc"#
             )
             .unwrap(),
+            expected
+        );
+        let expected = ("abc", (r#"my news"#, r#"python webpage"#));
+        assert_eq!(
+            rst_parse_text2dest_label(false, true, r#"`my news <python webpage_>`_abc"#).unwrap(),
+            expected
+        );
+
+        let expected = nom::Err::Error(nom::error::Error::new("abc", ErrorKind::Tag));
+        assert_eq!(
+            rst_parse_text2dest_label(false, true, r#"`my news <python webpage>`_abc"#)
+                .unwrap_err(),
             expected
         );
     }
