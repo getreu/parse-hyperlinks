@@ -334,7 +334,7 @@ pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
         ))
     };
 
-    let (i, c) = rst_explicit_markup_block(i)?;
+    let (i, c) = rst_explicit_markup_block(".. ")(i)?;
 
     let (ln, ld) = match c {
         Cow::Borrowed(s) => {
@@ -443,43 +443,45 @@ fn rst_parse_label2label(_i: &str) -> nom::IResult<&str, (&str, &str)> {
 /// hyperlink target may begin on the same line as the explicit markup start
 /// or the next line. It may also be split over multiple lines, in which case
 /// the lines are joined with whitespace before being normalized.
-fn rst_explicit_markup_block(i: &str) -> nom::IResult<&str, Cow<str>> {
-    fn indent<'a>(wsp1: &'a str, wsp2: &'a str) -> impl Fn(&'a str) -> IResult<&'a str, ()> {
-        move |i: &str| {
-            let (i, _) = nom::character::complete::line_ending(i)?;
-            let (i, _) = nom::bytes::complete::tag(wsp1)(i)?;
-            let (i, _) = nom::bytes::complete::tag(wsp2)(i)?;
-            Ok((i, ()))
+fn rst_explicit_markup_block<'a>(block_header: &'a str) -> impl Fn(&'a str) -> IResult<&'a str, Cow<'a, str>> {
+    move |i: &'a str| {
+        fn indent<'a>(wsp1: &'a str, wsp2: &'a str) -> impl Fn(&'a str) -> IResult<&'a str, ()> {
+            move |i: &str| {
+                let (i, _) = nom::character::complete::line_ending(i)?;
+                let (i, _) = nom::bytes::complete::tag(wsp1)(i)?;
+                let (i, _) = nom::bytes::complete::tag(wsp2)(i)?;
+                Ok((i, ()))
+            }
         }
-    }
 
-    let (i, (wsp1, wsp2)) = nom::sequence::pair(
-        nom::character::complete::space0,
-        nom::combinator::map(nom::bytes::complete::tag(".. "), |_| "   "),
-    )(i)?;
+        let (i, (wsp1, wsp2)) = nom::sequence::pair(
+            nom::character::complete::space0,
+            nom::combinator::map(nom::bytes::complete::tag(block_header), |_| "   "),
+        )(i)?;
 
-    let (j, v) = nom::multi::separated_list1(
-        indent(&wsp1, &wsp2),
-        nom::character::complete::not_line_ending,
-    )(i)?;
+        let (j, v) = nom::multi::separated_list1(
+            indent(&wsp1, &wsp2),
+            nom::character::complete::not_line_ending,
+        )(i)?;
 
-    // If the block consists of only one line return now.
-    if v.len() == 1 {
-        return Ok((j, Cow::Borrowed(v[0].clone())));
-    };
+        // If the block consists of only one line return now.
+        if v.len() == 1 {
+            return Ok((j, Cow::Borrowed(v[0].clone())));
+        };
 
-    let mut s = String::new();
-    let mut is_first = true;
+        let mut s = String::new();
+        let mut is_first = true;
 
-    for subs in &v {
-        if !is_first {
-            s.push(' ');
+        for subs in &v {
+            if !is_first {
+                s.push(' ');
+            }
+            s.push_str(subs);
+            is_first = false;
         }
-        s.push_str(subs);
-        is_first = false;
-    }
 
-    Ok((j, Cow::from(s)))
+        Ok((j, Cow::from(s)))
+    }
 }
 
 /// Replace the following escaped characters:
@@ -942,30 +944,30 @@ mod tests {
     #[test]
     fn test_rst_explicit_markup_block() {
         assert_eq!(
-            rst_explicit_markup_block(".. 11111"),
+            rst_explicit_markup_block(".. ")(".. 11111"),
             Ok(("", Cow::from("11111")))
         );
         assert_eq!(
-            rst_explicit_markup_block("   .. 11111\nout"),
+            rst_explicit_markup_block(".. ")("   .. 11111\nout"),
             Ok(("\nout", Cow::from("11111")))
         );
         assert_eq!(
-            rst_explicit_markup_block("   .. 11111\n      222222\n      333333\nout"),
+            rst_explicit_markup_block(".. ")("   .. 11111\n      222222\n      333333\nout"),
             Ok(("\nout", Cow::from("11111 222222 333333")))
         );
         assert_eq!(
-            rst_explicit_markup_block("   .. first\n      second\n       1indent\nout"),
+            rst_explicit_markup_block(".. ")("   .. first\n      second\n       1indent\nout"),
             Ok(("\nout", Cow::from("first second  1indent")))
         );
         assert_eq!(
-            rst_explicit_markup_block("   ..first"),
+            rst_explicit_markup_block(".. ")("   ..first"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "..first",
                 ErrorKind::Tag
             )))
         );
         assert_eq!(
-            rst_explicit_markup_block("x  .. first"),
+            rst_explicit_markup_block(".. ")("x  .. first"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "x  .. first",
                 ErrorKind::Tag
