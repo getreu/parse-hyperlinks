@@ -45,7 +45,7 @@ pub fn rst_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// The bracketed URI must be preceded by whitespace and be the last text
 /// before the end string.
 pub fn rst_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, (ln, ld)) = rst_parse_text2dest_label(true, false)(i)?;
+    let (i, (ln, ld)) = rst_parse_text2target(true, false)(i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
@@ -83,18 +83,29 @@ pub fn rst_text_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// The bracketed URI must be preceded by whitespace and be the last text
 /// before the end string.
 pub fn rst_text_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, (ln, ld)) = rst_parse_text2dest_label(false, false)(i)?;
+    let (i, (ln, ld)) = rst_parse_text2target(false, false)(i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
 
     Ok((i, (ln, ld, Cow::Borrowed(""))))
 }
 
-/// This parser finds rst links of type `\`*<*>_\`` or `\`*<*>_\``.
+/// This parser finds rst links of type:
+///     `*<*>`__
+/// or:
+///     `*<*>`_
+///
 /// Escape sequences are recognized and skipped, but not replaced here.
-/// If `anonym==true` it reconizes `\`*<*>\`__`, otherwise `\`*<*>\`_`.
-/// If `label==true` it reconizes `\`*<*_>\`_?`, otherwise `\`*<*>\`_?`.
-fn rst_parse_text2dest_label(
+/// If `anonym==true`: it recognizes:
+///     `*<*>`__
+/// otherwise:
+///     `*<*>`_
+///
+/// If `label==true` (`target==label`): it recognizes
+///     `*<*_>`_?
+/// otherwise (`target==dest`):
+///     `*<*>`_?
+fn rst_parse_text2target(
     anonym: bool,
     label: bool,
 ) -> impl Fn(&str) -> IResult<&str, (&str, &str)> {
@@ -175,8 +186,11 @@ pub fn rst_text2label_link(i: &str) -> nom::IResult<&str, Link> {
     Ok((i, Link::Text2Label(te, la)))
 }
 
-/// TODO
+/// Parse a RestructuredText _reference link_.
 ///
+/// The caller must guarantee, that
+/// * the last character was a whitespace, or
+/// * the parser is at the input start (no bytes exist before).
 /// ```rust
 /// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::restructured_text::rst_text2label;
@@ -260,7 +274,7 @@ fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
     }
 
     let (mut i, (link_text, mut link_label)) = alt((
-        rst_parse_text2dest_label(false, true),
+        rst_parse_text2target(false, true),
         nom::combinator::map(
             nom::sequence::delimited(
                 tag("`"),
@@ -619,40 +633,34 @@ mod tests {
     fn test_rst_parse_text2dest_label() {
         let expected = ("abc", ("Python home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_text2dest_label(false, false)(
-                "`Python home page <http://www.python.org>`_abc"
-            )
-            .unwrap(),
+            rst_parse_text2target(false, false)("`Python home page <http://www.python.org>`_abc")
+                .unwrap(),
             expected
         );
 
         let expected = nom::Err::Error(nom::error::Error::new("abc", ErrorKind::Tag));
         assert_eq!(
-            rst_parse_text2dest_label(false, false)(
-                "`Python home page <http://www.python.org_>`_abc"
-            )
-            .unwrap_err(),
+            rst_parse_text2target(false, false)("`Python home page <http://www.python.org_>`_abc")
+                .unwrap_err(),
             expected
         );
 
         let expected = nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag));
         assert_eq!(
-            rst_parse_text2dest_label(false, false)("`_abc").unwrap_err(),
+            rst_parse_text2target(false, false)("`_abc").unwrap_err(),
             expected
         );
 
         let expected = ("abc", ("Python home page", "http://www.python.org"));
         assert_eq!(
-            rst_parse_text2dest_label(true, false)(
-                "`Python home page <http://www.python.org>`__abc"
-            )
-            .unwrap(),
+            rst_parse_text2target(true, false)("`Python home page <http://www.python.org>`__abc")
+                .unwrap(),
             expected
         );
 
         let expected = ("abc", (r#"Python\ \<home\> page"#, "http://www.python.org"));
         assert_eq!(
-            rst_parse_text2dest_label(false, false)(
+            rst_parse_text2target(false, false)(
                 r#"`Python\ \<home\> page <http://www.python.org>`_abc"#
             )
             .unwrap(),
@@ -667,7 +675,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_text2dest_label(false, false)(
+            rst_parse_text2target(false, false)(
                 r#"`my news at \<http://python.org\> <http://news.python.org>`_abc"#
             )
             .unwrap(),
@@ -682,7 +690,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_text2dest_label(false, false)(
+            rst_parse_text2target(false, false)(
                 r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_abc"#
             )
             .unwrap(),
@@ -697,7 +705,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            rst_parse_text2dest_label(false, false)(
+            rst_parse_text2target(false, false)(
                 r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_abc"#
             )
             .unwrap(),
@@ -705,15 +713,13 @@ mod tests {
         );
         let expected = ("abc", (r#"rst link text"#, "rst_link_label"));
         assert_eq!(
-            rst_parse_text2dest_label(false, true)(r#"`rst link text <rst_link_label_>`_abc"#)
-                .unwrap(),
+            rst_parse_text2target(false, true)(r#"`rst link text <rst_link_label_>`_abc"#).unwrap(),
             expected
         );
 
         let expected = nom::Err::Error(nom::error::Error::new("abc", ErrorKind::Tag));
         assert_eq!(
-            rst_parse_text2dest_label(false, true)(r#"`my news <python webpage>`_abc"#)
-                .unwrap_err(),
+            rst_parse_text2target(false, true)(r#"`my news <python webpage>`_abc"#).unwrap_err(),
             expected
         );
     }

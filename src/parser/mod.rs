@@ -73,7 +73,7 @@ pub enum Link<'a> {
     ///   ```
     ///   When only _link text_ is given, _link label_ is set to the same string.
     /// * Asciidoc example:
-    ///   ```md
+    ///   ```adoc
     ///   {link_label}[link_text]
     ///   ```
     ///
