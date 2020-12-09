@@ -295,69 +295,8 @@ pub fn rst_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// ```
 /// See unit test `test_rst_label2dest()` for more examples.
 pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    rst_label2target(i)
-}
-
-/// Parser for _link_reference_definitions_:
-/// * `label==false`:  the link is of type `Label2Dest`
-/// * `label==true`: the link is of type `Label2Label`
-fn rst_label2target(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let my_err = |_| {
-        nom::Err::Error(nom::error::Error::new(
-            i,
-            nom::error::ErrorKind::EscapedTransform,
-        ))
-    };
-
-    // If there is a block, what kind?
-    let (i, c, block_header_is__) =
-        if let (i, Some(c)) = nom::combinator::opt(rst_explicit_markup_block(".. "))(i)? {
-            (i, c, false)
-        } else {
-            let (i, c) = rst_explicit_markup_block("__ ")(i)?;
-            (i, c, true)
-        };
-
-    let (ln, ld) = match c {
-        Cow::Borrowed(s) => {
-            let (_, (ln, ld)) = if block_header_is__ {
-                ("", ("_", s))
-            } else {
-                rst_parse_label2target(false)(s)?
-            };
-            (
-                rst_escaped_link_text_transform(ln)?.1,
-                rst_escaped_link_destination_transform(ld)?.1,
-            )
-        }
-
-        Cow::Owned(strg) => {
-            let (_, (ln, ld)) = if block_header_is__ {
-                ("", ("_", strg.as_str()))
-            } else {
-                rst_parse_label2target(false)(&strg).map_err(my_err)?
-            };
-            let ln = Cow::Owned(
-                rst_escaped_link_text_transform(ln)
-                    .map_err(my_err)?
-                    .1
-                    .to_string(),
-            );
-            let ld = Cow::Owned(
-                rst_escaped_link_destination_transform(ld)
-                    .map_err(my_err)?
-                    .1
-                    .to_string(),
-            );
-            (ln, ld)
-        }
-    };
-
-    // We do not need to consume whitespace until the end of the line,
-    // because `rst_explicit_markup_block()` had stripped the whitespace
-    // already.
-
-    Ok((i, (ln, ld, Cow::Borrowed(""))))
+    let (i, (l, d)) = rst_label2target(false, i)?;
+    Ok((i, (l, d, Cow::from(""))))
 }
 
 /// Wrapper around `rst_label2label()` that packs the result in
@@ -367,9 +306,111 @@ pub fn rst_label2label_link(i: &str) -> nom::IResult<&str, Link> {
     Ok((i, Link::Label2Label(l1, l2)))
 }
 
-/// TODO
-pub fn rst_label2label(_i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
-    Ok(("", (Cow::from(""), Cow::from(""))))
+/// Parse a reStructuredText _link reference to link reference definition_.
+/// This type defines an alias (alternative name) for a link reference:
+/// ```
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::restructured_text::rst_label2label;
+/// use std::borrow::Cow;
+///
+/// assert_eq!(
+///   rst_label2label("   .. _`alt label`: `label`_\nabc"),
+///   Ok(("\nabc", (Cow::from("alt label"), Cow::from("label"))))
+/// );
+/// assert_eq!(
+///   rst_label2label("   .. __: label_\nabc"),
+///   Ok(("\nabc", (Cow::from("_"), Cow::from("label"))))
+/// );
+/// assert_eq!(
+///   rst_label2label("   __ label_\nabc"),
+///   Ok(("\nabc", (Cow::from("_"), Cow::from("label"))))
+/// );
+/// ```
+pub fn rst_label2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+    rst_label2target(true, i)
+}
+
+/// Parser for _link_reference_definitions_:
+/// * `label==false`:  the link is of type `Label2Dest`
+/// * `label==true`: the link is of type `Label2Label`
+fn rst_label2target(label: bool, i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+    let my_err = |_| {
+        nom::Err::Error(nom::error::Error::new(
+            i,
+            nom::error::ErrorKind::EscapedTransform,
+        ))
+    };
+
+    // If there is a block start? What kind of?
+    let (i, c, block_header_is__) =
+        if let (i, Some(c)) = nom::combinator::opt(rst_explicit_markup_block(".. "))(i)? {
+            (i, c, false)
+        } else {
+            let (i, c) = rst_explicit_markup_block("__ ")(i)?;
+            (i, c, true)
+        };
+
+    let (source, target) = match c {
+        Cow::Borrowed(s) => {
+            let (_, (ls, lt)) = if !block_header_is__ {
+                rst_parse_label2target(label)(s)?
+            } else {
+                if label {
+                    // This is supposed to be a label.
+                    ("", ("_", rst_parse_simple_label(s)?.1))
+                } else {
+                    // This is supposed to be a destination (url).
+                    ("", ("_", s))
+                }
+            };
+            // If the target is a destination (not a label), the last char must not be `_`.
+            if !label {
+                let _ = nom::combinator::not(rst_parse_simple_label)(lt).map_err(my_err)?;
+            };
+            (
+                rst_escaped_link_text_transform(ls)?.1,
+                rst_escaped_link_destination_transform(lt)?.1,
+            )
+        }
+
+        Cow::Owned(strg) => {
+            let (_, (ls, lt)) = if !block_header_is__ {
+                rst_parse_label2target(label)(&strg).map_err(my_err)?
+            } else {
+                if label {
+                    // This is supposed to be a label.
+                    let s = rst_parse_simple_label(&strg).map_err(my_err)?.1;
+                    ("", ("_", s))
+                } else {
+                    // This is supposed to be a destination (url).
+                    ("", ("_", strg.as_str()))
+                }
+            };
+            // If the target is a destination (not a label), the last char must not be `_`.
+            if !label {
+                let _ = nom::combinator::not(rst_parse_simple_label)(lt).map_err(my_err)?;
+            };
+            let ls = Cow::Owned(
+                rst_escaped_link_text_transform(ls)
+                    .map_err(my_err)?
+                    .1
+                    .to_string(),
+            );
+            let lt = Cow::Owned(
+                rst_escaped_link_destination_transform(lt)
+                    .map_err(my_err)?
+                    .1
+                    .to_string(),
+            );
+            (ls, lt)
+        }
+    };
+
+    // We do not need to consume whitespace until the end of the line,
+    // because `rst_explicit_markup_block()` had stripped the whitespace
+    // already.
+
+    Ok((i, (source, target)))
 }
 
 /// The parser recognizes `Label2Dest` links (`label==false`):
@@ -933,6 +974,44 @@ mod tests {
         assert_eq!(
             rst_label2dest(r#"__ http://news.python.org"#).unwrap(),
             expected
+        );
+        assert_eq!(
+            rst_label2dest(".. _label: `link destination`_").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new(
+                ".. _label: `link destination`_",
+                ErrorKind::EscapedTransform
+            )),
+        );
+        assert_eq!(
+            rst_label2dest("__ link_destination_").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new(
+                "__ link_destination_",
+                ErrorKind::EscapedTransform
+            )),
+        );
+    }
+
+    #[test]
+    fn test_rst_label2label() {
+        assert_eq!(
+            rst_label2label("   .. _`alt label`: `label`_\nabc"),
+            Ok(("\nabc", (Cow::from("alt label"), Cow::from("label"))))
+        );
+        assert_eq!(
+            rst_label2label("   .. __: label_\nabc"),
+            Ok(("\nabc", (Cow::from("_"), Cow::from("label"))))
+        );
+        assert_eq!(
+            rst_label2label("   __ label_\nabc"),
+            Ok(("\nabc", (Cow::from("_"), Cow::from("label"))))
+        );
+        assert_eq!(
+            rst_label2label("_label: label").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("_label: label", ErrorKind::Tag)),
+        );
+        assert_eq!(
+            rst_label2label("__ destination").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)),
         );
     }
 
