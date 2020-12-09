@@ -9,6 +9,9 @@ use nom::IResult;
 use std::borrow::Cow;
 
 /// Character that can be escaped with `\`.
+///
+/// Note: If ever you change this, change also
+/// `rst_escaped_link_text_transform()`.
 const ESCAPABLE: &str = r#" `:<>_\"#;
 
 /// Wrapper around `rst_text2dest()` that packs the result in
@@ -685,9 +688,25 @@ mod tests {
             .unwrap(),
             expected
         );
-        let expected = ("abc", (r#"my news"#, r#"python webpage"#));
+
+        let expected = (
+            "abc",
+            (
+                r#"my news at \<http\://python.org\>"#,
+                r#"http:// news.\ \<python\>.org"#,
+            ),
+        );
         assert_eq!(
-            rst_parse_text2dest_label(false, true)(r#"`my news <python webpage_>`_abc"#).unwrap(),
+            rst_parse_text2dest_label(false, false)(
+                r#"`my news at \<http\://python.org\> <http:// news.\ \<python\>.org>`_abc"#
+            )
+            .unwrap(),
+            expected
+        );
+        let expected = ("abc", (r#"rst link text"#, "rst_link_label"));
+        assert_eq!(
+            rst_parse_text2dest_label(false, true)(r#"`rst link text <rst_link_label_>`_abc"#)
+                .unwrap(),
             expected
         );
 
