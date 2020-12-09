@@ -251,23 +251,21 @@ fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
         Ok((i, r))
     }
 
-    let (mut i, link_text) = alt((
-        nom::sequence::delimited(
-            tag("`"),
-            nom::bytes::complete::escaped(
-                nom::character::complete::none_of(r#"\`"#),
-                '\\',
-                nom::character::complete::one_of(ESCAPABLE),
+    let (mut i, (link_text, mut link_label)) = alt((
+        nom::combinator::map(
+            nom::sequence::delimited(
+                tag("`"),
+                nom::bytes::complete::escaped(
+                    nom::character::complete::none_of(r#"\`"#),
+                    '\\',
+                    nom::character::complete::one_of(ESCAPABLE),
+                ),
+                tag("`_"),
             ),
-            tag("`_"),
+            |s| (s, s),
         ),
-        take_word_consume_first_ending_underscore,
+        nom::combinator::map(take_word_consume_first_ending_underscore, |s| (s, s)),
     ))(i)?;
-
-    // For named references in reStructuredText `link_text` and `link_label`
-    // are the same. By convention we define for anonymous references the
-    // `link_label='_'`.
-    let mut link_label = link_text;
 
     // Is this an anonymous reference? Consume the second `_` also.
     if let Ok((j, _)) = nom::character::complete::char::<_, nom::error::Error<_>>('_')(i) {
