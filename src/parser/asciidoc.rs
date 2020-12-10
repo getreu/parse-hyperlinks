@@ -54,10 +54,7 @@ pub fn adoc_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
 /// replaced by one space. There must be not contain more than one newline
 /// per sequence. The string can contain the `\]` which is replaced by `]`.
 fn adoc_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
-    let (i, r) = nom::sequence::preceded(tag("["), remove_newline_take_till(']'))(i)?;
-    // Consume the closing `]`.
-    let (i, _) = char(']')(i)?;
-    Ok((i, r))
+    nom::sequence::delimited(char('['), remove_newline_take_till(']'), char(']'))(i)
 }
 
 /// Takes all characters until the character `<pat>`. The escaped character
