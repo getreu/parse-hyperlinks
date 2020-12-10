@@ -229,6 +229,18 @@ mod tests {
     #[test]
     fn test_adoc_text2dest() {
         assert_eq!(
+            adoc_text2dest("http://getreu.net[]"),
+            Ok((
+                "",
+                (
+                    Cow::from("http://getreu.net"),
+                    Cow::from("http://getreu.net"),
+                    Cow::from("")
+                )
+            ))
+        );
+
+        assert_eq!(
             adoc_text2dest("http://getreu.net[]abc"),
             Ok((
                 "abc",
