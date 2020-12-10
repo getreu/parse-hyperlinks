@@ -42,10 +42,13 @@ pub fn adoc_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// );
 /// ```
 pub fn adoc_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, (link_destination, link_text)) = nom::sequence::preceded(
+    let (i, (link_destination, mut link_text)) = nom::sequence::preceded(
         space0,
         nom::sequence::pair(adoc_link_destination, adoc_link_text),
     )(i)?;
+    if link_text.is_empty() {
+        link_text = link_destination.clone()
+    };
     Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
 }
 
@@ -226,11 +229,11 @@ mod tests {
     #[test]
     fn test_adoc_text2dest() {
         assert_eq!(
-            adoc_text2dest("http://getreu.net[My blog]abc"),
+            adoc_text2dest("http://getreu.net[]abc"),
             Ok((
                 "abc",
                 (
-                    Cow::from("My blog"),
+                    Cow::from("http://getreu.net"),
                     Cow::from("http://getreu.net"),
                     Cow::from("")
                 )
