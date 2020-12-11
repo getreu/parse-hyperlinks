@@ -467,7 +467,7 @@ __ rst_label_
 abc https://adoc_destination1[adoc text1] abc
 abc {adoc-label2}abc {adoc-label3}[adoc text3]abc
  :adoc-label4: https://adoc_destination4
-abc [{adoc-label5}]
+abc [{adoc-label5}] abc https://adoc_destination6 abc
 "#;
 
         let expected = Link::Label2Dest(
@@ -568,9 +568,18 @@ abc [{adoc-label5}]
         assert_eq!(res, expected);
 
         let expected = Link::Text2Label(Cow::from(""), Cow::from("adoc-label5"));
-        let (_i, (skipped, res)) = take_link(i).unwrap();
+        let (i, (skipped, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(skipped, "\nabc [");
+
+        let expected = Link::Text2Dest(
+            Cow::from("https://adoc_destination6"),
+            Cow::from("https://adoc_destination6"),
+            Cow::from(""),
+        );
+        let (_i, (skipped, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+        assert_eq!(skipped, "] abc ");
 
         // New input:
         // Do we find the same at the input start also?

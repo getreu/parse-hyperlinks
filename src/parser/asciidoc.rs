@@ -39,18 +39,37 @@ pub fn adoc_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   adoc_text2dest(r#"https://destination[name]abc"#),
+///   adoc_text2dest("https://destination[name]abc"),
 ///   Ok(("abc", (Cow::from("name"), Cow::from("https://destination"), Cow::from(""))))
+/// );
+/// assert_eq!(
+///   adoc_text2dest("https://destination[]abc"),
+///   Ok(("abc", (Cow::from("https://destination"), Cow::from("https://destination"), Cow::from(""))))
+/// );
+/// assert_eq!(
+///   adoc_text2dest("https://destination abc"),
+///   Ok((" abc", (Cow::from("https://destination"), Cow::from("https://destination"), Cow::from(""))))
 /// );
 /// ```
 pub fn adoc_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, (link_destination, mut link_text)) = nom::sequence::preceded(
+    let (i, (link_destination, link_text)) = nom::sequence::preceded(
         space0,
-        nom::sequence::pair(adoc_inline_link_destination, adoc_link_text),
+        nom::sequence::pair(
+            adoc_inline_link_destination,
+            nom::combinator::opt(adoc_link_text),
+        ),
     )(i)?;
-    if link_text.is_empty() {
-        link_text = link_destination.clone()
+
+    let link_text = if let Some(lt) = link_text {
+        if lt.is_empty() {
+            link_destination.clone()
+        } else {
+            lt
+        }
+    } else {
+        link_destination.clone()
     };
+
     Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
 }
 
