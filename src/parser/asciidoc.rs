@@ -52,7 +52,65 @@ pub fn adoc_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
     Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
 }
 
-/// Parses the link name. To succeed the first letter must be `[` and the
+/// Wrapper around `adoc_text2label()` that packs the result in
+/// `Link::Text2Label`.
+pub fn adoc_text2label_link(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (te, la)) = adoc_text2label(i)?;
+    Ok((i, Link::Text2Label(te, la)))
+}
+
+/// Parse a Asciidoc _reference link_.
+///
+/// There are three kinds of reference links `Text2Label`: full, collapsed, and
+/// shortcut.
+/// 1. A full reference link `{label}[text]` consists of a link label immediately
+/// followed by a link text. The label matches a link reference definition
+/// elsewhere in the document.
+/// 2. A collapsed reference link `{label}[]` consists of a link label that matches
+///    a link reference definition elsewhere in the document, followed by the string
+///    `[]`. In this case, the function returns an empty _link text_ `""`,
+///    indicating, that the empty string must be replaced later by the link
+///    destination `link_dest` of the matching _link reference definition_
+///    (`Label2Dest`).
+/// 3. A shortcut reference link consists of a link label that matches a link
+///    reference definition elsewhere in the document and is not followed by `[]` or
+///    a link text `[link text]`. This is a shortcut of case 2. above.
+///
+/// This parser expects to start at the beginning of the link `[` to succeed.
+/// It should always run at last position after all other parsers.
+/// ```rust
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::asciidoc::adoc_text2label;
+/// use std::borrow::Cow;
+///
+/// assert_eq!(
+///   adoc_text2label("{link-label}[link text]abc"),
+///   Ok(("abc", (Cow::from("link text"), Cow::from("link-label"))))
+/// );
+/// assert_eq!(
+///   adoc_text2label("{link-label}[]abc"),
+///   Ok(("abc", (Cow::from(""), Cow::from("link-label"))))
+/// );
+/// assert_eq!(
+///   adoc_text2label("{link-label}abc"),
+///   Ok(("abc", (Cow::from(""), Cow::from("link-label"))))
+/// );
+/// ```
+pub fn adoc_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+    let (i, (link_label, link_text)) = alt((
+        nom::sequence::pair(adoc_parse_curly_bracket_reference, adoc_link_text),
+        nom::combinator::map(adoc_parse_curly_bracket_reference, |s| (s, Cow::from(""))),
+    ))(i)?;
+
+    // Check that there is no `[` or `{` following. Do not consume.
+    if i != "" {
+        let _ = nom::character::complete::none_of("[{")(i)?;
+    }
+
+    Ok((i, (link_text, link_label)))
+}
+
+/// Parses the link label. To succeed the first letter must be `[` and the
 /// last letter `]`. A sequence of whitespaces including newlines, will be
 /// replaced by one space. There must be not contain more than one newline
 /// per sequence. The string can contain the `\]` which is replaced by `]`.
@@ -218,6 +276,39 @@ fn adoc_parse_literal_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> 
         nom::sequence::delimited(tag("++"), nom::bytes::complete::take_until("++"), tag("++")),
     )(i)?;
     Ok((j, Cow::Borrowed(s)))
+}
+
+/// Parses the _link text_ (`label`) of `Label2Text` link.
+///
+/// The parser expects to start at the opening `{` to succeed.
+/// The result is always a borrowed reference.
+fn adoc_parse_curly_bracket_reference(i: &str) -> nom::IResult<&str, Cow<str>> {
+    nom::combinator::map(
+        nom::sequence::delimited(
+            char('{'),
+            nom::bytes::complete::take_till1(|c| c == '}' || c == ' ' || c == '\t' || c == '\r'),
+            char('}'),
+        ),
+        |s| Cow::Borrowed(s),
+    )(i)
+}
+
+/// Parses the label of a link reference definition.
+///
+/// The parser expects to start at the first colon `:` or at some whitespace to
+/// succeed.
+/// The caller must guaranty, that the byte before was a newline. The parser
+/// consumes all whitespace before the first colon and after the second.
+fn adoc_parse_colon_reference(i: &str) -> nom::IResult<&str, &str> {
+    nom::sequence::delimited(
+        nom::character::complete::space0,
+        nom::sequence::delimited(
+            char(':'),
+            nom::bytes::complete::take_till1(|c| c == ':' || c == ' ' || c == '\t' || c == '\r'),
+            char(':'),
+        ),
+        nom::character::complete::space1,
+    )(i)
 }
 
 #[cfg(test)]
@@ -496,6 +587,66 @@ mod tests {
                 "https://getreu.net/?q=[a b]+[abc",
                 ErrorKind::TakeUntil
             ))
+        );
+    }
+
+    #[test]
+    fn test_adoc_text2label() {
+        let res = adoc_text2label("{label}[link text]abc").unwrap();
+        assert_eq!(res, ("abc", (Cow::from("link text"), Cow::from("label"))));
+
+        let res = adoc_text2label("{label}[]abc").unwrap();
+        assert_eq!(res, ("abc", (Cow::from(""), Cow::from("label"))));
+
+        let res = adoc_text2label("{label}abc").unwrap();
+        assert_eq!(res, ("abc", (Cow::from(""), Cow::from("label"))));
+
+        let res = adoc_text2label("{label}").unwrap();
+        assert_eq!(res, ("", (Cow::from(""), Cow::from("label"))));
+
+        let res = adoc_text2label("{label} [link text]abc").unwrap();
+        assert_eq!(
+            res,
+            (" [link text]abc", (Cow::from(""), Cow::from("label")))
+        );
+
+        assert_eq!(
+            adoc_text2label("{label}[abc").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("[abc", ErrorKind::NoneOf))
+        );
+    }
+
+    #[test]
+    fn test_adoc_parse_curly_bracket_reference() {
+        let res = adoc_parse_curly_bracket_reference("{label}").unwrap();
+        assert_eq!(res, ("", Cow::from("label")));
+
+        let res = adoc_parse_curly_bracket_reference("{label}[link text]").unwrap();
+        assert_eq!(res, ("[link text]", Cow::from("label")));
+
+        assert_eq!(
+            adoc_parse_curly_bracket_reference("").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("", ErrorKind::Char))
+        );
+
+        assert_eq!(
+            adoc_parse_curly_bracket_reference("{label }").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new(" }", ErrorKind::Char))
+        );
+        assert_eq!(
+            adoc_parse_curly_bracket_reference("").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("", ErrorKind::Char))
+        );
+    }
+
+    #[test]
+    fn test_adoc_parse_colon_reference() {
+        let res = adoc_parse_colon_reference(" \t:label: \tabc").unwrap();
+        assert_eq!(res, ("abc", "label"));
+
+        assert_eq!(
+            adoc_parse_colon_reference(":label:").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("", ErrorKind::Space))
         );
     }
 }
