@@ -189,8 +189,9 @@ pub fn rst_text2label_link(i: &str) -> nom::IResult<&str, Link> {
 /// Parse a RestructuredText _reference link_.
 ///
 /// The caller must guarantee, that
-/// * the last character was a whitespace, or
 /// * the parser is at the input start (no bytes exist before).
+/// * the preceding bytes are whitespaces or newline, _or_
+/// * the preceding bytes are whitespaces or newline, followed by one of: `([<'"`
 /// ```rust
 /// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::restructured_text::rst_text2label;

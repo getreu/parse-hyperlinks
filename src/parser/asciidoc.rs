@@ -26,7 +26,9 @@ pub fn adoc_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///
 /// When it starts at the letter `h` or `l`, the caller must guarantee, that:
 /// * the parser is at the beginning of the input _or_
-/// * the preceding byte is a newline `\n`.
+/// * the preceding byte is a newline `\n` _or_
+/// * the preceding bytes are whitespaces _or_
+/// * the preceding bytes are whitespaces or newline, followed by one of `[(<`
 ///
 /// When ist starts at a whitespace no further guarantee is required.
 ///
@@ -44,12 +46,67 @@ pub fn adoc_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 pub fn adoc_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let (i, (link_destination, mut link_text)) = nom::sequence::preceded(
         space0,
-        nom::sequence::pair(adoc_link_destination, adoc_link_text),
+        nom::sequence::pair(adoc_inline_link_destination, adoc_link_text),
     )(i)?;
     if link_text.is_empty() {
         link_text = link_destination.clone()
     };
     Ok((i, (link_text, link_destination, Cow::Borrowed(""))))
+}
+
+/// Wrapper around `adoc_label2dest()` that packs the result in
+/// `Link::Label2Dest`.
+pub fn adoc_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (te, de, ti)) = adoc_label2dest(i)?;
+    Ok((i, Link::Label2Dest(te, de, ti)))
+}
+
+/// Parses an Asciidoc _link reference definition_.
+///
+/// This parser expects to start at the first letter of `:`,
+/// ` `, or `\t` to succeed.
+///
+/// The caller must guarantee, that:
+/// * the parser is at the beginning of the input _or_
+/// * the preceding byte is a newline `\n`.
+///
+/// `link_label` is always of type `Cow::Borrowed(&str)`.
+/// `link_title` is always the empty `Cow::Borrowed("")`.
+/// ```
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::asciidoc::adoc_label2dest;
+/// use std::borrow::Cow;
+///
+/// assert_eq!(
+///   adoc_label2dest(":label: https://destination\nabc"),
+///   Ok(("\nabc", (Cow::from("label"), Cow::from("https://destination"), Cow::from(""))))
+/// );
+/// ```
+pub fn adoc_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+    let (i, (link_label, link_destination)) = nom::sequence::preceded(
+        space0,
+        nom::sequence::pair(
+            adoc_parse_colon_reference,
+            nom::sequence::delimited(
+                nom::character::complete::space1,
+                adoc_link_reference_definition_destination,
+                nom::character::complete::space0,
+            ),
+        ),
+    )(i)?;
+
+    if i != "" {
+        let _ = peek::<&str, _, nom::error::Error<_>, _>(nom::character::complete::newline)(i)?;
+    };
+
+    Ok((
+        i,
+        (
+            Cow::Borrowed(link_label),
+            link_destination,
+            Cow::Borrowed(""),
+        ),
+    ))
 }
 
 /// Wrapper around `adoc_text2label()` that packs the result in
@@ -212,11 +269,23 @@ fn remove_newline_take_till<'a>(
     }
 }
 
-/// Parses a link destination.
+/// Parses an link reference definition destination.
+/// The parser takes URLs until `[`, whitespace or newline.
+/// The parser succeeds, if one of the variants:
+/// `adoc_parse_http_link_destination()` or
+/// `adoc_parse_escaped_link_destination()` succeeds and returns its result.
+fn adoc_link_reference_definition_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+    alt((
+        adoc_parse_http_link_destination,
+        adoc_parse_escaped_link_destination,
+    ))(i)
+}
+
+/// Parses an inline link destination.
 /// The parser succeeds, if one of the variants:
 /// `adoc_parse_http_link_destination()`, `adoc_parse_literal_link_destination()`
 /// or `adoc_parse_escaped_link_destination()` succeeds and returns its result.
-fn adoc_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn adoc_inline_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
     alt((
         adoc_parse_http_link_destination,
         adoc_parse_literal_link_destination,
@@ -227,12 +296,9 @@ fn adoc_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// Parses a link destination in URL form starting with `http://` or `https://`
 /// and ending with `[`. The latter is peeked, but no consumed.
 fn adoc_parse_http_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
-    let (j, s) = nom::sequence::delimited(
+    let (j, s) = nom::sequence::preceded(
         peek(alt((tag("http://"), (tag("https://"))))),
-        nom::bytes::complete::take_till1(|c| {
-            c == '[' || c == ' ' || c == '\t' || c == '\r' || c == '\n'
-        }),
-        peek(char('[')),
+        nom::bytes::complete::take_till1(|c| c == '[' || c == ' ' || c == '\t' || c == '\n'),
     )(i)?;
     Ok((j, Cow::Borrowed(s)))
 }
@@ -253,16 +319,15 @@ fn percent_decode(i: &str) -> nom::IResult<&str, Cow<str>> {
 }
 
 /// Parses a link destination starting with `link:http://` or `link:https://` ending
-/// with `]`. The later is peeked, but not consumed. The URL can contain percent
+/// with `]`, whitespace or newline. The later is peeked, but not consumed. The URL can contain percent
 /// encoded characters, which are decoded.
 fn adoc_parse_escaped_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
-        nom::sequence::delimited(
+        nom::sequence::preceded(
             nom::sequence::pair(tag("link:"), peek(alt((tag("http://"), (tag("https://")))))),
             nom::bytes::complete::take_till1(|c| {
                 c == '[' || c == ' ' || c == '\t' || c == '\r' || c == '\n'
             }),
-            peek(char('[')),
         ),
         percent_decode,
     )(i)
@@ -301,13 +366,9 @@ fn adoc_parse_curly_bracket_reference(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// consumes all whitespace before the first colon and after the second.
 fn adoc_parse_colon_reference(i: &str) -> nom::IResult<&str, &str> {
     nom::sequence::delimited(
-        nom::character::complete::space0,
-        nom::sequence::delimited(
-            char(':'),
-            nom::bytes::complete::take_till1(|c| c == ':' || c == ' ' || c == '\t' || c == '\r'),
-            char(':'),
-        ),
-        nom::character::complete::space1,
+        char(':'),
+        nom::bytes::complete::take_till1(|c| c == ':' || c == ' ' || c == '\t' || c == '\r'),
+        char(':'),
     )(i)
 }
 
@@ -417,6 +478,38 @@ mod tests {
     }
 
     #[test]
+    fn test_adoc_label2dest() {
+        assert_eq!(
+            adoc_label2dest(":label: http://getreu.net\n"),
+            Ok((
+                "\n",
+                (
+                    Cow::from("label"),
+                    Cow::from("http://getreu.net"),
+                    Cow::from("")
+                )
+            ))
+        );
+
+        assert_eq!(
+            adoc_label2dest("  :label: \thttp://getreu.net \t "),
+            Ok((
+                "",
+                (
+                    Cow::from("label"),
+                    Cow::from("http://getreu.net"),
+                    Cow::from("")
+                )
+            ))
+        );
+
+        assert_eq!(
+            adoc_label2dest("  :label: \thttp://getreu.net \t abc").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new("abc", ErrorKind::Char))
+        );
+    }
+
+    #[test]
     fn test_adoc_link_text() {
         assert_eq!(adoc_link_text("[text]abc"), Ok(("abc", Cow::from("text"))));
 
@@ -506,7 +599,25 @@ mod tests {
     }
 
     #[test]
-    fn test_adoc_parse_html_link_destination() {
+    fn test_adoc_parse_http_link_destination() {
+        let res = adoc_parse_http_link_destination("http://destination/").unwrap();
+        assert_eq!(res, ("", Cow::from("http://destination/")));
+        assert!(matches!(res.1,
+            Cow::Borrowed{..}
+        ));
+
+        let res = adoc_parse_http_link_destination("http://destination/\nabc").unwrap();
+        assert_eq!(res, ("\nabc", Cow::from("http://destination/")));
+        assert!(matches!(res.1,
+            Cow::Borrowed{..}
+        ));
+
+        let res = adoc_parse_http_link_destination("http://destination/ abc").unwrap();
+        assert_eq!(res, (" abc", Cow::from("http://destination/")));
+        assert!(matches!(res.1,
+            Cow::Borrowed{..}
+        ));
+
         let res = adoc_parse_http_link_destination("http://destination/[abc").unwrap();
         assert_eq!(res, ("[abc", Cow::from("http://destination/")));
         assert!(matches!(res.1,
@@ -526,17 +637,30 @@ mod tests {
                 ErrorKind::Tag
             ))
         );
-
-        assert_eq!(
-            adoc_parse_http_link_destination("http://destination/(abc").unwrap_err(),
-            nom::Err::Error(nom::error::Error::new("", ErrorKind::Char))
-        );
     }
 
     #[test]
     fn test_adoc_parse_escaped_link_destination() {
+        let res = adoc_parse_escaped_link_destination("link:http://destination/").unwrap();
+        assert_eq!(res, ("", Cow::from("http://destination/")));
+        assert!(matches!(res.1,
+            Cow::Borrowed{..}
+        ));
+
         let res = adoc_parse_escaped_link_destination("link:http://destination/[abc").unwrap();
         assert_eq!(res, ("[abc", Cow::from("http://destination/")));
+        assert!(matches!(res.1,
+            Cow::Borrowed{..}
+        ));
+
+        let res = adoc_parse_escaped_link_destination("link:http://destination/ abc").unwrap();
+        assert_eq!(res, (" abc", Cow::from("http://destination/")));
+        assert!(matches!(res.1,
+            Cow::Borrowed{..}
+        ));
+
+        let res = adoc_parse_escaped_link_destination("link:http://destination/\nabc").unwrap();
+        assert_eq!(res, ("\nabc", Cow::from("http://destination/")));
         assert!(matches!(res.1,
             Cow::Borrowed{..}
         ));
@@ -545,14 +669,6 @@ mod tests {
             adoc_parse_escaped_link_destination("link:httpX:/destination/[abc").unwrap_err(),
             nom::Err::Error(nom::error::Error::new(
                 "httpX:/destination/[abc",
-                ErrorKind::Tag
-            ))
-        );
-
-        assert_eq!(
-            adoc_link_destination("http://destination/(abc").unwrap_err(),
-            nom::Err::Error(nom::error::Error::new(
-                "http://destination/(abc",
                 ErrorKind::Tag
             ))
         );
@@ -641,12 +757,12 @@ mod tests {
 
     #[test]
     fn test_adoc_parse_colon_reference() {
-        let res = adoc_parse_colon_reference(" \t:label: \tabc").unwrap();
+        let res = adoc_parse_colon_reference(":label:abc").unwrap();
         assert_eq!(res, ("abc", "label"));
 
         assert_eq!(
-            adoc_parse_colon_reference(":label:").unwrap_err(),
-            nom::Err::Error(nom::error::Error::new("", ErrorKind::Space))
+            adoc_parse_colon_reference(":label abc").unwrap_err(),
+            nom::Err::Error(nom::error::Error::new(" abc", ErrorKind::Char))
         );
     }
 }
