@@ -7,7 +7,9 @@ pub mod html;
 pub mod markdown;
 pub mod restructured_text;
 
+use crate::parser::asciidoc::adoc_label2dest_link;
 use crate::parser::asciidoc::adoc_text2dest_link;
+use crate::parser::asciidoc::adoc_text2label_link;
 use crate::parser::html::html_text2dest_link;
 use crate::parser::markdown::md_label2dest_link;
 use crate::parser::markdown::md_text2dest_link;
@@ -295,16 +297,15 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         // Are we at the beginning of a line?
         if line_start || input_start {
             if let Ok((k, r)) = alt((
+                // Now we search for `label2*`.
                 md_label2dest_link,
                 rst_label2label_link,
                 rst_label2dest_link,
-                rst_text2label_link,
-                adoc_text2dest_link,
+                adoc_label2dest_link,
             ))(j)
             {
                 break (k, r);
             };
-            input_start = false;
         };
         // Start searching for links.
 
@@ -318,21 +319,47 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 
         // Regular `text` links can start everywhere.
         if let Ok((k, r)) = alt((
+            // Start with `text2dest`.
             md_text2dest_link,
+            // `rst_text2dest` must be always placed before `rst_text2label`.
             rst_text2dest_link,
             rst_text_label2dest_link,
             html_text2dest_link,
-            // This should be the last
-            md_text2label_link,
         ))(j)
         {
             break (k, r);
         };
 
-        if whitespace {
-            if let Ok((k, r)) = alt((rst_text2label_link, adoc_text2dest_link))(j) {
-                break (k, r);
+        if whitespace || line_start || input_start {
+            // There must be at least one more byte. If it is one of `([<'"`, skip it.
+            let k = if let (k, Some(_)) =
+                nom::combinator::opt(nom::character::complete::one_of("([<'\""))(j)?
+            {
+                // Skip that char.
+                k
+            } else {
+                // Change nothing.
+                j
             };
+
+            // `rst_text2label` must be always placed after `rst_text2dest`.
+            // `md_text2label` must be always placed after `adoc_text2label` and `adoc_text2dest`,
+            // because the former consumes `[*]`.
+            if let Ok((l, r)) = alt((
+                rst_text2label_link,
+                adoc_text2dest_link,
+                adoc_text2label_link,
+            ))(k)
+            {
+                // If ever we have skipped a char, remember it now.
+                skip_count += j.len() - k.len();
+                break (l, r);
+            };
+        };
+
+        // This parser is so unspecific, that it must be the last.
+        if let Ok((k, r)) = md_text2label_link(j) {
+            break (k, r);
         };
 
         // This makes sure that we advance.
@@ -355,6 +382,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 
         skip_count += j.len() - k.len();
         j = k;
+        input_start = false;
     };
 
     // Before we return `res`, we need to check again for `md_link_ref` and
@@ -425,70 +453,81 @@ mod tests {
         let err = take_link("").unwrap_err();
         assert_eq!(err, expected);
 
-        let i = r#"[md text]: md_destination "md title"
-abc [md text](md_destination "md title")[md text]: abc[md text]: abc
-   [md text]: md_destination "md title"
-abc `rst text <rst_destination>`__abc
-abc `rst text <rst_label_>`_ .. _norst: no .. _norst: no
-.. _rst label: rst_destination
-  .. _rst label: rst_d
-     estination
+        let i = r#"[md text1]: md_destination1 "md title1"
+abc [md text2](md_destination2 "md title2")[md text3]: abc[md text4]: abc
+   [md text5]: md_destination5 "md title5"
+abc `rst text1 <rst_destination1>`__abc
+abc `rst text2 <rst_label2_>`_ .. _norst: no .. _norst: no
+.. _rst label3: rst_destination3
+  .. _rst label4: rst_d
+     estination4
 __ rst_label_
-<a href="html_destination"
-   title="html title">html text</a>
-abc https://adoc_destination[adoc text] abc
+<a href="html_destination1"
+   title="html title1">html text1</a>
+abc https://adoc_destination1[adoc text1] abc
+abc {adoc-label2}abc {adoc-label3}[adoc text3]abc
+ :adoc-label4: https://adoc_destination4
+abc [{adoc-label5}]
 "#;
 
         let expected = Link::Label2Dest(
-            Cow::from("md text"),
-            Cow::from("md_destination"),
-            Cow::from("md title"),
+            Cow::from("md text1"),
+            Cow::from("md_destination1"),
+            Cow::from("md title1"),
         );
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = Link::Text2Dest(
-            Cow::from("md text"),
-            Cow::from("md_destination"),
-            Cow::from("md title"),
+            Cow::from("md text2"),
+            Cow::from("md_destination2"),
+            Cow::from("md title2"),
         );
         let (i, (skipped, res)) = take_link(i).unwrap();
         assert_eq!(skipped, "\nabc ");
         assert_eq!(res, expected);
 
-        let expected = Link::Text2Label(Cow::from("md text"), Cow::from("md text"));
+        let expected = Link::Text2Label(Cow::from("md text3"), Cow::from("md text3"));
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
+
+        let expected = Link::Text2Label(Cow::from("md text4"), Cow::from("md text4"));
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = Link::Label2Dest(
-            Cow::from("md text"),
-            Cow::from("md_destination"),
-            Cow::from("md title"),
+            Cow::from("md text5"),
+            Cow::from("md_destination5"),
+            Cow::from("md title5"),
         );
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = Link::Text2Dest(
-            Cow::from("rst text"),
-            Cow::from("rst_destination"),
+            Cow::from("rst text1"),
+            Cow::from("rst_destination1"),
             Cow::from(""),
         );
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
-        let expected = Link::Text2Label(Cow::from("rst text"), Cow::from("rst_label"));
+        let expected = Link::Text2Label(Cow::from("rst text2"), Cow::from("rst_label2"));
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = Link::Label2Dest(
-            Cow::from("rst label"),
-            Cow::from("rst_destination"),
+            Cow::from("rst label3"),
+            Cow::from("rst_destination3"),
             Cow::from(""),
         );
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
+
+        let expected = Link::Label2Dest(
+            Cow::from("rst label4"),
+            Cow::from("rst_destination4"),
+            Cow::from(""),
+        );
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
@@ -497,22 +536,44 @@ abc https://adoc_destination[adoc text] abc
         assert_eq!(res, expected);
 
         let expected = Link::Text2Dest(
-            Cow::from("html text"),
-            Cow::from("html_destination"),
-            Cow::from("html title"),
+            Cow::from("html text1"),
+            Cow::from("html_destination1"),
+            Cow::from("html title1"),
         );
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
         let expected = Link::Text2Dest(
-            Cow::from("adoc text"),
-            Cow::from("https://adoc_destination"),
+            Cow::from("adoc text1"),
+            Cow::from("https://adoc_destination1"),
             Cow::from(""),
         );
-        let (_, (_, res)) = take_link(i).unwrap();
+        let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
-        // Do we find at the input start also?
+        let expected = Link::Text2Label(Cow::from(""), Cow::from("adoc-label2"));
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Text2Label(Cow::from("adoc text3"), Cow::from("adoc-label3"));
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Label2Dest(
+            Cow::from("adoc-label4"),
+            Cow::from("https://adoc_destination4"),
+            Cow::from(""),
+        );
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Text2Label(Cow::from(""), Cow::from("adoc-label5"));
+        let (_i, (skipped, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+        assert_eq!(skipped, "\nabc [");
+
+        // New input:
+        // Do we find the same at the input start also?
         let i = ".. _`My: home page`: http://getreu.net\nabc";
         let expected = Link::Label2Dest(
             Cow::from("My: home page"),
@@ -523,9 +584,9 @@ abc https://adoc_destination[adoc text] abc
         assert_eq!(res, expected);
         assert_eq!(i, "\nabc");
 
-        let i = "https://adoc_link_destination[adoc link name]abc";
+        let i = "https://adoc_link_destination[adoc link text]abc";
         let expected = Link::Text2Dest(
-            Cow::from("adoc link name"),
+            Cow::from("adoc link text"),
             Cow::from("https://adoc_link_destination"),
             Cow::from(""),
         );
