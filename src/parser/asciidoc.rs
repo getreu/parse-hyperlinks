@@ -4,6 +4,7 @@
 use crate::parser::Link;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
+use nom::bytes::complete::tag_no_case;
 use nom::character::complete::char;
 use nom::character::complete::space0;
 use nom::combinator::peek;
@@ -316,7 +317,7 @@ fn adoc_inline_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// and ending with `[`. The latter is peeked, but no consumed.
 fn adoc_parse_http_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
     let (j, s) = nom::sequence::preceded(
-        peek(alt((tag("http://"), (tag("https://"))))),
+        peek(alt((tag_no_case("http://"), (tag_no_case("https://"))))),
         nom::bytes::complete::take_till1(|c| c == '[' || c == ' ' || c == '\t' || c == '\n'),
     )(i)?;
     Ok((j, Cow::Borrowed(s)))
@@ -343,7 +344,10 @@ fn percent_decode(i: &str) -> nom::IResult<&str, Cow<str>> {
 fn adoc_parse_escaped_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
         nom::sequence::preceded(
-            nom::sequence::pair(tag("link:"), peek(alt((tag("http://"), (tag("https://")))))),
+            nom::sequence::pair(
+                tag("link:"),
+                peek(alt((tag_no_case("http://"), (tag_no_case("https://"))))),
+            ),
             nom::bytes::complete::take_till1(|c| {
                 c == '[' || c == ' ' || c == '\t' || c == '\r' || c == '\n'
             }),
