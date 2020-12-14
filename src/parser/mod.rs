@@ -412,37 +412,6 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     Ok((l, (skipped_input, link)))
 }
 
-/// Recognizes hyperlinks in Markdown, RestructuredText, Asciidoc or
-/// HTML format and returns the first hyperlink found as tuple:
-/// `Some((link_text_or_label, link_destination, link_title))`.
-///
-/// It returns `None` if no hyperlinks were found.
-/// See function `take_text2dest_label2dest()` for limitations.
-/// ```
-/// use parse_hyperlinks::parser::first_hyperlink;
-/// use std::borrow::Cow;
-///
-/// let i = "abc\n   [u]: v \"w\"\nabc";
-///
-/// let r = first_hyperlink(i);
-/// assert_eq!(r, Some((Cow::from("u"), Cow::from("v"), Cow::from("w"))));
-/// ```
-pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
-    nom::combinator::opt(take_text2dest_label2dest)(i)
-        .unwrap()
-        .1
-}
-
-/*
-/// Parses through the input text, resolves all _reference links_ and returns a
-/// vector of the extracted hyperlinks `Vec<Link>` or some error.
-pub fn hyperlink_list(_i: &str) -> Result<Vec<Link>, nom::error::Error<&str>> {
-    unimplemented!();
-    // returns something like.
-    // Ok(vec![Link::Text2Dest(Cow::from(""), Cow::from(""), Cow::from(""))])
-}
-*/
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -453,15 +422,16 @@ mod tests {
         let err = take_link("").unwrap_err();
         assert_eq!(err, expected);
 
-        let i = r#"[md text1]: md_destination1 "md title1"
+        let i = r#"[md label1]: md_destination1 "md title1"
 abc [md text2](md_destination2 "md title2")[md text3]: abc[md text4]: abc
-   [md text5]: md_destination5 "md title5"
+   [md label5]: md_destination5 "md title5"
 abc `rst text1 <rst_destination1>`__abc
 abc `rst text2 <rst_label2_>`_ .. _norst: no .. _norst: no
 .. _rst label3: rst_destination3
   .. _rst label4: rst_d
      estination4
-__ rst_label_
+__ rst_label5_
+abc `rst text_label6 <rst_destination6>`_abc
 <a href="html_destination1"
    title="html title1">html text1</a>
 abc https://adoc_destination1[adoc text1] abc
@@ -471,7 +441,7 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
 "#;
 
         let expected = Link::Label2Dest(
-            Cow::from("md text1"),
+            Cow::from("md label1"),
             Cow::from("md_destination1"),
             Cow::from("md title1"),
         );
@@ -496,7 +466,7 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
         assert_eq!(res, expected);
 
         let expected = Link::Label2Dest(
-            Cow::from("md text5"),
+            Cow::from("md label5"),
             Cow::from("md_destination5"),
             Cow::from("md title5"),
         );
@@ -531,7 +501,15 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
-        let expected = Link::Label2Label(Cow::from("_"), Cow::from("rst_label"));
+        let expected = Link::Label2Label(Cow::from("_"), Cow::from("rst_label5"));
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::TextLabel2Dest(
+            Cow::from("rst text_label6"),
+            Cow::from("rst_destination6"),
+            Cow::from(""),
+        );
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
@@ -602,24 +580,5 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(i, "abc");
-    }
-
-    #[test]
-    fn test_first_hyperlink() {
-        let i = "abc\n   [md link name]: md_link_destination \"md link title\"  \nabc";
-
-        let expected = (
-            Cow::from("md link name"),
-            Cow::from("md_link_destination"),
-            Cow::from("md link title"),
-        );
-        let res = first_hyperlink(i).unwrap();
-        assert_eq!(res, expected);
-
-        let err = first_hyperlink("no link here");
-        assert_eq!(err, None);
-
-        let err = first_hyperlink("");
-        assert_eq!(err, None);
     }
 }
