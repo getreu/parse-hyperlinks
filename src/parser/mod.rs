@@ -298,9 +298,29 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         if line_start || input_start {
             if let Ok((k, r)) = alt((
                 // Now we search for `label2*`.
-                md_label2dest_link,
+                // For both parser is the indent meaningful. We mustn't consumen them.
                 rst_label2label_link,
                 rst_label2dest_link,
+            ))(j)
+            {
+                break (k, r);
+            };
+        };
+
+        // Are we on a whitespace? Now consume them.
+        whitespace = false;
+        if let (k, Some(_)) = nom::combinator::opt(nom::character::complete::space1)(j)? {
+            skip_count += j.len() - k.len();
+            j = k;
+            whitespace = true;
+        }
+
+        // Are we at the beginning of a line?
+        if line_start || input_start {
+            if let Ok((k, r)) = alt((
+                // Now we search for `label2*`.
+                // These parsers do not care about the indent, as long it is only whitespace.
+                md_label2dest_link,
                 adoc_label2dest_link,
             ))(j)
             {
@@ -308,14 +328,6 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             };
         };
         // Start searching for links.
-
-        // Are we on a whitespace? Consume them.
-        whitespace = false;
-        if let (k, Some(_)) = nom::combinator::opt(nom::character::complete::space1)(j)? {
-            skip_count += j.len() - k.len();
-            j = k;
-            whitespace = true;
-        }
 
         // Regular `text` links can start everywhere.
         if let Ok((k, r)) = alt((
@@ -396,15 +408,13 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     // It is sufficient to do this check once, because both parser guarantee to
     // consume the whole line in case of success.
     let (mut l, link) = res;
-    if !matches!(&link, Link::Label2Dest{..}) {
-        // Just consume, the result does not matter.
-        let (m, _) = alt((
-            rst_label2dest_link,
-            md_label2dest_link,
-            // If none was found do nothing.
-            nom::combinator::success(link.clone()),
-        ))(l)?;
-        l = m;
+    match link {
+        Link::Label2Dest(_, _, _) | Link::Label2Label(_, _) => {}
+        _ => {
+            // Just consume, the result does not matter.
+            let (m, _) = nom::combinator::opt(alt((rst_label2dest_link, md_label2dest_link)))(l)?;
+            l = m;
+        }
     };
 
     let skipped_input = &i[0..skip_count];
@@ -558,7 +568,10 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
         let (_i, (skipped, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(skipped, "] abc ");
+    }
 
+    #[test]
+    fn test_take_link2() {
         // New input:
         // Do we find the same at the input start also?
         let i = ".. _`My: home page`: http://getreu.net\nabc";
@@ -580,5 +593,62 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(i, "abc");
+    }
+
+    #[test]
+    fn test_take_link3() {
+        let i = r#"   [md label3]: md_destination3 "md title3"
+        [md label1]: md_destination1 "md title1"
+        [md label2]: md_destination2 "md title2"
+        abc[md text_label3]abc[md text_label4]
+        "#;
+
+        let expected = Link::Label2Dest(
+            Cow::from("md label3"),
+            Cow::from("md_destination3"),
+            Cow::from("md title3"),
+        );
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Label2Dest(
+            Cow::from("md label1"),
+            Cow::from("md_destination1"),
+            Cow::from("md title1"),
+        );
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Label2Dest(
+            Cow::from("md label2"),
+            Cow::from("md_destination2"),
+            Cow::from("md title2"),
+        );
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Text2Label(Cow::from("md text_label3"), Cow::from("md text_label3"));
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Text2Label(Cow::from("md text_label4"), Cow::from("md text_label4"));
+        let (_i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_take_link4() {
+        let i = r#"
+.. _label4: label3_
+label2__
+"#;
+
+        let expected = Link::Label2Label(Cow::from("label4"), Cow::from("label3"));
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Text2Label(Cow::from("label2"), Cow::from("_"));
+        let (_i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
     }
 }
