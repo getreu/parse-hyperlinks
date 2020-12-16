@@ -10,6 +10,7 @@
 //! specification.
 #![allow(dead_code)]
 
+pub mod iterator;
 pub mod parser;
 
 use nom::error::Error;

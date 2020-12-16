@@ -206,6 +206,10 @@ pub fn rst_text2label_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok((" abc", (Cow::from("link text"), Cow::from("link text"))))
 /// );
 /// assert_eq!(
+///   rst_text2label("`link text<link label_>`_ abc"),
+///   Ok((" abc", (Cow::from("link text"), Cow::from("link label"))))
+/// );
+/// assert_eq!(
 ///   rst_text2label("`link text`__ abc"),
 ///   Ok((" abc", (Cow::from("link text"), Cow::from("_"))))
 /// );

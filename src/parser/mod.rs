@@ -245,39 +245,88 @@ pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
 ///
 /// The parser consumes the finding and returns
 /// `Ok((remaining_input, (skipped_input, Link)))` or some error.
-/// # Basic usage
+///
+/// # Markdown
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::parser::take_link;
 /// use std::borrow::Cow;
 ///
-/// let i = r#"foo
-/// [a]: b 'c'
-/// .. _d: e
-/// ---[f](g 'h')---`i <j>`__---
-/// ---[k][l]---
-/// ---<a href="m" title="n">o</a>---
-/// ---`p <q>`_---
+/// let i = r#"abc[text1][label1]abc
+/// abc[text2](destination2 "title2")
+/// [label1]: destination1 'title1'
 /// "#;
 ///
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r.0, "foo\n");
-/// assert_eq!(r.1, Link::Label2Dest(Cow::from("a"), Cow::from("b"), Cow::from("c")));
+/// assert_eq!(r.0, "abc");
+/// assert_eq!(r.1, Link::Text2Label(Cow::from("text1"), Cow::from("label1")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r.1, Link::Label2Dest(Cow::from("d"), Cow::from("e"), Cow::from("")));
+/// assert_eq!(r.0, "abc\nabc");
+/// assert_eq!(r.1, Link::Text2Dest(Cow::from("text2"), Cow::from("destination2"), Cow::from("title2")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r.1, Link::Text2Dest(Cow::from("f"), Cow::from("g"), Cow::from("h")));
+/// assert_eq!(r.0, "\n");
+/// assert_eq!(r.1, Link::Label2Dest(Cow::from("label1"), Cow::from("destination1"), Cow::from("title1")));
+/// ```
+/// # reStructuredText
+///
+/// ```
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::take_link;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc
+/// abc `text0 <destination0>`_abc
+/// abc `text1 <destination1>`__abc
+/// abc `text2 <label2_>`_abc
+/// abc text3__ abc
+/// .. _label1: destination1
+/// .. __: destination3
+/// __ destination4
+/// "#;
+///
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r.1, Link::Text2Dest(Cow::from("i"), Cow::from("j"), Cow::from("")));
+/// assert_eq!(r.0, "abc\nabc ");
+/// assert_eq!(r.1, Link::TextLabel2Dest(Cow::from("text0"), Cow::from("destination0"), Cow::from("")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r.1, Link::Text2Label(Cow::from("k"), Cow::from("l")));
+/// assert_eq!(r.1, Link::Text2Dest(Cow::from("text1"), Cow::from("destination1"), Cow::from("")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r.0, "---\n---");
-/// assert_eq!(r.1, Link::Text2Dest(Cow::from("o"), Cow::from("m"), Cow::from("n")));
+/// assert_eq!(r.1, Link::Text2Label(Cow::from("text2"), Cow::from("label2")));
 /// let (i, r) = take_link(i).unwrap();
-/// assert_eq!(r.0, "---\n---");
-/// assert_eq!(r.1, Link::TextLabel2Dest(Cow::from("p"), Cow::from("q"), Cow::from("")));
+/// assert_eq!(r.1, Link::Text2Label(Cow::from("text3"), Cow::from("_")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.1, Link::Label2Dest(Cow::from("label1"), Cow::from("destination1"), Cow::from("")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.1, Link::Label2Dest(Cow::from("_"), Cow::from("destination3"), Cow::from("")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.1, Link::Label2Dest(Cow::from("_"), Cow::from("destination4"), Cow::from("")));
+/// ```
+/// # Asciidoc
+///
+/// ```
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::take_link;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc
+/// abc https://destination0[text0]abc
+/// abc link:https://destination1[text1]abc
+/// abc {label2}[text2]abc
+/// abc {label3}abc
+/// :label4: https://destination4
+/// "#;
+///
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.0, "abc\nabc ");
+/// assert_eq!(r.1, Link::Text2Dest(Cow::from("text0"), Cow::from("https://destination0"), Cow::from("")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.1, Link::Text2Dest(Cow::from("text1"), Cow::from("https://destination1"), Cow::from("")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.1, Link::Text2Label(Cow::from("text2"), Cow::from("label2")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.1, Link::Text2Label(Cow::from(""), Cow::from("label3")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.1, Link::Label2Dest(Cow::from("label4"), Cow::from("https://destination4"), Cow::from("")));
 /// ```
 pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let mut j = i;
@@ -641,6 +690,7 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
         let i = r#"
 .. _label4: label3_
 label2__
+__ label5
 "#;
 
         let expected = Link::Label2Label(Cow::from("label4"), Cow::from("label3"));
@@ -648,6 +698,10 @@ label2__
         assert_eq!(res, expected);
 
         let expected = Link::Text2Label(Cow::from("label2"), Cow::from("_"));
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let expected = Link::Label2Dest(Cow::from("_"), Cow::from("label5"), Cow::from(""));
         let (_i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
     }
