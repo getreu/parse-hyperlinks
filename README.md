@@ -27,18 +27,19 @@ Installation:
 cargo install parse-hyperlinks
 ```
 
-Usage example:
+# Usage examples
+
+## Markdown
 
 1. Create a file `input.txt`:
 
-   ```text
-   abc[my blog](https://getreu.net "blog title")abc
-      [my blog]: https://getreu.net "blog title"
-   abc`my blog <https://getreu.net>`_abc
-     .. _my blog: https://get
-        reu.net
-   abc<a href="https://getreu.net" title="blog title">my blog</a>abc
-   abc https://getreu.net[my blog]abc
+   ```md
+   abc[text10](destination10 "title10")abc
+   abc[text11][label11]abc
+   abc[text12](destination2 "title12")
+   [text13]: destination3 "title13"
+   [label11]: destination1 "title11"
+   abc[text13]abc
    ```
 
 2. Run `parse-hyperlinks`:
@@ -50,10 +51,68 @@ Usage example:
 3. Inspect `output.html`:
 
    ```html
-   <a href="https://getreu.net" title="blog title">my blog</a><br/>
-   <a href="https://getreu.net" title="blog title">my blog</a><br/>
-   <a href="https://getreu.net" title="">my blog</a><br/>
-   <a href="https://getreu.net" title="">my blog</a><br/>
-   <a href="https://getreu.net" title="blog title">my blog</a><br/>
-   <a href="https://getreu.net" title="">my blog</a><br/>
+   <a href="destination10" title="title10">text10</a><br/>
+   <a href="destination1" title="title11">text11</a><br/>
+   <a href="destination2" title="title12">text12</a><br/>
+   <a href="destination3" title="title13">text13</a><br/>
+   ```
+
+## reStructuredText
+
+1. Create a file `input.txt`:
+
+   ```rst
+   abc `text21 <label21_>`_abc
+   abc text22_ abc
+   abc text23__ abc
+   abc text_label24_ abc
+   abc text25__ abc
+   .. _label21: destination21
+   .. _text22: destination22
+   .. __: destination23
+   __ destination25
+   ```
+
+2. Run `parse-hyperlinks`:
+
+   ```shell
+   $ ./parse-hyperlinks <input.txt >ouput.html
+   ```
+
+3. Inspect `output.html`:
+
+   ```html
+   <a href="destination21" title="">text21</a><br/>
+   <a href="destination22" title="">text22</a><br/>
+   <a href="destination23" title="">text23</a><br/>
+   <a href="destination25" title="">text25</a><br/>
+   ```
+
+## Asciidoc
+
+1. Create a file `input.txt`:
+
+   ```adoc
+   abc
+   abc https://destination30[text30]abc
+   abc link:https://destination31[text31]abc
+   abc {label32}[text32]abc
+   abc {label33}abc
+   :label32: https://destination32
+   :label33: https://destination33
+   ```
+
+2. Run `parse-hyperlinks`:
+
+   ```shell
+   $ ./parse-hyperlinks <input.txt >ouput.html
+   ```
+
+3. Inspect `output.html`:
+
+   ```html
+   <a href="https://destination30" title="">text30</a><br/>
+   <a href="https://destination31" title="">text31</a><br/>
+   <a href="https://destination32" title="">text32</a><br/>
+   <a href="https://destination33" title="">https://destination33</a><br/>
    ```
