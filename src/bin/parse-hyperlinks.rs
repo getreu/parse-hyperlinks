@@ -15,7 +15,7 @@ fn main() -> Result<(), ::std::io::Error> {
     Read::read_to_string(&mut io::stdin(), &mut buffer)?;
 
     let bufp = buffer.as_str();
-    for (text, dest, title) in Hyperlink::new(&bufp) {
+    for (_, (text, dest, title)) in Hyperlink::new(&bufp) {
         println!(
             r#"<a href="{}" title="{}">{}</a><br/>"#,
             encode_double_quoted_attribute(&dest),
