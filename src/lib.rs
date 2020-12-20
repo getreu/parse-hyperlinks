@@ -12,6 +12,7 @@
 
 pub mod iterator;
 pub mod parser;
+pub mod renderer;
 
 use nom::error::Error;
 use nom::error::ErrorKind;
