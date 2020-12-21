@@ -328,6 +328,25 @@ pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
 /// let (i, r) = take_link(i).unwrap();
 /// assert_eq!(r.1, Link::Label2Dest(Cow::from("label4"), Cow::from("https://destination4"), Cow::from("")));
 /// ```
+///
+/// # HTML
+///
+/// ```
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::take_link;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc<a href="destination1" title="title1">text1</a>abc
+/// abc<a href="destination2" title="title2">text2</a>abc
+/// "#;
+///
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.0, "abc");
+/// assert_eq!(r.1, Link::Text2Dest(Cow::from("text1"), Cow::from("destination1"), Cow::from("title1")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.0, "abc\nabc");
+/// assert_eq!(r.1, Link::Text2Dest(Cow::from("text2"), Cow::from("destination2"), Cow::from("title2")));
+/// ```
 pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let mut j = i;
     let mut skip_count = 0;

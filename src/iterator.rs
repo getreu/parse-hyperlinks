@@ -288,6 +288,22 @@ enum Status<'a> {
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("https://dest3"), Cow::from("https://dest3"), Cow::from("")));
 /// assert_eq!(iter.next(), None);
 /// ```
+///
+/// # HTML
+///
+/// ```
+/// use parse_hyperlinks::iterator::Hyperlink;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc<a href="dest1" title="title1">text1</a>abc
+/// abc<a href="dest2" title="title2">text2</a>abc
+/// "#;
+///
+/// let mut iter = Hyperlink::new(i);
+/// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
+/// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
+/// assert_eq!(iter.next(), None);
+/// ```
 pub struct Hyperlink<'a> {
     /// The remaining text input.
     input: &'a str,
