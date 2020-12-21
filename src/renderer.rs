@@ -20,7 +20,10 @@ where
     P: Fn((Cow<'a, str>, (String, String, String))) -> String,
     W: Write,
 {
-    let mut rest = Cow::from("");
+    // As this will be overwritten inside the loop, the first value only counts
+    // when there are no hyperlinks in the input. In this case we print the
+    // input as a whole.
+    let mut rest = Cow::Borrowed(input);
 
     output.write_all("<pre>".as_bytes())?;
     for ((skipped2, consumed2, remaining2), (text2, dest2, title2)) in Hyperlink::new(&input) {
@@ -671,6 +674,20 @@ abc <a href="destination2" title="title2">text2</a>
   [label3]: destination3 "title3"
   [label1]: destination1 "title1"
 abc<a href="destination3" title="title3">label3</a>abc[label4]abc
+</pre>"#;
+        let res = text_links2html(i);
+        //eprintln!("{}", res);
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_text_links2html2() {
+        let i = r#"abc
+abc
+"#;
+
+        let expected = r#"<pre>abc
+abc
 </pre>"#;
         let res = text_links2html(i);
         //eprintln!("{}", res);
