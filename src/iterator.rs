@@ -771,6 +771,32 @@ abc text5__ abc
     }
 
     #[test]
+    fn test_resolve_text2label_references3() {
+        let i = r#"
+abc[my homepage]abc
+abc
+
+[my homepage]: https://getreu.net
+abc"#;
+
+        let mut hc = HyperlinkCollection::from(i);
+        eprintln!("{:#?}", hc);
+        hc.resolve_label2label_references();
+        //eprintln!("{:#?}", hc);
+        hc.resolve_text2label_references();
+        //eprintln!("{:#?}", hc);
+
+        let expected = vec![
+            (
+                4,
+                13,
+                Link::Text2Dest(Cow::from("my homepage"), Cow::from("https://getreu.net"), Cow::from("")),
+            ),
+        ];
+        assert_eq!(hc.text2dest_label, expected);
+    }
+
+    #[test]
     fn test_next() {
         let i = r#"abc[text0](destination0)abc
 abc[text1][label1]abc

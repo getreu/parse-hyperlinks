@@ -356,7 +356,10 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let res = loop {
         // Are we on a new line character? consume it.
         line_start = false;
-        if let (k, Some(_)) = nom::combinator::opt(nom::character::complete::newline)(j)? {
+        // Does never fail.
+        let (k, count) = nom::multi::many0_count(nom::character::complete::newline)(j)?;
+        debug_assert_eq!(j.len()-k.len(), count);
+        if count > 0 {
             skip_count += j.len() - k.len();
             j = k;
             line_start = true;
@@ -366,7 +369,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         if line_start || input_start {
             if let Ok((k, r)) = alt((
                 // Now we search for `label2*`.
-                // For both parser is the indent meaningful. We mustn't consumen them.
+                // For both parser is the indent meaningful. We mustn't consume them.
                 rst_label2label_link,
                 rst_label2dest_link,
             ))(j)
