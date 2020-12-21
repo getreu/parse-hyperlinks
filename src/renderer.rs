@@ -6,16 +6,23 @@ use html_escape::encode_double_quoted_attribute;
 use html_escape::encode_safe;
 use html_escape::encode_text;
 use std::borrow::Cow;
+use std::io;
+use std::io::Write;
 
-#[inline]
-fn render<'a, O, P>(input: &'a str, verb_renderer: O, link_renderer: P) -> String
+fn render<'a, O, P, W>(
+    input: &'a str,
+    verb_renderer: O,
+    link_renderer: P,
+    output: &mut W,
+) -> Result<(), io::Error>
 where
     O: Fn(Cow<'a, str>) -> Cow<'a, str>,
     P: Fn((Cow<'a, str>, (String, String, String))) -> String,
+    W: Write,
 {
     let mut rest = Cow::from("");
 
-    let mut s = String::from("<pre>");
+    output.write_all("<pre>".as_bytes())?;
     for ((skipped2, consumed2, remaining2), (text2, dest2, title2)) in Hyperlink::new(&input) {
         let skipped = encode_text(skipped2);
         let consumed = encode_text(consumed2);
@@ -23,14 +30,14 @@ where
         let text = encode_safe(&text2).to_string();
         let dest = encode_double_quoted_attribute(&dest2).to_string();
         let title = encode_double_quoted_attribute(&title2).to_string();
-        s.push_str(&verb_renderer(skipped));
+        output.write_all(&verb_renderer(skipped).as_bytes())?;
         let rendered_link = link_renderer((consumed, (text, dest, title)));
-        s.push_str(&rendered_link);
+        output.write_all(&rendered_link.as_bytes())?;
         rest = remaining;
     }
-    s.push_str(&verb_renderer(rest));
-    s.push_str("</pre>");
-    s
+    output.write_all(&verb_renderer(rest).as_bytes())?;
+    output.write_all("</pre>".as_bytes())?;
+    Ok(())
 }
 
 /// # Source code viewer with link renderer
@@ -188,7 +195,40 @@ where
 /// abc<a href="dest1" title="title1">text1</a>abc
 /// </pre>
 ///
+#[inline]
 pub fn text_links2html(input: &str) -> String {
+    let mut output = Vec::new();
+    text_links2html_writer(input, &mut output).unwrap_or_default();
+    // We know this is safe, because only `str` have been written into `output`.
+    // So the following would be fine, but I want to keep this crate `unsafe`-free.
+    //    unsafe {String::from_utf8_unchecked(output)}
+    String::from_utf8(output).unwrap_or_default()
+}
+
+/// # Source code viewer with link renderer
+///
+/// Same as `text_links2html()`, but it uses `Write` for output. This function
+/// allocates much less memory and is faster because it avoids copying.
+///
+/// Usage example:
+/// ```no_run
+/// use parse_hyperlinks::renderer::text_links2html_writer;
+/// use std::io;
+/// use std::io::Read;
+/// fn main() -> Result<(), ::std::io::Error> {
+///     let mut stdin = String::new();
+///     Read::read_to_string(&mut io::stdin(), &mut stdin)?;
+///
+///     text_links2html_writer(&stdin, &mut io::stdout())?;
+///
+///     Ok(())
+/// }
+/// ```
+pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
+    input: S,
+    output: &mut W,
+) -> Result<(), io::Error> {
+    let input = input.as_ref();
     let verb_renderer = |verb| verb;
 
     let link_renderer = |(_, (text, dest, title)): (_, (String, String, String))| {
@@ -203,7 +243,7 @@ pub fn text_links2html(input: &str) -> String {
         s
     };
 
-    render(input, verb_renderer, link_renderer)
+    render(input, verb_renderer, link_renderer, output)
 }
 
 /// # Markup source code viewer
@@ -367,7 +407,40 @@ pub fn text_links2html(input: &str) -> String {
 /// abc<a href="dest1" title="title1">&lt;a href="dest1" title="title1"&gt;text1&lt;/a&gt;</a>abc
 /// </pre>
 ///
+#[inline]
 pub fn text_rawlinks2html<'a>(input: &'a str) -> String {
+    let mut output = Vec::new();
+    text_rawlinks2html_writer(input, &mut output).unwrap_or_default();
+    // We know this is safe, because only `str` have been written into `output`.
+    // So the following would be fine, but I want to keep this crate `unsafe`-free.
+    //    unsafe {String::from_utf8_unchecked(output)}
+    String::from_utf8(output).unwrap_or_default()
+}
+
+/// # Markup source code viewer
+///
+/// Same as `text_rawlinks2html()`, but it uses `Write` for output. This function
+/// allocates much less memory and is faster because it avoids copying.
+///
+/// Usage example:
+/// ```no_run
+/// use parse_hyperlinks::renderer::text_rawlinks2html_writer;
+/// use std::io;
+/// use std::io::Read;
+/// fn main() -> Result<(), ::std::io::Error> {
+///     let mut stdin = String::new();
+///     Read::read_to_string(&mut io::stdin(), &mut stdin)?;
+///
+///     text_rawlinks2html_writer(&stdin, &mut io::stdout())?;
+///
+///     Ok(())
+/// }
+/// ```
+pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
+    input: S,
+    output: &mut W,
+) -> Result<(), io::Error> {
+    let input = input.as_ref();
     let verb_renderer = |verb: Cow<'a, str>| verb;
 
     let link_renderer = |(consumed, (_, dest, title)): (Cow<str>, (_, String, String))| {
@@ -382,7 +455,7 @@ pub fn text_rawlinks2html<'a>(input: &'a str) -> String {
         s
     };
 
-    render(input, verb_renderer, link_renderer)
+    render(input, verb_renderer, link_renderer, output)
 }
 
 /// # Hyperlink extractor
@@ -529,7 +602,40 @@ pub fn text_rawlinks2html<'a>(input: &'a str) -> String {
 /// <a href="dest2" title="title2">text2</a>
 /// </pre>
 ///
+#[inline]
 pub fn link_list2html(input: &str) -> String {
+    let mut output = Vec::new();
+    link_list2html_writer(input, &mut output).unwrap_or_default();
+    // We know this is safe, because only `str` have been written into `output`.
+    // So the following would be fine, but I want to keep this crate `unsafe`-free.
+    //    unsafe {String::from_utf8_unchecked(output)}
+    String::from_utf8(output).unwrap_or_default()
+}
+
+/// # Hyperlink extractor
+///
+/// Same as `link_list2html()`, but it uses `Write` for output. This function
+/// allocates much less memory and is faster because it avoids copying.
+///
+/// Usage example:
+/// ```no_run
+/// use parse_hyperlinks::renderer::link_list2html_writer;
+/// use std::io;
+/// use std::io::Read;
+/// fn main() -> Result<(), ::std::io::Error> {
+///     let mut stdin = String::new();
+///     Read::read_to_string(&mut io::stdin(), &mut stdin)?;
+///
+///     link_list2html_writer(&stdin, &mut io::stdout())?;
+///
+///     Ok(())
+/// }
+/// ```
+pub fn link_list2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
+    input: S,
+    output: &mut W,
+) -> Result<(), io::Error> {
+    let input = input.as_ref();
     let verb_renderer = |_| Cow::Borrowed("");
 
     let link_renderer = |(_, (text, dest, title)): (_, (String, String, String))| {
@@ -544,7 +650,7 @@ pub fn link_list2html(input: &str) -> String {
         s
     };
 
-    render(input, verb_renderer, link_renderer)
+    render(input, verb_renderer, link_renderer, output)
 }
 
 #[cfg(test)]
