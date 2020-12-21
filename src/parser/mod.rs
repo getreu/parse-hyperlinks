@@ -358,7 +358,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         line_start = false;
         // Does never fail.
         let (k, count) = nom::multi::many0_count(nom::character::complete::newline)(j)?;
-        debug_assert_eq!(j.len()-k.len(), count);
+        debug_assert_eq!(j.len() - k.len(), count);
         if count > 0 {
             skip_count += j.len() - k.len();
             j = k;

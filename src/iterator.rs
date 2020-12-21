@@ -786,13 +786,15 @@ abc"#;
         hc.resolve_text2label_references();
         //eprintln!("{:#?}", hc);
 
-        let expected = vec![
-            (
-                4,
-                13,
-                Link::Text2Dest(Cow::from("my homepage"), Cow::from("https://getreu.net"), Cow::from("")),
+        let expected = vec![(
+            4,
+            13,
+            Link::Text2Dest(
+                Cow::from("my homepage"),
+                Cow::from("https://getreu.net"),
+                Cow::from(""),
             ),
-        ];
+        )];
         assert_eq!(hc.text2dest_label, expected);
     }
 
