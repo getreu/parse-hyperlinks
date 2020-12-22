@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 use crate::parser::Link;
+use crate::parser::LABEL_LEN_MAX;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::*;
@@ -492,18 +493,21 @@ fn rst_parse_simple_label(i: &str) -> nom::IResult<&str, &str> {
         Ok((i, r))
     }
 
-    let (i, r) = alt((
-        nom::sequence::delimited(
-            tag("`"),
-            nom::bytes::complete::escaped(
-                nom::character::complete::none_of(r#"\`"#),
-                '\\',
-                nom::character::complete::one_of(ESCAPABLE),
+    let (i, r) = nom::combinator::verify(
+        alt((
+            nom::sequence::delimited(
+                tag("`"),
+                nom::bytes::complete::escaped(
+                    nom::character::complete::none_of(r#"\`"#),
+                    '\\',
+                    nom::character::complete::one_of(ESCAPABLE),
+                ),
+                tag("`_"),
             ),
-            tag("`_"),
-        ),
-        take_word_consume_first_ending_underscore,
-    ))(i)?;
+            take_word_consume_first_ending_underscore,
+        )),
+        |s: &str| s.len() <= LABEL_LEN_MAX,
+    )(i)?;
 
     // Return error if label is empty.
     let _ = nom::combinator::not(alt((nom::combinator::eof, tag("``"))))(r)?;

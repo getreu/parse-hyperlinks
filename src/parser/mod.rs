@@ -24,6 +24,10 @@ use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
 use std::borrow::Cow;
 
+/// Link max label. This limits the damage of a forgotten closing brackets.
+/// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-label)
+pub const LABEL_LEN_MAX: usize = 999;
+
 /// A link can be an _inline link_, a _reference link_, a _link reference
 /// definition_, a combined _inline link / link reference definition_ or
 /// a _reference alias_. This is the main return type of this API.
@@ -32,7 +36,6 @@ use std::borrow::Cow;
 /// is set to the empty string `""`.
 /// The back ticks \` in reStructuredText can be omitted when only one
 /// word is enclosed without spaces.
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum Link<'a> {
     /// In (stand alone) **inline links** the destination and title are given
@@ -429,11 +432,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             // `rst_text2label` must be always placed after `rst_text2dest`.
             // `md_text2label` must be always placed after `adoc_text2label` and `adoc_text2dest`,
             // because the former consumes `[*]`.
-            if let Ok((l, r)) = alt((
-                rst_text2label_link,
-                adoc_text2dest_link,
-            ))(k)
-            {
+            if let Ok((l, r)) = alt((rst_text2label_link, adoc_text2dest_link))(k) {
                 // If ever we have skipped a char, remember it now.
                 skip_count += j.len() - k.len();
                 break (l, r);

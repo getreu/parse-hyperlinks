@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 use crate::parser::Link;
+use crate::parser::LABEL_LEN_MAX;
 use crate::take_until_unbalanced;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -196,14 +197,17 @@ fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-label)
 fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
-        nom::sequence::delimited(
-            tag("["),
-            nom::bytes::complete::escaped(
-                nom::character::complete::none_of(r#"\[]"#),
-                '\\',
-                nom::character::complete::one_of(ESCAPABLE),
+        nom::combinator::verify(
+            nom::sequence::delimited(
+                tag("["),
+                nom::bytes::complete::escaped(
+                    nom::character::complete::none_of(r#"\[]"#),
+                    '\\',
+                    nom::character::complete::one_of(ESCAPABLE),
+                ),
+                tag("]"),
             ),
-            tag("]"),
+            |l: &str| l.len() <= LABEL_LEN_MAX,
         ),
         md_escaped_str_transform,
     )(i)

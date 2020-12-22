@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 use crate::parser::Link;
+use crate::parser::LABEL_LEN_MAX;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::bytes::complete::tag_no_case;
@@ -372,10 +373,15 @@ fn adoc_parse_literal_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> 
 /// The result is always a borrowed reference.
 fn adoc_parse_curly_bracket_reference(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map(
-        nom::sequence::delimited(
-            char('{'),
-            nom::bytes::complete::take_till1(|c| c == '}' || c == ' ' || c == '\t' || c == '\r'),
-            char('}'),
+        nom::combinator::verify(
+            nom::sequence::delimited(
+                char('{'),
+                nom::bytes::complete::take_till1(|c| {
+                    c == '}' || c == ' ' || c == '\t' || c == '\r'
+                }),
+                char('}'),
+            ),
+            |s: &str| s.len() <= LABEL_LEN_MAX,
         ),
         |s| Cow::Borrowed(s),
     )(i)
@@ -388,10 +394,13 @@ fn adoc_parse_curly_bracket_reference(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// The caller must guaranty, that the byte before was a newline. The parser
 /// consumes all whitespace before the first colon and after the second.
 fn adoc_parse_colon_reference(i: &str) -> nom::IResult<&str, &str> {
-    nom::sequence::delimited(
-        char(':'),
-        nom::bytes::complete::take_till1(|c| c == ':' || c == ' ' || c == '\t' || c == '\r'),
-        char(':'),
+    nom::combinator::verify(
+        nom::sequence::delimited(
+            char(':'),
+            nom::bytes::complete::take_till1(|c| c == ':' || c == ' ' || c == '\t' || c == '\r'),
+            char(':'),
+        ),
+        |s: &str| s.len() <= LABEL_LEN_MAX,
     )(i)
 }
 
