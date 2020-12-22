@@ -137,8 +137,8 @@ cargo install parse-hyperlinks
    abc
    abc https://destination30[text30]abc
    abc link:https://destination31[text31]abc
-   abc {label32}[text32]abc
-   abc {label33}abc
+   abc{label32}[text32]abc
+   abc{label33}abc
    :label32: https://destination32
    :label33: https://destination33
    ```
@@ -155,8 +155,8 @@ cargo install parse-hyperlinks
    <pre>abc
    abc <a href="https://destination30" title="">https://destination30[text30]</a>abc
    abc <a href="https://destination31" title="">link:https://destination31[text31]</a>abc
-   abc <a href="https://destination32" title="">{label32}[text32]</a>abc
-   abc <a href="https://destination33" title="">{label33}</a>abc
+   abc<a href="https://destination32" title="">{label32}[text32]</a>abc
+   abc<a href="https://destination33" title="">{label33}</a>abc
    :label32: https://destination32
    :label33: https://destination33</pre>
    ```
@@ -171,8 +171,8 @@ cargo install parse-hyperlinks
    abc
    abc <a href="https://destination30" title="">https://destination30[text30]</a>abc
    abc <a href="https://destination31" title="">link:https://destination31[text31]</a>abc
-   abc <a href="https://destination32" title="">{label32}[text32]</a>abc
-   abc <a href="https://destination33" title="">{label33}</a>abc
+   abc<a href="https://destination32" title="">{label32}[text32]</a>abc
+   abc<a href="https://destination33" title="">{label33}</a>abc
    :label32: https://destination32
    :label33: https://destination33
    </pre>

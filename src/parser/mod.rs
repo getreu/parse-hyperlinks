@@ -311,8 +311,8 @@ pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
 /// let i = r#"abc
 /// abc https://destination0[text0]abc
 /// abc link:https://destination1[text1]abc
-/// abc {label2}[text2]abc
-/// abc {label3}abc
+/// abc{label2}[text2]abc
+/// abc{label3}abc
 /// :label4: https://destination4
 /// "#;
 ///
@@ -407,6 +407,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             // `rst_text2dest` must be always placed before `rst_text2label`.
             rst_text2dest_link,
             rst_text_label2dest_link,
+            adoc_text2label_link,
             html_text2dest_link,
         ))(j)
         {
@@ -431,7 +432,6 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             if let Ok((l, r)) = alt((
                 rst_text2label_link,
                 adoc_text2dest_link,
-                adoc_text2label_link,
             ))(k)
             {
                 // If ever we have skipped a char, remember it now.
@@ -458,8 +458,10 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             || c == ' ' || c == '\t'
             // These are candidates for `rst_text2label`, `rst_text_label2dest` `rst_text2dest`:
             || c == '`'
-            // These could be the start of all `md_*`link types.
+            // These could be the start of all `md_*` link types.
             || c == '['
+            // These could be the start of the `adoc_text2label` link type.
+            || c == '{'
             // And this could be an HTML hyperlink:
             || c == '<')(j)?;
 
@@ -518,7 +520,7 @@ abc `rst text_label6 <rst_destination6>`_abc
 abc https://adoc_destination1[adoc text1] abc
 abc {adoc-label2}abc {adoc-label3}[adoc text3]abc
  :adoc-label4: https://adoc_destination4
-abc [{adoc-label5}] abc https://adoc_destination6 abc
+abc{adoc-label5}abc https://adoc_destination6 abc
 "#;
 
         let expected = Link::Label2Dest(
@@ -629,7 +631,7 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
         let expected = Link::Text2Label(Cow::from(""), Cow::from("adoc-label5"));
         let (i, (skipped, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
-        assert_eq!(skipped, "\nabc [");
+        assert_eq!(skipped, "\nabc");
 
         let expected = Link::Text2Dest(
             Cow::from("https://adoc_destination6"),
@@ -638,7 +640,7 @@ abc [{adoc-label5}] abc https://adoc_destination6 abc
         );
         let (_i, (skipped, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
-        assert_eq!(skipped, "] abc ");
+        assert_eq!(skipped, "abc ");
     }
 
     #[test]

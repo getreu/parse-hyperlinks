@@ -142,8 +142,8 @@ where
 ///
 /// let i = r#"abc https://dest0[text0]abc
 /// abc link:https://dest1[text1]abc
-/// abc {label2}[text2]abc
-/// abc {label3}abc
+/// abc{label2}[text2]abc
+/// abc{label3}abc
 /// :label2: https://dest2
 /// :label3: https://dest3
 /// "#;
@@ -151,8 +151,8 @@ where
 /// let expected = "\
 /// <pre>abc <a href=\"https://dest0\" title=\"\">text0</a>abc
 /// abc <a href=\"https://dest1\" title=\"\">text1</a>abc
-/// abc <a href=\"https://dest2\" title=\"\">text2</a>abc
-/// abc <a href=\"https://dest3\" title=\"\">https:&#x2F;&#x2F;dest3</a>abc
+/// abc<a href=\"https://dest2\" title=\"\">text2</a>abc
+/// abc<a href=\"https://dest3\" title=\"\">https:&#x2F;&#x2F;dest3</a>abc
 /// :label2: https://dest2
 /// :label3: https://dest3
 /// </pre>";
@@ -167,8 +167,8 @@ where
 ///
 /// <pre>abc <a href="https://dest0" title="">text0</a>abc
 /// abc <a href="https://dest1" title="">text1</a>abc
-/// abc <a href="https://dest2" title="">text2</a>abc
-/// abc <a href="https://dest3" title="">https://dest3</a>abc
+/// abc<a href="https://dest2" title="">text2</a>abc
+/// abc<a href="https://dest3" title="">https://dest3</a>abc
 /// :label2: https://dest2\n:label3: https://dest3
 /// </pre>
 ///
@@ -348,21 +348,19 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// use parse_hyperlinks::renderer::text_rawlinks2html;
 /// use std::borrow::Cow;
 ///
-/// let i = r#"abc
-/// abc https://dest0[text0]abc
+/// let i = r#"abc https://dest0[text0]abc
 /// abc link:https://dest1[text1]abc
-/// abc {label2}[text2]abc
-/// abc {label3}abc
+/// abc{label2}[text2]abc
+/// abc{label3}abc
 /// :label2: https://dest2
 /// :label3: https://dest3
 /// "#;
 ///
 /// let expected = "\
-/// <pre>abc
-/// abc <a href=\"https://dest0\" title=\"\">https://dest0[text0]</a>abc
+/// <pre>abc <a href=\"https://dest0\" title=\"\">https://dest0[text0]</a>abc
 /// abc <a href=\"https://dest1\" title=\"\">link:https://dest1[text1]</a>abc
-/// abc <a href=\"https://dest2\" title=\"\">{label2}[text2]</a>abc
-/// abc <a href=\"https://dest3\" title=\"\">{label3}</a>abc
+/// abc<a href=\"https://dest2\" title=\"\">{label2}[text2]</a>abc
+/// abc<a href=\"https://dest3\" title=\"\">{label3}</a>abc
 /// :label2: https://dest2\n:label3: https://dest3
 /// </pre>";
 ///
@@ -377,8 +375,8 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <pre>abc
 /// abc <a href="https://dest0" title="">https://dest0[text0]</a>abc
 /// abc <a href="https://dest1" title="">link:https://dest1[text1]</a>abc
-/// abc <a href="https://dest2" title="">{label2}[text2]</a>abc
-/// abc <a href="https://dest3" title="">{label3}</a>abc
+/// abc<a href="https://dest2" title="">{label2}[text2]</a>abc
+/// abc<a href="https://dest3" title="">{label3}</a>abc
 /// :label2: https://dest2\n:label3: https://dest3
 /// </pre>
 ///
@@ -545,11 +543,10 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// use parse_hyperlinks::renderer::link_list2html;
 /// use std::borrow::Cow;
 ///
-/// let i = r#"abc
-/// abc https://dest0[text0]abc
+/// let i = r#"abc https://dest0[text0]abc
 /// abc link:https://dest1[text1]abc
-/// abc {label2}[text2]abc
-/// abc {label3}abc
+/// abc{label2}[text2]abc
+/// abc{label3}abc
 /// :label2: https://dest2
 /// :label3: https://dest3
 /// "#;
