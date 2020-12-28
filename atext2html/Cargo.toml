@@ -1,13 +1,19 @@
 [package]
 name = "atext2html"
-version = "0.1.0"
+version = "0.19.3"
 authors = ["Jens Getreu <getreu@getreu@web.de>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+keywords = ["parser", "markup", "hyperlink", "markdown", "restructuredtext"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/getreu/parse-hyperlinks"
+homepage = "https://github.com/getreu/parse-hyperlinks"
+description = "A Nom parser library for hyperlinks with markup."
+categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
-parse-hyperlinks = { path = "../parse-hyperlinks" }
-# parse-hyperlinks = "0.19.2"
+# parse-hyperlinks = { path = "../parse-hyperlinks" }
+parse-hyperlinks = "0.19.3"
 structopt = "0.3.21"
 lazy_static = "1.4.0"

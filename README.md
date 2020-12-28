@@ -19,7 +19,7 @@ https://github.com/getreu/atext2html)
 [Atext2html](https://crates.io/crates/atext2html)
 illustrates the usage of the underlaying library
 [Parse-hyperlinks](https://crates.io/crates/parse-hyperlinks). The
-[API of Parse-hyperlinks](https://docs.rs/parse-hyperlinks/0.19.2/parse_hyperlinks/index.html) 
+[API of Parse-hyperlinks](https://docs.rs/parse-hyperlinks/0.19.3/parse_hyperlinks/index.html)
 provides insights about the operating principle of this utility.
 
 ### Installation:
@@ -67,7 +67,7 @@ ARGS:
 2. Run `atext2html`:
 
    ```shell
-   $ ./atext2html -o output.html input.txt 
+   $ ./atext2html -o output.html input.txt
    ```
 
 3. Inspect `output.html`:
@@ -115,7 +115,7 @@ ARGS:
 2. Run `atext2html`:
 
    ```shell
-   $ ./atext2html -o output.html input.txt 
+   $ ./atext2html -o output.html input.txt
    ```
 
 3. Inspect `output.html`:
@@ -168,7 +168,7 @@ ARGS:
 2. Run `atext2html`:
 
    ```shell
-   $ ./atext2html -o output.html input.txt 
+   $ ./atext2html -o output.html input.txt
    ```
 
 3. Inspect `output.html`:
@@ -205,7 +205,7 @@ ARGS:
 1. Create a file `input.txt` with text and hyperlinks:
 
    ```adoc
-   $ ./atext2html -o output.html input.txt 
+   $ ./atext2html -o output.html input.txt
    ```
 
 2. Run `atext2html`:
