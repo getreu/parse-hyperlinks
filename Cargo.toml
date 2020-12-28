@@ -1,18 +1,6 @@
-[package]
-name = "parse-hyperlinks"
-version = "0.19.2"
-authors = ["Jens Getreu <getreu@getreu@web.de>"]
-edition = "2018"
-keywords = ["parser", "markup", "hyperlink", "markdown", "restructuredtext"]
-license = "MIT/Apache-2.0"
-readme = "README.md"
-repository = "https://github.com/getreu/parse-hyperlinks"
-homepage = "https://github.com/getreu/parse-hyperlinks"
-description = "A Nom parser library for hyperlinks with markup."
-categories = ["command-line-utilities", "parser-implementations"]
+[workspace]
 
-[dependencies]
-nom= "6.0.1"
-html-escape = "0.2.6"
-percent-encoding = "2.1.0"
-thiserror = "1.0.22"
+members = [
+    "atext2html",
+    "parse-hyperlinks",
+]

@@ -1,30 +1,52 @@
-# Parse hyperlinks
+# Atext2html
 
-A parser library written with [Nom](https://crates.io/crates/nom) to
-recognize hyperlinks and link reference definitions in Markdown,
-reStructuredText, Asciidoc and HTML formatted text input.
+[Atext2html](https://crates.io/crates/atext2html) is a command line utility
+written with [Nom](https://crates.io/crates/nom) to recognize hyperlinks and
+link reference definitions in Markdown, reStructuredText, Asciidoc and HTML
+formatted text input. [Atext2html](https://crates.io/crates/atext2html) renders
+the source text verbatim to HTML, but makes hyperlinks clickable. By default
+the hyperlink's text appears the same as in the source text. When the flag
+`--render-links` is given, hyperlinks are represented only by their link text,
+which makes inline links more readable.
 
-[![Cargo](https://img.shields.io/crates/v/parse-hyperlinks.svg)](
-https://crates.io/crates/parse-hyperlinks)
-[![Documentation](https://docs.rs/parse-hyperlinks/badge.svg)](
-https://docs.rs/parse-hyperlinks)
+[![Cargo](https://img.shields.io/crates/v/atext2html.svg)](
+https://crates.io/crates/atext2html)
+[![Documentation](https://docs.rs/atext2html/badge.svg)](
+https://docs.rs/atext2html)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](
-https://github.com/getreu/parse-hyperlinks)
+https://github.com/getreu/atext2html)
 
-The library implements the
-[CommonMark Specification 0.29](https://spec.commonmark.org/0.29/),
-[reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
-(revision 8571, date 2020-10-28), the specifications in
-[Asciidoctor User Manual, chapter 26](https://asciidoctor.org/docs/user-manual/#url) (date 2020-12-03)
-and [HTML 5.2: section 4.5](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element).
+[Atext2html](https://crates.io/crates/atext2html)
+illustrates the usage of the underlaying library
+[Parse-hyperlinks](https://crates.io/crates/parse-hyperlinks). The
+[API of Parse-hyperlinks](https://docs.rs/parse-hyperlinks/0.19.2/parse_hyperlinks/index.html) 
+provides insights about the operating principle of this utility.
 
-To illustrate the usage and the API of the library, [parse-hyperlinks](https://crates.io/crates/parse-hyperlinks)
-comes also with a simple command line application.
-
-Installation:
+### Installation:
 
 ```bash
-cargo install parse-hyperlinks
+cargo install atext2html
+```
+
+# Usage
+
+```
+Render source text with markup hyperlinks.
+
+USAGE:
+    atext2html [FLAGS] [OPTIONS] [FILE]...
+
+FLAGS:
+    -h, --help            Prints help information
+    -l, --only-links      print only links (one per line)
+    -r, --render-links    render hyperlinks
+    -V, --version         print version and exit
+
+OPTIONS:
+    -o, --output <output>    print not to stdout but in file
+
+ARGS:
+    <FILE>...    paths to files to render (or `-` for stdin)
 ```
 
 # Usage examples
@@ -42,10 +64,10 @@ cargo install parse-hyperlinks
    abc[text13]abc
    ```
 
-2. Run `parse-hyperlinks`:
+2. Run `atext2html`:
 
    ```shell
-   $ ./parse-hyperlinks <input.txt >output.html
+   $ ./atext2html -o output.html input.txt 
    ```
 
 3. Inspect `output.html`:
@@ -90,10 +112,10 @@ cargo install parse-hyperlinks
    __ destination25
    ```
 
-2. Run `parse-hyperlinks`:
+2. Run `atext2html`:
 
    ```shell
-   $ ./parse-hyperlinks <input.txt >output.html
+   $ ./atext2html -o output.html input.txt 
    ```
 
 3. Inspect `output.html`:
@@ -143,10 +165,10 @@ cargo install parse-hyperlinks
    :label33: https://destination33
    ```
 
-2. Run `parse-hyperlinks`:
+2. Run `atext2html`:
 
    ```shell
-   $ ./parse-hyperlinks <input.txt >output.html
+   $ ./atext2html -o output.html input.txt 
    ```
 
 3. Inspect `output.html`:
@@ -183,14 +205,14 @@ cargo install parse-hyperlinks
 1. Create a file `input.txt` with text and hyperlinks:
 
    ```adoc
-   abc<a href="dest1" title="title1">text1</a>abc
-   abc<a href="dest2" title="title2">text2</a>abc
+   $ ./atext2html -o output.html input.txt 
    ```
 
-2. Run `parse-hyperlinks`:
+2. Run `atext2html`:
 
    ```shell
-   $ ./parse-hyperlinks <input.txt >output.html
+   $ ./atext2html <input.txt >output.html
+   $ ./atext2html <input.txt >output.html
    ```
 
 3. Inspect `output.html`:

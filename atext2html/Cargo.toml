@@ -1,0 +1,13 @@
+[package]
+name = "atext2html"
+version = "0.1.0"
+authors = ["Jens Getreu <getreu@getreu@web.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+parse-hyperlinks = { path = "../parse-hyperlinks" }
+# parse-hyperlinks = "0.19.2"
+structopt = "0.3.21"
+lazy_static = "1.4.0"
