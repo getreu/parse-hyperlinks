@@ -467,7 +467,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 ///
 /// ## Markdown
 /// ```
-/// use parse_hyperlinks::renderer::link_list2html;
+/// use parse_hyperlinks::renderer::links2html;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc[text0](dest0 "title0")abc
@@ -484,7 +484,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <a href=\"dest2\" title=\"title2\">text2</a>
 /// <a href=\"dest3\" title=\"title3\">text3</a>
 /// </pre>";
-/// let res = link_list2html(i);
+/// let res = links2html(i);
 /// assert_eq!(res, expected);
 /// ```
 ///
@@ -500,7 +500,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 ///
 /// ## reStructuredText
 /// ```
-/// use parse_hyperlinks::renderer::link_list2html;
+/// use parse_hyperlinks::renderer::links2html;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"
@@ -523,7 +523,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// </pre>\
 /// ";
 ///
-/// let res = link_list2html(i);
+/// let res = links2html(i);
 /// assert_eq!(res, expected);
 /// ```
 ///
@@ -540,7 +540,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// ## Asciidoc
 ///
 /// ```
-/// use parse_hyperlinks::renderer::link_list2html;
+/// use parse_hyperlinks::renderer::links2html;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc https://dest0[text0]abc
@@ -558,7 +558,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <a href=\"https://dest3\" title=\"\">https:&#x2F;&#x2F;dest3</a>
 /// </pre>";
 ///
-/// let res = link_list2html(i);
+/// let res = links2html(i);
 /// assert_eq!(res, expected);
 /// ```
 ///
@@ -578,7 +578,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// HTML _inline links_ are sanitized and listed, one per line.
 ///
 /// ```
-/// use parse_hyperlinks::renderer::link_list2html;
+/// use parse_hyperlinks::renderer::links2html;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<a href="dest1" title="title1">text1</a>abc
@@ -589,7 +589,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <a href=\"dest2\" title=\"title2\">text2</a>
 /// </pre>";
 ///
-/// let res = link_list2html(i);
+/// let res = links2html(i);
 /// assert_eq!(res, expected);
 /// ```
 ///
@@ -603,9 +603,9 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// </pre>
 ///
 #[inline]
-pub fn link_list2html(input: &str) -> String {
+pub fn links2html(input: &str) -> String {
     let mut output = Vec::new();
-    link_list2html_writer(input, &mut output).unwrap_or_default();
+    links2html_writer(input, &mut output).unwrap_or_default();
     // We know this is safe, because only `str` have been written into `output`.
     // So the following would be fine, but I want to keep this crate `unsafe`-free.
     //    unsafe {String::from_utf8_unchecked(output)}
@@ -614,24 +614,24 @@ pub fn link_list2html(input: &str) -> String {
 
 /// # Hyperlink extractor
 ///
-/// Same as `link_list2html()`, but it uses `Write` for output. This function
+/// Same as `links2html()`, but it uses `Write` for output. This function
 /// allocates much less memory and is faster because it avoids copying.
 ///
 /// Usage example:
 /// ```no_run
-/// use parse_hyperlinks::renderer::link_list2html_writer;
+/// use parse_hyperlinks::renderer::links2html_writer;
 /// use std::io;
 /// use std::io::Read;
 /// fn main() -> Result<(), ::std::io::Error> {
 ///     let mut stdin = String::new();
 ///     Read::read_to_string(&mut io::stdin(), &mut stdin)?;
 ///
-///     link_list2html_writer(&stdin, &mut io::stdout())?;
+///     links2html_writer(&stdin, &mut io::stdout())?;
 ///
 ///     Ok(())
 /// }
 /// ```
-pub fn link_list2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
+pub fn links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
     input: S,
     output: &mut W,
 ) -> Result<(), io::Error> {
@@ -712,7 +712,7 @@ abc<a href="destination3" title="title3">[label3]</a>abc[label4]abc
     }
 
     #[test]
-    fn test_link_list2html() {
+    fn test_links2html() {
         let i = r#"abc[text1][label1]abc
 abc [text2](destination2 "title2")
   [label3]: destination3 "title3"
@@ -724,7 +724,7 @@ abc[label3]abc[label4]abc
 <a href="destination2" title="title2">text2</a>
 <a href="destination3" title="title3">label3</a>
 </pre>"#;
-        let res = link_list2html(i);
+        let res = links2html(i);
         //eprintln!("{}", res);
         assert_eq!(res, expected);
     }
