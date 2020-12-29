@@ -17,10 +17,10 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
 name = "atext2html"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "lazy_static",
- "parse-hyperlinks",
+ "parse-hyperlinks 0.19.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt",
 ]
 
@@ -152,7 +152,19 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.19.3"
+version = "0.19.4"
+dependencies = [
+ "html-escape",
+ "nom",
+ "percent-encoding",
+ "thiserror",
+]
+
+[[package]]
+name = "parse-hyperlinks"
+version = "0.19.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3756cdaa8f5681e679c2104c2bb61820f75edcc10ccc04362cceb900aec6044a"
 dependencies = [
  "html-escape",
  "nom",

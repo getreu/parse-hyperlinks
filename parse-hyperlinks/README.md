@@ -20,7 +20,7 @@ The library implements the
 and [HTML 5.2: section 4.5](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element).
 
 To illustrate the usage and the
-[API of the library](https://docs.rs/parse-hyperlinks/0.19.3/parse_hyperlinks/index.html),
+[API of the library](https://docs.rs/parse-hyperlinks/0.19.4/parse_hyperlinks/index.html),
 [Parse-hyperlinks](https://crates.io/crates/parse-hyperlinks) comes with a
 simple command line application:
 [Atext2html](https://crates.io/crates/atext2html)

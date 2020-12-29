@@ -19,7 +19,7 @@ https://github.com/getreu/atext2html)
 [Atext2html](https://crates.io/crates/atext2html)
 illustrates the usage of the underlaying library
 [Parse-hyperlinks](https://crates.io/crates/parse-hyperlinks). The
-[API of Parse-hyperlinks](https://docs.rs/parse-hyperlinks/0.19.3/parse_hyperlinks/index.html)
+[API of Parse-hyperlinks](https://docs.rs/parse-hyperlinks/0.19.4/parse_hyperlinks/index.html)
 provides insights about the operating principle of this utility.
 
 ### Installation:

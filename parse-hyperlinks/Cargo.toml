@@ -1,6 +1,6 @@
 [package]
 name = "parse-hyperlinks"
-version = "0.19.3"
+version = "0.19.4"
 authors = ["Jens Getreu <getreu@getreu@web.de>"]
 edition = "2018"
 keywords = ["parser", "markup", "hyperlink", "markdown", "restructuredtext"]
@@ -15,4 +15,4 @@ categories = ["command-line-utilities", "parser-implementations"]
 nom= "6.0.1"
 html-escape = "0.2.6"
 percent-encoding = "2.1.0"
-thiserror = "1.0.22"
+thiserror = "1.0.23"
