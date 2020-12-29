@@ -37,7 +37,7 @@ impl<'a> HyperlinkCollection<'a> {
     /// copy is stored in `HyperlinkCollection::Text2Dest` and the other copy is
     /// stored in `HyperlinkCollection::Label2Dest`.
     #[inline]
-    fn from(input: &'a str) -> Self {
+    fn from(input: &'a str, render_label2dest: bool) -> Self {
         let mut i = input;
         let mut hc = HyperlinkCollection::new();
         let mut anonymous_text2label_counter = 0;
@@ -95,6 +95,23 @@ impl<'a> HyperlinkCollection<'a> {
                         anonymous_label2x_counter += 1;
                         l = Cow::Owned(format!("_{}", anonymous_label2x_counter));
                     }
+                    // Some want to have link reference definitions clickable
+                    // too. Strictly speaking they are not links, this is why
+                    // this is optional.
+                    if render_label2dest {
+                        let link_offset = input_idx + skipped.len();
+                        let link_len = i.len() - j.len() - skipped.len();
+                        hc.text2dest_label.push((
+                            link_offset,
+                            link_len,
+                            Link::Text2Dest(
+                                Cow::from(&input[link_offset..link_offset + link_len]),
+                                d.clone(),
+                                t.clone(),
+                            ),
+                        ));
+                    };
+
                     // Silently ignore when overwriting a key that exists already.
                     hc.label2dest.insert(l, (d, t));
                 }
@@ -213,7 +230,7 @@ enum Status<'a> {
 ///
 /// let i = "abc[text0](dest0)efg[text1](dest1)hij";
 ///
-/// let mut iter = Hyperlink::new(i);
+/// let mut iter = Hyperlink::new(i, false);
 /// assert_eq!(iter.next().unwrap().0, ("abc", "[text0](dest0)", "efg[text1](dest1)hij"));
 /// assert_eq!(iter.next().unwrap().0, ("efg", "[text1](dest1)", "hij"));
 /// assert_eq!(iter.next(), None);
@@ -232,7 +249,7 @@ enum Status<'a> {
 /// abc[text3]abc
 /// "#;
 ///
-/// let mut iter = Hyperlink::new(i);
+/// let mut iter = Hyperlink::new(i, false);
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text0"), Cow::from("dest0"), Cow::from("title0")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
@@ -258,7 +275,7 @@ enum Status<'a> {
 /// __ dest5
 /// "#;
 ///
-/// let mut iter = Hyperlink::new(i);
+/// let mut iter = Hyperlink::new(i, false);
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text3"), Cow::from("dest3"), Cow::from("")));
@@ -281,7 +298,7 @@ enum Status<'a> {
 /// :label3: https://dest3
 /// "#;
 ///
-/// let mut iter = Hyperlink::new(i);
+/// let mut iter = Hyperlink::new(i, false);
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text0"), Cow::from("https://dest0"), Cow::from("")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("https://dest1"), Cow::from("")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("https://dest2"), Cow::from("")));
@@ -299,7 +316,7 @@ enum Status<'a> {
 /// abc<a href="dest2" title="title2">text2</a>abc
 /// "#;
 ///
-/// let mut iter = Hyperlink::new(i);
+/// let mut iter = Hyperlink::new(i, false);
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
 /// assert_eq!(iter.next(), None);
@@ -313,19 +330,64 @@ pub struct Hyperlink<'a> {
     last_output_offset: usize,
     /// Length of the last output.
     last_output_len: usize,
+    /// By default, `Label2Dest` link reference definitions are not rendered. If
+    /// `render_label` is true, then `Label2Dest` is rendered like an inline
+    /// link: with the full link reference definition's source as _link text_ and
+    /// the definition's destination as _link destination_.
+    render_label: bool,
 }
 
 /// Constructor for the `Hyperlink` struct.
 impl<'a> Hyperlink<'a> {
     /// Constructor for the iterator. `input` is the text with hyperlinks to be
     /// extracted.
+    ///
+    /// # Optional rendering of Label2Dest link reference definitions
+    ///
+    /// By default `Label2Dest` link reference definitions are not rendered:
+    ///
+    /// ```
+    /// use parse_hyperlinks::iterator::Hyperlink;
+    /// use std::borrow::Cow;
+    ///
+    /// let i = r#"abc[text1][label1]abc
+    /// [label1]: dest1 "title1"
+    /// "#;
+    ///
+    /// let mut iter = Hyperlink::new(i, false);
+    /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    ///
+    /// If the internal variable `render_label` is true, then `Label2Dest` link
+    /// reference definitions are rendered like inline links: the full
+    /// `Label2Dest` link reference definition's source will appear as _link
+    /// text_ and its destination as _link destination_. To enable this feature,
+    /// construct `Hyperlink` with the second positional parameter set to `true`,
+    /// e.g. `Hyperlink::new(i, true)`.
+    ///
+    /// ```
+    /// use parse_hyperlinks::iterator::Hyperlink;
+    /// use std::borrow::Cow;
+    ///
+    /// let i = r#"abc[text1][label1]abc
+    /// [label1]: dest1 "title1"
+    /// "#;
+    ///
+    /// let mut iter = Hyperlink::new(i, true);
+    /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
+    /// assert_eq!(iter.next().unwrap().1, (Cow::from("[label1]: dest1 \"title1\""), Cow::from("dest1"), Cow::from("title1")));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    ///
     #[inline]
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(input: &'a str, render_label: bool) -> Self {
         Self {
             input,
             status: Status::Init,
             last_output_offset: 0,
             last_output_len: 0,
+            render_label,
         }
     }
 }
@@ -396,7 +458,7 @@ impl<'a> Iterator for Hyperlink<'a> {
                     } else {
                         // We switch to resolving mode.
                         self.input = input;
-                        let mut hc = HyperlinkCollection::from(input);
+                        let mut hc = HyperlinkCollection::from(input, self.render_label);
                         hc.resolve_label2label_references();
                         hc.resolve_text2label_references();
                         let mut resolved_links = Vec::new();
@@ -470,7 +532,7 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// assert_eq!(r, Some((Cow::from("t"), Cow::from("v"), Cow::from("w"))));
 /// ```
 pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
-    if let Some((_, (text, dest, title))) = Hyperlink::new(i).next() {
+    if let Some((_, (text, dest, title))) = Hyperlink::new(i, false).next() {
         Some((text, dest, title))
     } else {
         None
@@ -498,7 +560,7 @@ abc `rst text6`__abc
 abc `rst text_label7 <rst_destination7>`_abc
 "#;
 
-        let hc = HyperlinkCollection::from(i);
+        let hc = HyperlinkCollection::from(i, false);
 
         let expected = r#"[
     (
@@ -623,7 +685,7 @@ abc `rst text_label7 <rst_destination7>`_abc
   .. _label3: label2_
 "#;
 
-        let mut hc = HyperlinkCollection::from(i);
+        let mut hc = HyperlinkCollection::from(i, false);
         hc.resolve_label2label_references();
         //eprintln!("{:#?}", hc);
         assert_eq!(hc.label2label.len(), 1);
@@ -662,7 +724,7 @@ abc `rst text_label7 <rst_destination7>`_abc
         label4_
         "#;
 
-        let mut hc = HyperlinkCollection::from(i);
+        let mut hc = HyperlinkCollection::from(i, false);
         //eprintln!("{:#?}", hc);
         hc.resolve_label2label_references();
         //eprintln!("{:#?}", hc);
@@ -729,7 +791,7 @@ abc text5__ abc
   __ destination5
         "#;
 
-        let mut hc = HyperlinkCollection::from(i);
+        let mut hc = HyperlinkCollection::from(i, false);
         //eprintln!("{:#?}", hc);
         hc.resolve_label2label_references();
         //eprintln!("{:#?}", hc);
@@ -779,7 +841,7 @@ abc
 [my homepage]: https://getreu.net
 abc"#;
 
-        let mut hc = HyperlinkCollection::from(i);
+        let mut hc = HyperlinkCollection::from(i, false);
         eprintln!("{:#?}", hc);
         hc.resolve_label2label_references();
         //eprintln!("{:#?}", hc);
@@ -810,7 +872,7 @@ abc[label3]abc[label5]abc
 label4_
         "#;
 
-        let mut iter = Hyperlink::new(i);
+        let mut iter = Hyperlink::new(i, false);
 
         let expected = (Cow::from("text0"), Cow::from("destination0"), Cow::from(""));
         let item = iter.next().unwrap();

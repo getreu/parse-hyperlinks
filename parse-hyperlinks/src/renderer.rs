@@ -13,6 +13,7 @@ fn render<'a, O, P, W>(
     input: &'a str,
     verb_renderer: O,
     link_renderer: P,
+    render_label: bool,
     output: &mut W,
 ) -> Result<(), io::Error>
 where
@@ -26,7 +27,9 @@ where
     let mut rest = Cow::Borrowed(input);
 
     output.write_all("<pre>".as_bytes())?;
-    for ((skipped2, consumed2, remaining2), (text2, dest2, title2)) in Hyperlink::new(&input) {
+    for ((skipped2, consumed2, remaining2), (text2, dest2, title2)) in
+        Hyperlink::new(&input, render_label)
+    {
         let skipped = encode_text(skipped2);
         let consumed = encode_text(consumed2);
         let remaining = encode_text(remaining2);
@@ -66,8 +69,8 @@ where
 /// <pre>abc<a href=\"dest0\" title=\"title0\">text0</a>abc
 /// abc<a href=\"dest1\" title=\"title1\">text1</a>abc
 /// abc<a href=\"dest2\" title=\"title2\">text2</a>abc
-/// [text3]: dest3 \"title3\"
-/// [label1]: dest1 \"title1\"
+/// <a href=\"dest3\" title=\"title3\">[text3]: dest3 &quot;title3&quot;</a>
+/// <a href=\"dest1\" title=\"title1\">[label1]: dest1 &quot;title1&quot;</a>
 /// abc<a href=\"dest3\" title=\"title3\">text3</a>abc
 /// </pre>";
 /// let res = text_links2html(i);
@@ -81,8 +84,8 @@ where
 /// <pre>abc<a href="dest0" title="title0">text0</a>abc
 /// abc<a href="dest1" title="title1">text1</a>abc
 /// abc<a href="dest2" title="title2">text2</a>abc
-/// [text3]: dest3 "title3"
-/// [label1]: dest1 "title1"
+/// <a href="dest3" title="title3">[text3]: dest3 &quot;title3&quot;</a>
+/// <a href="dest1" title="title1">[label1]: dest1 &quot;title1&quot;</a>
 /// abc<a href="dest3" title="title3">text3</a>abc
 /// </pre>
 ///
@@ -108,10 +111,10 @@ where
 /// abc <a href=\"dest3\" title=\"\">text3</a> abc
 /// abc text_label4_ abc
 /// abc <a href=\"dest5\" title=\"\">text5</a> abc
-/// .. _label1: dest1
-/// .. _text2: dest2
-/// .. __: dest3
-/// __ dest5
+/// <a href=\"dest1\" title=\"\">.. _label1: dest1</a>
+/// <a href=\"dest2\" title=\"\">.. _text2: dest2</a>
+/// <a href=\"dest3\" title=\"\">.. __: dest3</a>
+/// <a href=\"dest5\" title=\"\">__ dest5</a>
 /// </pre>\
 /// ";
 ///
@@ -128,10 +131,10 @@ where
 /// abc <a href="dest3" title="">text3</a> abc
 /// abc text_label4_ abc
 /// abc <a href="dest5" title="">text5</a> abc
-/// .. _label1: dest1
-/// .. _text2: dest2
-/// .. __: dest3
-/// __ dest5
+/// <a href="dest1" title="">.. _label1: dest1</a>
+/// <a href="dest2" title="">.. _text2: dest2</a>
+/// <a href="dest3" title="">.. __: dest3</a>
+/// <a href="dest5" title="">__ dest5</a>
 /// </pre>
 ///
 /// ## Asciidoc
@@ -153,8 +156,8 @@ where
 /// abc <a href=\"https://dest1\" title=\"\">text1</a>abc
 /// abc<a href=\"https://dest2\" title=\"\">text2</a>abc
 /// abc<a href=\"https://dest3\" title=\"\">https:&#x2F;&#x2F;dest3</a>abc
-/// :label2: https://dest2
-/// :label3: https://dest3
+/// <a href=\"https://dest2\" title=\"\">:label2: https:&#x2F;&#x2F;dest2</a>
+/// <a href=\"https://dest3\" title=\"\">:label3: https:&#x2F;&#x2F;dest3</a>
 /// </pre>";
 ///
 /// let res = text_links2html(i);
@@ -168,8 +171,9 @@ where
 /// <pre>abc <a href="https://dest0" title="">text0</a>abc
 /// abc <a href="https://dest1" title="">text1</a>abc
 /// abc<a href="https://dest2" title="">text2</a>abc
-/// abc<a href="https://dest3" title="">https://dest3</a>abc
-/// :label2: https://dest2\n:label3: https://dest3
+/// abc<a href="https://dest3" title="">https:&#x2F;&#x2F;dest3</a>abc
+/// <a href="https://dest2" title="">:label2: https:&#x2F;&#x2F;dest2</a>
+/// <a href="https://dest3" title="">:label3: https:&#x2F;&#x2F;dest3</a>
 /// </pre>
 ///
 /// ## HTML
@@ -246,7 +250,7 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
         s
     };
 
-    render(input, verb_renderer, link_renderer, output)
+    render(input, verb_renderer, link_renderer, true, output)
 }
 
 /// # Markup source code viewer
@@ -274,8 +278,8 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <pre>abc<a href=\"dest0\" title=\"title0\">[text0](dest0 \"title0\")</a>abc
 /// abc<a href=\"dest1\" title=\"title1\">[text1][label1]</a>abc
 /// abc<a href=\"dest2\" title=\"title2\">[text2](dest2 \"title2\")</a>abc
-/// [text3]: dest3 \"title3\"
-/// [label1]: dest1 \"title1\"
+/// <a href=\"dest3\" title=\"title3\">[text3]: dest3 \"title3\"</a>
+/// <a href=\"dest1\" title=\"title1\">[label1]: dest1 \"title1\"</a>
 /// abc<a href=\"dest3\" title=\"title3\">[text3]</a>abc
 /// </pre>";
 ///
@@ -290,8 +294,8 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <pre>abc<a href="dest0" title="title0">[text0](dest0 "title0")</a>abc
 /// abc<a href="dest1" title="title1">[text1][label1]</a>abc
 /// abc<a href="dest2" title="title2">[text2](dest2 "title2")</a>abc
-/// [text3]: dest3 "title3"
-/// [label1]: dest1 "title1"
+/// <a href="dest3" title="title3">[text3]: dest3 "title3"</a>
+/// <a href="dest1" title="title1">[label1]: dest1 "title1"</a>
 /// abc<a href="dest3" title="title3">[text3]</a>abc
 /// </pre>
 ///
@@ -313,14 +317,16 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// "#;
 ///
 /// let expected = "\
-/// <pre>\nabc <a href=\"dest1\" title=\"\">`text1 &lt;label1_&gt;`_</a>abc
+/// <pre>
+/// abc <a href=\"dest1\" title=\"\">`text1 &lt;label1_&gt;`_</a>abc
 /// abc <a href=\"dest2\" title=\"\">text2_</a> abc
 /// abc <a href=\"dest3\" title=\"\">text3__</a> abc
-/// abc text_label4_ abc\nabc <a href=\"dest5\" title=\"\">text5__</a> abc
-/// .. _label1: dest1
-/// .. _text2: dest2
-/// .. __: dest3
-/// __ dest5
+/// abc text_label4_ abc
+/// abc <a href=\"dest5\" title=\"\">text5__</a> abc
+/// <a href=\"dest1\" title=\"\">.. _label1: dest1</a>
+/// <a href=\"dest2\" title=\"\">.. _text2: dest2</a>
+/// <a href=\"dest3\" title=\"\">.. __: dest3</a>
+/// <a href=\"dest5\" title=\"\">__ dest5</a>
 /// </pre>";
 ///
 /// let res = text_rawlinks2html(i);
@@ -332,14 +338,15 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// This is how the rendered text look likes in the browser:
 ///
 /// <pre>
-/// abc <a href="dest1" title="">`text1 <label1_>`_</a>abc
+/// abc <a href="dest1" title="">`text1 &lt;label1_&gt;`_</a>abc
 /// abc <a href="dest2" title="">text2_</a> abc
 /// abc <a href="dest3" title="">text3__</a> abc
 /// abc text_label4_ abc
 /// abc <a href="dest5" title="">text5__</a> abc
-/// .. _label1: dest1
-/// .. _text2: dest2
-/// .. __: dest3\n__ dest5
+/// <a href="dest1" title="">.. _label1: dest1</a>
+/// <a href="dest2" title="">.. _text2: dest2</a>
+/// <a href="dest3" title="">.. __: dest3</a>
+/// <a href="dest5" title="">__ dest5</a>
 /// </pre>
 ///
 /// ## Asciidoc
@@ -361,7 +368,8 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// abc <a href=\"https://dest1\" title=\"\">link:https://dest1[text1]</a>abc
 /// abc<a href=\"https://dest2\" title=\"\">{label2}[text2]</a>abc
 /// abc<a href=\"https://dest3\" title=\"\">{label3}</a>abc
-/// :label2: https://dest2\n:label3: https://dest3
+/// <a href=\"https://dest2\" title=\"\">:label2: https://dest2</a>
+/// <a href=\"https://dest3\" title=\"\">:label3: https://dest3</a>
 /// </pre>";
 ///
 /// let res = text_rawlinks2html(i);
@@ -372,12 +380,12 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <pre>abc
-/// abc <a href="https://dest0" title="">https://dest0[text0]</a>abc
+/// <pre>abc <a href="https://dest0" title="">https://dest0[text0]</a>abc
 /// abc <a href="https://dest1" title="">link:https://dest1[text1]</a>abc
 /// abc<a href="https://dest2" title="">{label2}[text2]</a>abc
 /// abc<a href="https://dest3" title="">{label3}</a>abc
-/// :label2: https://dest2\n:label3: https://dest3
+/// <a href="https://dest2" title="">:label2: https://dest2</a>
+/// <a href="https://dest3" title="">:label3: https://dest3</a>
 /// </pre>
 ///
 /// ## HTML
@@ -456,7 +464,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
         s
     };
 
-    render(input, verb_renderer, link_renderer, output)
+    render(input, verb_renderer, link_renderer, true, output)
 }
 
 /// # Hyperlink extractor
@@ -569,7 +577,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <pre><a href="https://dest0" title="">text0</a>
 /// <a href="https://dest1" title="">text1</a>
 /// <a href="https://dest2" title="">text2</a>
-/// <a href="https://dest3" title="">https://dest3</a>
+/// <a href="https://dest3" title="">https:&#x2F;&#x2F;dest3</a>
 /// </pre>
 ///
 ///
@@ -650,7 +658,7 @@ pub fn links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
         s
     };
 
-    render(input, verb_renderer, link_renderer, output)
+    render(input, verb_renderer, link_renderer, false, output)
 }
 
 #[cfg(test)]
@@ -668,8 +676,8 @@ abc[label3]abc[label4]abc
 
         let expected = r#"<pre>abc<a href="destination1" title="title1">text1</a>abc
 abc <a href="destination2" title="title2">text2</a>
-  [label3]: destination3 "title3"
-  [label1]: destination1 "title1"
+  <a href="destination3" title="title3">[label3]: destination3 &quot;title3&quot;</a>
+  <a href="destination1" title="title1">[label1]: destination1 &quot;title1&quot;</a>
 abc<a href="destination3" title="title3">label3</a>abc[label4]abc
 </pre>"#;
         let res = text_links2html(i);
@@ -702,8 +710,8 @@ abc[label3]abc[label4]abc
 
         let expected = r#"<pre>abc<a href="destination1" title="title1">[text1][label1]</a>abc
 abc <a href="destination2" title="title2">[text2](destination2 "title2")</a>
-  [label3]: destination3 "title3"
-  [label1]: destination1 "title1"
+  <a href="destination3" title="title3">[label3]: destination3 "title3"</a>
+  <a href="destination1" title="title1">[label1]: destination1 "title1"</a>
 abc<a href="destination3" title="title3">[label3]</a>abc[label4]abc
 </pre>"#;
         let res = text_rawlinks2html(i);

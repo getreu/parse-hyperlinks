@@ -76,8 +76,8 @@ ARGS:
    <pre>abc<a href="destination10" title="title10">[text10](destination10 "title10")</a>abc
    abc<a href="destination1" title="title11">[text11][label11]</a>abc
    abc<a href="destination2" title="title12">[text12](destination2 "title12")</a>
-   [text13]: destination3 "title13"
-   [label11]: destination1 "title11"
+   <a href="destination3" title="title13">[text13]: destination3 "title13"</a>
+   <a href="destination1" title="title11">[label11]: destination1 "title11"</a>
    abc<a href="destination3" title="title13">[text13]</a>abc</pre>
    ```
 
@@ -91,8 +91,8 @@ ARGS:
    abc<a href="destination10" title="title10">[text10](destination10 "title10")</a>abc
    abc<a href="destination1" title="title11">[text11][label11]</a>abc
    abc<a href="destination2" title="title12">[text12](destination2 "title12")</a>
-   [text13]: destination3 "title13"
-   [label11]: destination1 "title11"
+   <a href="destination3" title="title13">[text13]: destination3 "title13"</a>
+   <a href="destination1" title="title11">[label11]: destination1 "title11"</a>
    abc<a href="destination3" title="title13">[text13]</a>abc
    </pre>
 
@@ -126,10 +126,10 @@ ARGS:
    abc <a href="destination23" title="">text23__</a> abc
    abc text_label24_ abc
    abc <a href="destination25" title="">text25__</a> abc
-   .. _label21: destination21
-   .. _text22: destination22
-   .. __: destination23
-   __ destination25</pre>
+   <a href="destination21" title="">   .. _label21: destination21</a>
+   <a href="destination22" title="">   .. _text22: destination22</a>
+   <a href="destination23" title="">   .. __: destination23</a>
+   <a href="destination25" title="">   __ destination25</a></pre>
    ```
 
    This is how it looks like in the web browser:
@@ -144,10 +144,10 @@ ARGS:
    abc <a href="destination23" title="">text23__</a> abc
    abc text_label24_ abc
    abc <a href="destination25" title="">text25__</a> abc
-   .. _label21: destination21
-   .. _text22: destination22
-   .. __: destination23
-   __ destination25
+   <a href="destination21" title="">   .. _label21: destination21</a>
+   <a href="destination22" title="">   .. _text22: destination22</a>
+   <a href="destination23" title="">   .. __: destination23</a>
+   <a href="destination25" title="">   __ destination25</a>
    </pre>
 
 
@@ -179,8 +179,8 @@ ARGS:
    abc <a href="https://destination31" title="">link:https://destination31[text31]</a>abc
    abc<a href="https://destination32" title="">{label32}[text32]</a>abc
    abc<a href="https://destination33" title="">{label33}</a>abc
-   :label32: https://destination32
-   :label33: https://destination33</pre>
+   <a href="https://destination32" title="">:label32: https://destination32</a>
+   <a href="https://destination33" title="">:label33: https://destination33</a></pre>
    ```
 
    This is how it looks like in the web-browser:
@@ -195,8 +195,8 @@ ARGS:
    abc <a href="https://destination31" title="">link:https://destination31[text31]</a>abc
    abc<a href="https://destination32" title="">{label32}[text32]</a>abc
    abc<a href="https://destination33" title="">{label33}</a>abc
-   :label32: https://destination32
-   :label33: https://destination33
+   <a href="https://destination32" title="">:label32: https://destination32</a>
+   <a href="https://destination33" title="">:label33: https://destination33</a>
    </pre>
 
 

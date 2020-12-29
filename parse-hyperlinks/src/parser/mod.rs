@@ -158,8 +158,8 @@ pub enum Link<'a> {
 }
 
 /// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or
-/// HTML formatted _inline link_ (`Text2Dest`) or
-/// or _link reference definition_ (`Label2Dest`).
+/// HTML formatted _inline link_ (`Text2Dest`) or _link reference definition_
+/// (`Label2Dest`).
 ///
 /// Returns `Ok((remaining_input, (link_text_or_label, link_destination,
 /// link_title)))`. The parser recognizes only stand alone _inline links_ and
@@ -169,8 +169,8 @@ pub enum Link<'a> {
 /// Link reference labels are never resolved into link text. This limitation only
 /// concerns this parser. Others are not affected.
 ///
-/// Very often this limitation has no effect at all. This is the case, when the _link text_ and
-/// the _link label_ are identical:
+/// Very often this limitation has no effect at all. This is the case, when the
+/// _link text_ and the _link label_ are identical:
 ///
 /// ```md
 /// abc [link text/label] abc
@@ -223,8 +223,12 @@ pub enum Link<'a> {
 /// not.
 ///
 /// Technically, this parser is a wrapper around `take_link()`, that erases the
-/// link type information and ignores all _reference links_. As it does not
-/// resolve _reference links_, it is much faster than the `hyperlink_list()` function.
+/// link type information and ignores all _reference links_. In case the input
+/// text contains _link reference definitions_, this function is be faster than
+/// the `parse_hyperlinks::iterator::Hyperlink` iterator.
+///
+/// Note: This function is depreciated and will be removed in some later release.
+/// Use `take_link()` instead.
 pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let mut j = i;
     loop {
