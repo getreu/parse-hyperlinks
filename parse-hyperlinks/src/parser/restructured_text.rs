@@ -469,8 +469,9 @@ fn rst_parse_simple_label(i: &str) -> nom::IResult<&str, &str> {
     // Strips off one the trailing `_` before returning the result.
     fn take_word_consume_first_ending_underscore(i: &str) -> nom::IResult<&str, &str> {
         let mut i = i;
-        let (k, mut r) =
-            nom::bytes::complete::take_till1(|c| c == ' ' || c == '\t' || c == '\n')(i)?;
+        let (k, mut r) = nom::bytes::complete::take_till1(|c: char| {
+            !(c.is_alphanumeric() || c == '-' || c == '_')
+        })(i)?;
         // Is `r` ending with `__`? There should be at least 2 bytes: `"__".len()`
         if r.len() >= 3 && r.is_char_boundary(r.len() - 2) && &r[r.len() - 2..] == "__" {
             // Consume one `_`, but keep one `_` in remaining bytes.
@@ -825,8 +826,8 @@ mod tests {
     #[test]
     fn test_rst_text2label() {
         assert_eq!(
-            rst_text2label(r#"li\<nktext_ abc"#),
-            Ok((" abc", (Cow::from("li<nktext"), Cow::from("li<nktext"))))
+            rst_text2label(r#"link_text_ abc"#),
+            Ok((" abc", (Cow::from("link_text"), Cow::from("link_text"))))
         );
         assert_eq!(
             rst_text2label(r#"`li\:nk text`_ abc"#),
@@ -1130,6 +1131,18 @@ mod tests {
             expected
         );
 
+        let expected = (". abc", "more words label");
+        assert_eq!(
+            rst_parse_simple_label("`more words label`_. abc").unwrap(),
+            expected
+        );
+
+        let expected = ("? abc", "more words label");
+        assert_eq!(
+            rst_parse_simple_label("`more words label`_? abc").unwrap(),
+            expected
+        );
+
         let expected = (" abc", "more words label");
         assert_eq!(
             rst_parse_simple_label("`more words label`_ abc").unwrap(),
@@ -1143,7 +1156,7 @@ mod tests {
 
         assert_eq!(
             rst_parse_simple_label("``_").unwrap_err(),
-            nom::Err::Error(nom::error::Error::new("``", ErrorKind::Not)),
+            nom::Err::Error(nom::error::Error::new("``_", ErrorKind::TakeTill1)),
         );
     }
 
