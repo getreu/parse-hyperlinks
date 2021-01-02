@@ -1,6 +1,6 @@
 [package]
 name = "atext2html"
-version = "0.19.4"
+version = "0.19.5"
 authors = ["Jens Getreu <getreu@getreu@web.de>"]
 edition = "2018"
 
@@ -14,6 +14,6 @@ categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
 # parse-hyperlinks = { path = "../parse-hyperlinks" }
-parse-hyperlinks = "0.19.4"
+parse-hyperlinks = "0.19.5"
 structopt = "0.3.21"
 lazy_static = "1.4.0"
