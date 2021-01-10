@@ -14,7 +14,7 @@ https://crates.io/crates/atext2html)
 [![Documentation](https://docs.rs/atext2html/badge.svg)](
 https://docs.rs/atext2html)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](
-https://github.com/getreu/atext2html)
+https://gitlab.com/getreu/atext2html)
 
 [Atext2html](https://crates.io/crates/atext2html)
 illustrates the usage of the underlaying library

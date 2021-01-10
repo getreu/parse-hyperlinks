@@ -10,7 +10,7 @@ https://crates.io/crates/parse-hyperlinks)
 [![Documentation](https://docs.rs/parse-hyperlinks/badge.svg)](
 https://docs.rs/parse-hyperlinks)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](
-https://github.com/getreu/parse-hyperlinks)
+https://gitlab.com/getreu/parse-hyperlinks)
 
 The library implements the
 [CommonMark Specification 0.29](https://spec.commonmark.org/0.29/),
