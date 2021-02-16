@@ -4,7 +4,7 @@
 written with [Nom](https://crates.io/crates/nom) to recognize hyperlinks and
 link reference definitions in Markdown, reStructuredText, Asciidoc and HTML
 formatted text input. [Atext2html](https://crates.io/crates/atext2html) renders
-the source text verbatim to HTML, but makes hyperlinks clickable. By default
+the source text verbatim to HTML while making hyperlinks clickable. By default
 the hyperlink's text appears the same as in the source text. When the flag
 `--render-links` is given, hyperlinks are represented only by their link text,
 which makes inline links more readable.

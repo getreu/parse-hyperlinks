@@ -12,7 +12,7 @@ description = "A Nom parser library for hyperlinks with markup."
 categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
-nom= "6.0.1"
+nom= "6.1.2"
 html-escape = "0.2.6"
 percent-encoding = "2.1.0"
 thiserror = "1.0.23"
