@@ -212,7 +212,6 @@ ARGS:
 
    ```shell
    $ ./atext2html <input.txt >output.html
-   $ ./atext2html <input.txt >output.html
    ```
 
 3. Inspect `output.html`:
