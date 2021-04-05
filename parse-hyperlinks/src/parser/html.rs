@@ -190,6 +190,27 @@ mod tests {
             parse_attributes(r#"<a href="url" title="" >name</a abc"#).unwrap_err(),
             expected
         );
+
+        let expected = (
+            "abc",
+            (
+                Cow::from(
+                    "<img src=\"w3html.gif\" alt=\"W3Schools.com \"width=\"100\" height=\"132\">",
+                ),
+                Cow::from("https://blog.getreu.net"),
+                Cow::from(""),
+            ),
+        );
+        assert_eq!(
+            html_text2dest(
+                "<a href=\"https://blog.getreu.net\">\
+                              <img src=\"w3html.gif\" alt=\"W3Schools.com \"\
+                              width=\"100\" height=\"132\">\
+                              </a>abc"
+            )
+            .unwrap(),
+            expected
+        );
     }
 
     #[test]
