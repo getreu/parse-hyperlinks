@@ -97,7 +97,7 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, Cow<str>)> {
 }
 
 /// Parses a whitespace separated list of attributes and returns a vector of (name, value).
-fn attribute_list<'a>(i: &'a str) -> nom::IResult<&'a str, Vec<(&'a str, Cow<str>)>> {
+pub fn attribute_list<'a>(i: &'a str) -> nom::IResult<&'a str, Vec<(&'a str, Cow<str>)>> {
     let i = i.trim();
     nom::multi::separated_list1(nom::character::complete::multispace1, attribute)(i)
 }

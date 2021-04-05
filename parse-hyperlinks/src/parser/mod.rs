@@ -4,6 +4,7 @@
 
 pub mod asciidoc;
 pub mod html;
+pub mod html_img;
 pub mod markdown;
 pub mod restructured_text;
 
@@ -155,6 +156,13 @@ pub enum Link<'a> {
     /// Label2Label(alt_link_label, link_label)
     /// ```
     Label2Label(Cow<'a, str>, Cow<'a, str>),
+
+    /// Inline Image.
+    /// The tuple is defined as follows:
+    /// ```text
+    /// Image(img_alt, img_src)
+    /// ```
+    Image(Cow<'a, str>, Cow<'a, str>),
 }
 
 /// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or
