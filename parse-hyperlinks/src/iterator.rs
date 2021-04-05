@@ -48,7 +48,7 @@ impl<'a> HyperlinkCollection<'a> {
         while let Ok((j, (skipped, res))) = take_link(i) {
             match res {
                 // `Text2Dest` is stored without modification in `hc.text2dest_label`.
-                l if matches!(l, Link::Text2Dest{..}) => {
+                l if matches!(l, Link::Text2Dest { .. }) => {
                     let link_offset = input_idx + skipped.len();
                     let link_len = i.len() - j.len() - skipped.len();
                     hc.text2dest_label.push((link_offset, link_len, l));

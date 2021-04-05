@@ -573,51 +573,35 @@ mod tests {
     fn test_remove_newline_take_till() {
         let res = remove_newline_take_till(']')("").unwrap();
         assert_eq!(res, ("", Cow::from("")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = remove_newline_take_till(']')("text text]abc").unwrap();
         assert_eq!(res, ("]abc", Cow::from("text text")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = remove_newline_take_till(']')("text text").unwrap();
         assert_eq!(res, ("", Cow::from("text text")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = remove_newline_take_till(']')(r#"te\]xt]abc"#).unwrap();
         assert_eq!(res, ("]abc", Cow::from("te]xt")));
-        assert!(matches!(res.1,
-            Cow::Owned{..}
-        ));
+        assert!(matches!(res.1, Cow::Owned { .. }));
 
         let res = remove_newline_take_till(']')(r#"text\]]abc"#).unwrap();
         assert_eq!(res, ("]abc", Cow::from("text]")));
-        assert!(matches!(res.1,
-            Cow::Owned{..}
-        ));
+        assert!(matches!(res.1, Cow::Owned { .. }));
 
         let res = remove_newline_take_till(']')(r#"te\xt]abc"#).unwrap();
         assert_eq!(res, ("]abc", Cow::from(r#"te\xt"#)));
-        assert!(matches!(res.1,
-            Cow::Owned{..}
-        ));
+        assert!(matches!(res.1, Cow::Owned { .. }));
 
         let res = remove_newline_take_till(']')("text\n   text]abc").unwrap();
         assert_eq!(res, ("]abc", Cow::from("text text")));
-        assert!(matches!(res.1,
-            Cow::Owned{..}
-        ));
+        assert!(matches!(res.1, Cow::Owned { .. }));
 
         let res = remove_newline_take_till(']')("text\n   text]abc").unwrap();
         assert_eq!(res, ("]abc", Cow::from("text text")));
-        assert!(matches!(res.1,
-            Cow::Owned{..}
-        ));
+        assert!(matches!(res.1, Cow::Owned { .. }));
 
         assert_eq!(
             remove_newline_take_till(']')("text\n\ntext]abc").unwrap_err(),
@@ -634,33 +618,23 @@ mod tests {
     fn test_adoc_parse_http_link_destination() {
         let res = adoc_parse_http_link_destination("http://destination/").unwrap();
         assert_eq!(res, ("", Cow::from("http://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = adoc_parse_http_link_destination("http://destination/\nabc").unwrap();
         assert_eq!(res, ("\nabc", Cow::from("http://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = adoc_parse_http_link_destination("http://destination/ abc").unwrap();
         assert_eq!(res, (" abc", Cow::from("http://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = adoc_parse_http_link_destination("http://destination/[abc").unwrap();
         assert_eq!(res, ("[abc", Cow::from("http://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = adoc_parse_http_link_destination("https://destination/[abc").unwrap();
         assert_eq!(res, ("[abc", Cow::from("https://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         assert_eq!(
             adoc_parse_http_link_destination("http:/destination/[abc").unwrap_err(),
@@ -675,27 +649,19 @@ mod tests {
     fn test_adoc_parse_escaped_link_destination() {
         let res = adoc_parse_escaped_link_destination("link:http://destination/").unwrap();
         assert_eq!(res, ("", Cow::from("http://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = adoc_parse_escaped_link_destination("link:http://destination/[abc").unwrap();
         assert_eq!(res, ("[abc", Cow::from("http://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = adoc_parse_escaped_link_destination("link:http://destination/ abc").unwrap();
         assert_eq!(res, (" abc", Cow::from("http://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         let res = adoc_parse_escaped_link_destination("link:http://destination/\nabc").unwrap();
         assert_eq!(res, ("\nabc", Cow::from("http://destination/")));
-        assert!(matches!(res.1,
-            Cow::Borrowed{..}
-        ));
+        assert!(matches!(res.1, Cow::Borrowed { .. }));
 
         assert_eq!(
             adoc_parse_escaped_link_destination("link:httpX:/destination/[abc").unwrap_err(),
@@ -708,9 +674,7 @@ mod tests {
         let res = adoc_parse_escaped_link_destination("link:https://getreu.net/?q=%5Ba%20b%5D[abc")
             .unwrap();
         assert_eq!(res, ("[abc", Cow::from("https://getreu.net/?q=[a b]")));
-        assert!(matches!(res.1,
-            Cow::Owned{..}
-        ));
+        assert!(matches!(res.1, Cow::Owned { .. }));
 
         assert_eq!(
             adoc_parse_escaped_link_destination("link:https://getreu.net/?q=%FF%FF[abc")
