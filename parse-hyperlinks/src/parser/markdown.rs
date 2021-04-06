@@ -1,8 +1,8 @@
 //! This module implements parsers for Markdown hyperlinks.
 #![allow(dead_code)]
 
+use crate::parser::parse::LABEL_LEN_MAX;
 use crate::parser::Link;
-use crate::parser::LABEL_LEN_MAX;
 use crate::take_until_unbalanced;
 use nom::branch::alt;
 use nom::bytes::complete::tag;

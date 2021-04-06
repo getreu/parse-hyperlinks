@@ -1,8 +1,8 @@
 //! This module implements parsers for RestructuredText hyperlinks.
 #![allow(dead_code)]
 
+use crate::parser::parse::LABEL_LEN_MAX;
 use crate::parser::Link;
-use crate::parser::LABEL_LEN_MAX;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::*;

@@ -1,4 +1,4 @@
-//! This module implements parsers for HTML image tags.
+//! This module implements parsers for HTML image elements.
 #![allow(dead_code)]
 
 use crate::parser::html::attribute_list;

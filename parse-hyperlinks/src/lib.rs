@@ -11,6 +11,7 @@
 #![allow(dead_code)]
 
 pub mod iterator;
+pub mod iterator_html;
 pub mod parser;
 pub mod renderer;
 
