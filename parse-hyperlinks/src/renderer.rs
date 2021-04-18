@@ -11,6 +11,8 @@ use std::io::Write;
 
 fn render<'a, O, P, W>(
     input: &'a str,
+    begin_doc: &str,
+    end_doc: &str,
     verb_renderer: O,
     link_renderer: P,
     render_label: bool,
@@ -26,7 +28,7 @@ where
     // input as a whole.
     let mut rest = Cow::Borrowed(input);
 
-    output.write_all("<pre>".as_bytes())?;
+    output.write_all(begin_doc.as_bytes())?;
     for ((skipped2, consumed2, remaining2), (text2, dest2, title2)) in
         Hyperlink::new(&input, render_label)
     {
@@ -42,7 +44,7 @@ where
         rest = remaining;
     }
     output.write_all(&verb_renderer(rest).as_bytes())?;
-    output.write_all("</pre>".as_bytes())?;
+    output.write_all(end_doc.as_bytes())?;
     Ok(())
 }
 
@@ -236,6 +238,7 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
     output: &mut W,
 ) -> Result<(), io::Error> {
     let input = input.as_ref();
+
     let verb_renderer = |verb| verb;
 
     let link_renderer = |(_, (text, dest, title)): (_, (String, String, String))| {
@@ -250,7 +253,15 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
         s
     };
 
-    render(input, verb_renderer, link_renderer, true, output)
+    render(
+        input,
+        "<pre>",
+        "</pre>",
+        verb_renderer,
+        link_renderer,
+        true,
+        output,
+    )
 }
 
 /// # Markup source code viewer
@@ -450,6 +461,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
     output: &mut W,
 ) -> Result<(), io::Error> {
     let input = input.as_ref();
+
     let verb_renderer = |verb: Cow<'a, str>| verb;
 
     let link_renderer = |(consumed, (_, dest, title)): (Cow<str>, (_, String, String))| {
@@ -464,7 +476,15 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
         s
     };
 
-    render(input, verb_renderer, link_renderer, true, output)
+    render(
+        input,
+        "<pre>",
+        "</pre>",
+        verb_renderer,
+        link_renderer,
+        true,
+        output,
+    )
 }
 
 /// # Hyperlink extractor
@@ -487,11 +507,11 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// "#;
 ///
 /// let expected = "\
-/// <pre><a href=\"dest0\" title=\"title0\">text0</a>
+/// <a href=\"dest0\" title=\"title0\">text0</a>
 /// <a href=\"dest1\" title=\"title1\">text1</a>
 /// <a href=\"dest2\" title=\"title2\">text2</a>
 /// <a href=\"dest3\" title=\"title3\">text3</a>
-/// </pre>";
+/// ";
 /// let res = links2html(i);
 /// assert_eq!(res, expected);
 /// ```
@@ -500,11 +520,11 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <pre><a href="dest0" title="title0">text0</a>
+/// <a href="dest0" title="title0">text0</a>
 /// <a href="dest1" title="title1">text1</a>
 /// <a href="dest2" title="title2">text2</a>
 /// <a href="dest3" title="title3">text3</a>
-/// </pre>
+///
 ///
 /// ## reStructuredText
 /// ```
@@ -524,11 +544,10 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// "#;
 ///
 /// let expected = "\
-/// <pre><a href=\"dest1\" title=\"\">text1</a>
+/// <a href=\"dest1\" title=\"\">text1</a>
 /// <a href=\"dest2\" title=\"\">text2</a>
 /// <a href=\"dest3\" title=\"\">text3</a>
 /// <a href=\"dest5\" title=\"\">text5</a>
-/// </pre>\
 /// ";
 ///
 /// let res = links2html(i);
@@ -539,11 +558,11 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <pre><a href="dest1" title="">text1</a>
+/// <a href="dest1" title="">text1</a>
 /// <a href="dest2" title="">text2</a>
 /// <a href="dest3" title="">text3</a>
 /// <a href="dest5" title="">text5</a>
-/// </pre>
+///
 ///
 /// ## Asciidoc
 ///
@@ -560,11 +579,11 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// "#;
 ///
 /// let expected = "\
-/// <pre><a href=\"https://dest0\" title=\"\">text0</a>
+/// <a href=\"https://dest0\" title=\"\">text0</a>
 /// <a href=\"https://dest1\" title=\"\">text1</a>
 /// <a href=\"https://dest2\" title=\"\">text2</a>
 /// <a href=\"https://dest3\" title=\"\">https:&#x2F;&#x2F;dest3</a>
-/// </pre>";
+/// ";
 ///
 /// let res = links2html(i);
 /// assert_eq!(res, expected);
@@ -574,11 +593,11 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <pre><a href="https://dest0" title="">text0</a>
+/// <a href="https://dest0" title="">text0</a>
 /// <a href="https://dest1" title="">text1</a>
 /// <a href="https://dest2" title="">text2</a>
 /// <a href="https://dest3" title="">https:&#x2F;&#x2F;dest3</a>
-/// </pre>
+///
 ///
 ///
 /// ## HTML
@@ -592,10 +611,10 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// let i = r#"abc<a href="dest1" title="title1">text1</a>abc
 /// abc<a href="dest2" title="title2">text2</a>abc"#;
 ///
-/// let expected = "<pre>\
+/// let expected = "\
 /// <a href=\"dest1\" title=\"title1\">text1</a>
 /// <a href=\"dest2\" title=\"title2\">text2</a>
-/// </pre>";
+/// ";
 ///
 /// let res = links2html(i);
 /// assert_eq!(res, expected);
@@ -605,10 +624,8 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <pre>
 /// <a href="dest1" title="title1">text1</a>
 /// <a href="dest2" title="title2">text2</a>
-/// </pre>
 ///
 #[inline]
 pub fn links2html(input: &str) -> String {
@@ -644,6 +661,7 @@ pub fn links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
     output: &mut W,
 ) -> Result<(), io::Error> {
     let input = input.as_ref();
+
     let verb_renderer = |_| Cow::Borrowed("");
 
     let link_renderer = |(_, (text, dest, title)): (_, (String, String, String))| {
@@ -658,7 +676,7 @@ pub fn links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
         s
     };
 
-    render(input, verb_renderer, link_renderer, false, output)
+    render(input, "", "", verb_renderer, link_renderer, false, output)
 }
 
 #[cfg(test)]
@@ -728,10 +746,10 @@ abc [text2](destination2 "title2")
 abc[label3]abc[label4]abc
 "#;
 
-        let expected = r#"<pre><a href="destination1" title="title1">text1</a>
+        let expected = r#"<a href="destination1" title="title1">text1</a>
 <a href="destination2" title="title2">text2</a>
 <a href="destination3" title="title3">label3</a>
-</pre>"#;
+"#;
         let res = links2html(i);
         //eprintln!("{}", res);
         assert_eq!(res, expected);
