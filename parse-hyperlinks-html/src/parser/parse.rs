@@ -3,11 +3,11 @@
 //! no other markup languages are recognized.
 #![allow(dead_code)]
 
-use crate::parser::html::html_text2dest_link;
-use crate::parser::html_img::html_img_link;
-use crate::parser::Link;
+use crate::parser::image::html_img_link;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
+use parse_hyperlinks::parser::html::html_text2dest_link;
+use parse_hyperlinks::parser::Link;
 
 /// Consumes the input until the parser finds an HTML formatted _inline image_ (`Link::Image`).
 ///
@@ -19,7 +19,7 @@ use nom::character::complete::anychar;
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::parse_html::take_img_link;
+/// use parse_hyperlinks_html::parser::parse::take_img_link;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="destination1" alt="text1">abc
@@ -76,7 +76,7 @@ pub fn take_img_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::parser::parse_html::take_link;
+/// use parse_hyperlinks_html::parser::parse::take_link;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\

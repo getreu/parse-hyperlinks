@@ -1,9 +1,8 @@
 [package]
-name = "atext2html"
+name = "parse-hyperlinks-html"
 version = "0.21.0"
 authors = ["Jens Getreu <getreu@getreu@web.de>"]
 edition = "2018"
-
 keywords = ["parser", "markup", "hyperlink", "markdown", "restructuredtext"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
@@ -13,7 +12,9 @@ description = "A Nom parser library for hyperlinks with markup."
 categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
+nom= "6.1.2"
+html-escape = "0.2.7"
+percent-encoding = "2.1.0"
+thiserror = "1.0.24"
 parse-hyperlinks = { path = "../parse-hyperlinks" }
 #parse-hyperlinks = "0.21.0"
-structopt = "0.3.21"
-lazy_static = "1.4.0"

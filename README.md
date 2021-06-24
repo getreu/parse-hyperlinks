@@ -17,10 +17,15 @@ https://docs.rs/atext2html)
 https://gitlab.com/getreu/atext2html)
 
 [Atext2html](https://crates.io/crates/atext2html)
-illustrates the usage of the underlaying library
+illustrates the usage of the underlying library
 [Parse-hyperlinks](https://crates.io/crates/parse-hyperlinks). The
 [API of Parse-hyperlinks](https://docs.rs/parse-hyperlinks/0.19.6/parse_hyperlinks/index.html)
 provides insights about the operating principle of this utility.
+
+In addition to the above,
+[Parse-hyperlinks-html](https://crates.io/crates/parse-hyperlinks-html) defines
+some extra parsers needed by the
+[Tp-Note](https://crates.io/crates/tp-note) application.
 
 ### Installation:
 

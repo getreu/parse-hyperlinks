@@ -1,13 +1,13 @@
 //! This module implements parsers for HTML image elements.
 #![allow(dead_code)]
 
-use crate::parser::html::attribute_list;
-use crate::parser::Link;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
 use nom::error::Error;
 use nom::error::ErrorKind;
+use parse_hyperlinks::parser::html::attribute_list;
+use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
 
 /// Wrapper around `html_img()` that packs the result in
@@ -24,7 +24,7 @@ pub fn html_img_link(i: &str) -> nom::IResult<&str, Link> {
 /// The parser expects to start at the link start (`<`) to succeed.
 /// ```
 /// use parse_hyperlinks;
-/// use parse_hyperlinks::parser::html_img::html_img;
+/// use parse_hyperlinks_html::parser::image::html_img;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
@@ -86,7 +86,7 @@ fn parse_attributes(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::html::attribute_list;
+    use parse_hyperlinks::parser::html::attribute_list;
 
     #[test]
     fn test_tag_img() {

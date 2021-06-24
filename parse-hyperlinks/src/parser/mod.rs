@@ -1,12 +1,10 @@
 //! This module implements parsers to extract hyperlinks and link reference
-//! definitions as well as HTML imgage elements from text input.
+//! definitions as well as HTML image elements from text input.
 
 pub mod asciidoc;
 pub mod html;
-pub mod html_img;
 pub mod markdown;
 pub mod parse;
-pub mod parse_html;
 pub mod restructured_text;
 
 use std::borrow::Cow;

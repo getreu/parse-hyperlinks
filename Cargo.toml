@@ -3,4 +3,5 @@
 members = [
     "atext2html",
     "parse-hyperlinks",
+    "parse-hyperlinks-html",
 ]

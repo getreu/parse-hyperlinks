@@ -1,25 +1,25 @@
 //! Module providing iterators over the hyperlinks found in the input text.
 //! Only HTML no other markup languages are parsed here.
 
-use crate::parser::parse_html::take_img_link;
-use crate::parser::parse_html::take_link;
-use crate::parser::Link;
+use crate::parser::parse::take_img_link;
+use crate::parser::parse::take_link;
+use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
 
 #[derive(Debug, PartialEq)]
 /// Iterator over the inline hyperlinks in the HTML formatted `input` text.
 /// This struct holds the iterator's state as an advancing pointer into the `input` text.
 /// The iterator's `next()` method returns a tuple with 2 tuples inside:
-/// `Some(((input_split)(html_image_element)))`.
+/// `Some(((input_split)(html_hyperlink_element)))`.
 ///
 /// Each tuple has the following parts:
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
-/// * `html_hyperlink_elemet = (text_text, link_destination, link_title)`
+/// * `html_hyperlink_element = (text_text, link_destination, link_title)`
 ///
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks::iterator_html::Hyperlink;
+/// use parse_hyperlinks_html::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\n\
@@ -42,7 +42,7 @@ use std::borrow::Cow;
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks::iterator_html::Hyperlink;
+/// use parse_hyperlinks_html::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\
@@ -115,12 +115,12 @@ impl<'a> Iterator for Hyperlink<'a> {
 ///
 /// Each tuple has the following parts:
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
-/// * `html_image_elemet = (img_src, img_alt)`
+/// * `html_image_element = (img_src, img_alt)`
 ///
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks::iterator_html::InlineImage;
+/// use parse_hyperlinks_html::iterator::InlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">efg<img src="dest2" alt="text2">hij"#;
@@ -136,7 +136,7 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks::iterator_html::InlineImage;
+/// use parse_hyperlinks_html::iterator::InlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
