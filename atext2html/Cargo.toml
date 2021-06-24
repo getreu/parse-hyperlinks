@@ -1,6 +1,6 @@
 [package]
 name = "atext2html"
-version = "0.21.0"
+version = "0.22.0"
 authors = ["Jens Getreu <getreu@getreu@web.de>"]
 edition = "2018"
 
@@ -13,7 +13,7 @@ description = "A Nom parser library for hyperlinks with markup."
 categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
-parse-hyperlinks = { path = "../parse-hyperlinks" }
-#parse-hyperlinks = "0.21.0"
+#parse-hyperlinks = { path = "../parse-hyperlinks" }
+parse-hyperlinks = "0.22.0"
 structopt = "0.3.21"
 lazy_static = "1.4.0"

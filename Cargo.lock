@@ -19,7 +19,7 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
 name = "atext2html"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "lazy_static",
  "parse-hyperlinks",
@@ -155,7 +155,7 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "html-escape",
  "nom",
@@ -165,7 +165,7 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks-html"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "html-escape",
  "nom",
