@@ -209,14 +209,15 @@ ARGS:
 
 1. Create a file `input.txt` with text and hyperlinks:
 
-   ```adoc
-   $ ./atext2html -o output.html input.txt
+   ```html
+   abc<a href="dest1" title="title1">text1</a>abc
+   abc<a href="dest2" title="title2">text2</a>abc
    ```
 
 2. Run `atext2html`:
 
    ```shell
-   $ ./atext2html <input.txt >output.html
+   $ ./atext2html -o output.html input.txt
    ```
 
 3. Inspect `output.html`:
