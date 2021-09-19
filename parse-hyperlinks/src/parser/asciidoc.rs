@@ -384,7 +384,7 @@ fn adoc_parse_curly_bracket_reference(i: &str) -> nom::IResult<&str, Cow<str>> {
             ),
             |s: &str| s.len() <= LABEL_LEN_MAX,
         ),
-        |s| Cow::Borrowed(s),
+        Cow::Borrowed,
     )(i)
 }
 
