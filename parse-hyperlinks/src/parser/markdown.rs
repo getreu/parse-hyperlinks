@@ -91,7 +91,7 @@ pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str
     let (i, _) = nom::character::complete::char(':')(i)?;
     // Take spaces.
     let (i, _) = verify(nom::character::complete::multispace1, |s: &str| {
-        s.find("\n\n").is_none()
+        !s.contains("\n\n")
     })(i)?;
     // Take destination.
     let (i, link_destination) = md_link_destination(i)?;
@@ -289,7 +289,7 @@ fn md_link_title(i: &str) -> nom::IResult<&str, Cow<str>> {
 ///  line](https://spec.commonmark.org/0.29/#blank-line).
 fn md_parse_link_title(i: &str) -> nom::IResult<&str, &str> {
     nom::sequence::preceded(
-        verify(multispace1, |s: &str| s.find("\n\n").is_none()),
+        verify(multispace1, |s: &str| !s.contains("\n\n")),
         verify(
             alt((
                 nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
@@ -312,7 +312,7 @@ fn md_parse_link_title(i: &str) -> nom::IResult<&str, &str> {
                     tag("\""),
                 ),
             )),
-            |s: &str| s.find("\n\n").is_none(),
+            |s: &str| !s.contains("\n\n"),
         ),
     )(i)
 }
