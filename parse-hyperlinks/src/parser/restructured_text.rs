@@ -360,14 +360,12 @@ fn rst_label2target(label: bool, i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
         Cow::Borrowed(s) => {
             let (_, (ls, lt)) = if !block_header_is__ {
                 rst_parse_label2target(label)(s)?
+            } else if label {
+                // This is supposed to be a label.
+                ("", ("_", rst_parse_simple_label(s)?.1))
             } else {
-                if label {
-                    // This is supposed to be a label.
-                    ("", ("_", rst_parse_simple_label(s)?.1))
-                } else {
-                    // This is supposed to be a destination (url).
-                    ("", ("_", s))
-                }
+                // This is supposed to be a destination (url).
+                ("", ("_", s))
             };
             // If the target is a destination (not a label), the last char must not be `_`.
             if !label {
@@ -382,15 +380,13 @@ fn rst_label2target(label: bool, i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
         Cow::Owned(strg) => {
             let (_, (ls, lt)) = if !block_header_is__ {
                 rst_parse_label2target(label)(&strg).map_err(my_err)?
+            } else if label {
+                // This is supposed to be a label.
+                let s = rst_parse_simple_label(&strg).map_err(my_err)?.1;
+                ("", ("_", s))
             } else {
-                if label {
-                    // This is supposed to be a label.
-                    let s = rst_parse_simple_label(&strg).map_err(my_err)?.1;
-                    ("", ("_", s))
-                } else {
-                    // This is supposed to be a destination (url).
-                    ("", ("_", strg.as_str()))
-                }
+                // This is supposed to be a destination (url).
+                ("", ("_", strg.as_str()))
             };
             // If the target is a destination (not a label), the last char must not be `_`.
             if !label {
