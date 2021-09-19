@@ -657,7 +657,7 @@ fn rst_escaped_link_destination_transform(i: &str) -> IResult<&str, Cow<str>> {
     if s == i {
         Ok(("", Cow::Borrowed(i)))
     } else {
-        Ok(("", Cow::Owned(s.to_owned())))
+        Ok(("", Cow::Owned(s)))
     }
 }
 
