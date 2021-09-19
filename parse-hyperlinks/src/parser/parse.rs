@@ -2,6 +2,7 @@
 //! input. The parsers search for Markdown, ReStructuredText, Asciidoc and HTML formatted links.
 //! Inline images are ignored here.
 #![allow(dead_code)]
+#![allow(clippy::type_complexity)]
 
 use crate::parser::asciidoc::adoc_label2dest_link;
 use crate::parser::asciidoc::adoc_text2dest_link;

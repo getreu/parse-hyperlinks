@@ -1,5 +1,6 @@
 //! This module implements parsers for HTML hyperlinks.
 #![allow(dead_code)]
+#![allow(clippy::type_complexity)]
 
 use crate::parser::Link;
 use html_escape::decode_html_entities;

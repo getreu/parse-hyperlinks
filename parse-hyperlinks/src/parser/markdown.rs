@@ -1,5 +1,6 @@
 //! This module implements parsers for Markdown hyperlinks.
 #![allow(dead_code)]
+#![allow(clippy::type_complexity)]
 
 use crate::parser::parse::LABEL_LEN_MAX;
 use crate::parser::Link;
