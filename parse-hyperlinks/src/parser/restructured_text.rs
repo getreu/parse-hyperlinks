@@ -558,7 +558,7 @@ fn rst_explicit_markup_block<'a>(
 
         // If the block consists of only one line return now.
         if v.len() == 1 {
-            return Ok((j, Cow::Borrowed(v[0].clone())));
+            return Ok((j, Cow::Borrowed(v[0])));
         };
 
         let mut s = String::new();

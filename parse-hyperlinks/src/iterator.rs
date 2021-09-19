@@ -402,6 +402,7 @@ impl<'a> Hyperlink<'a> {
 /// * `link_content = (link_text, link_destination, link_title)`
 ///
 impl<'a> Iterator for Hyperlink<'a> {
+    #[allow(clippy::type_complexity)]
     type Item = (
         (&'a str, &'a str, &'a str),
         (Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
@@ -434,9 +435,8 @@ impl<'a> Iterator for Hyperlink<'a> {
         let mut again = true;
         while again {
             status = match status {
-                // Cloning a pointer is cheap.
                 // Advance state machine and match one more time.
-                Status::Init => Status::DirectSearch(self.input.clone()),
+                Status::Init => Status::DirectSearch(self.input),
 
                 Status::DirectSearch(input) => {
                     // We stay in direct mode.
