@@ -207,7 +207,7 @@ fn remove_newline_take_till<'a>(
     move |i: &str| {
         let mut res = Cow::Borrowed("");
         let mut j = i;
-        while j != "" {
+        while !j.is_empty() {
             // `till()` always succeeds. There are two situations, when it does not
             // advance the parser:
             // 1. Input is the empty string `""`.
