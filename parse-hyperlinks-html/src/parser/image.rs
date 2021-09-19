@@ -61,14 +61,14 @@ fn parse_attributes(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
         if name == "src" {
             // Make sure `src` is empty, it can appear only
             // once.
-            if &*src != "" {
+            if !(&*src).is_empty() {
                 return Err(nom::Err::Error(Error::new(name, ErrorKind::ManyMN)));
             }
             src = value;
         } else if name == "alt" {
             // Make sure `title` is empty, it can appear only
             // once.
-            if &*alt != "" {
+            if !(&*alt).is_empty() {
                 return Err(nom::Err::Error(Error::new(name, ErrorKind::ManyMN)));
             }
             alt = value;
@@ -76,7 +76,7 @@ fn parse_attributes(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     }
 
     // Assure that `href` is not empty.
-    if &*src == "" {
+    if (&*src).is_empty() {
         return Err(nom::Err::Error(Error::new(i, ErrorKind::Eof)));
     };
 
