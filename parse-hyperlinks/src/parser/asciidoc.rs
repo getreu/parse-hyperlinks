@@ -217,19 +217,19 @@ fn remove_newline_take_till<'a>(
             // Case 2.: Even if the parser does not advance here, the code below
             // starting with `if let Ok...` it will advance the parser at least
             // one character.
-            let (k, s) =
+            let (k, s1) =
                 nom::bytes::complete::take_till(|c| c == pat || c == '\n' || c == '\\')(j)?;
 
             // Store the result.
             res = match res {
-                Cow::Borrowed("") => Cow::Borrowed(s),
+                Cow::Borrowed("") => Cow::Borrowed(s1),
                 Cow::Borrowed(res_str) => {
                     let mut strg = res_str.to_string();
-                    strg.push_str(s);
+                    strg.push_str(s1);
                     Cow::Owned(strg)
                 }
                 Cow::Owned(mut strg) => {
-                    strg.push_str(s);
+                    strg.push_str(s1);
                     Cow::Owned(strg)
                 }
             };
