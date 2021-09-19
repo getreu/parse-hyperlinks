@@ -30,7 +30,7 @@ where
 
     output.write_all(begin_doc.as_bytes())?;
     for ((skipped2, consumed2, remaining2), (text2, dest2, title2)) in
-        Hyperlink::new(&input, render_label)
+        Hyperlink::new(input, render_label)
     {
         let skipped = encode_text(skipped2);
         let consumed = encode_text(consumed2);
@@ -38,12 +38,12 @@ where
         let text = encode_safe(&text2).to_string();
         let dest = encode_double_quoted_attribute(&dest2).to_string();
         let title = encode_double_quoted_attribute(&title2).to_string();
-        output.write_all(&verb_renderer(skipped).as_bytes())?;
+        output.write_all(verb_renderer(skipped).as_bytes())?;
         let rendered_link = link_renderer((consumed, (text, dest, title)));
-        output.write_all(&rendered_link.as_bytes())?;
+        output.write_all(rendered_link.as_bytes())?;
         rest = remaining;
     }
-    output.write_all(&verb_renderer(rest).as_bytes())?;
+    output.write_all(verb_renderer(rest).as_bytes())?;
     output.write_all(end_doc.as_bytes())?;
     Ok(())
 }

@@ -553,7 +553,7 @@ fn rst_explicit_markup_block<'a>(
         )(i)?;
 
         let (j, v) = nom::multi::separated_list1(
-            indent(&wsp1, &wsp2),
+            indent(wsp1, wsp2),
             nom::character::complete::not_line_ending,
         )(i)?;
 
