@@ -1,5 +1,6 @@
 //! Module providing iterators over the hyperlinks found in the input text.
 //! Only HTML no other markup languages are parsed here.
+#![allow(clippy::type_complexity)]
 
 use crate::parser::parse::take_img_link;
 use crate::parser::parse::take_link;
