@@ -127,7 +127,7 @@ fn rst_parse_text2target(
         };
 
         // Assure that the next char is not`_`.
-        if i != "" {
+        if !i.is_empty() {
             let _ = nom::combinator::not(nom::character::complete::char('_'))(i)?;
         };
 
@@ -475,7 +475,7 @@ fn rst_parse_simple_label(i: &str) -> nom::IResult<&str, &str> {
             // Strip two `__` from result.
             r = &r[..r.len() - 2];
         // Is `r` ending with `_`? There should be at least 1 byte: `"_".len()`.
-        } else if r.len() >= 1 && r.is_char_boundary(r.len() - 1) && &r[r.len() - 1..] == "_" {
+        } else if !r.is_empty() && r.is_char_boundary(r.len() - 1) && &r[r.len() - 1..] == "_" {
             // Remaining bytes.
             i = k;
             // Strip `_` from result.
@@ -605,7 +605,7 @@ fn rst_escaped_link_text_transform(i: &str) -> IResult<&str, Cow<str>> {
 fn remove_whitespace(i: &str) -> IResult<&str, Cow<str>> {
     let mut res = Cow::Borrowed("");
     let mut j = i;
-    while j != "" {
+    while !j.is_empty() {
         let (k, _) = nom::character::complete::multispace0(j)?;
         let (k, s) = nom::bytes::complete::escaped(
             nom::character::complete::none_of("\\\r\n \t"),

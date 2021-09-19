@@ -116,7 +116,7 @@ pub fn adoc_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
         ),
     )(i)?;
 
-    if i != "" {
+    if !i.is_empty() {
         let _ = peek::<&str, _, nom::error::Error<_>, _>(nom::character::complete::newline)(i)?;
     };
 
@@ -181,7 +181,7 @@ pub fn adoc_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     ))(i)?;
 
     // Check that there is no `[` or `{` following. Do not consume.
-    if i != "" {
+    if !i.is_empty() {
         let _ = nom::character::complete::none_of("[{")(i)?;
     }
 

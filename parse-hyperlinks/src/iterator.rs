@@ -135,7 +135,7 @@ impl<'a> HyperlinkCollection<'a> {
     fn resolve_label2label_references(&mut self) {
         let mut nb_no_match = 0;
         let mut idx = 0;
-        while self.label2label.len() > 0 && nb_no_match < self.label2label.len() {
+        while !self.label2label.is_empty() && nb_no_match < self.label2label.len() {
             let (key_alias, key) = &self.label2label[idx];
             // This makes sure, that we advance in the loop.
             if let Some(value) = self.label2dest.get(key) {
@@ -471,7 +471,7 @@ impl<'a> Iterator for Hyperlink<'a> {
                 }
 
                 Status::ResolvedLinks(mut resolved_links) => {
-                    while resolved_links.len() > 0 {
+                    while !resolved_links.is_empty() {
                         if let (input_offset, len, Link::Text2Dest(te, de, ti)) =
                             resolved_links.remove(0)
                         {
