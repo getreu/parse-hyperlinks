@@ -428,7 +428,7 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// </pre>
 ///
 #[inline]
-pub fn text_rawlinks2html<'a>(input: &'a str) -> String {
+pub fn text_rawlinks2html(input: &str) -> String {
     let mut output = Vec::new();
     text_rawlinks2html_writer(input, &mut output).unwrap_or_default();
     // We know this is safe, because only `str` have been written into `output`.
