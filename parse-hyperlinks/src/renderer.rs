@@ -178,6 +178,32 @@ where
 /// <a href="https://dest3" title="">:label3: https:&#x2F;&#x2F;dest3</a>
 /// </pre>
 ///
+///
+/// ## Wikitext
+///
+/// ```
+/// use parse_hyperlinks::renderer::text_links2html;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc[https://dest0 text0]abc
+/// "#;
+///
+/// let expected = "\
+/// <pre>abc<a href=\"https://dest0\" title=\"\">text0</a>abc
+/// </pre>";
+///
+/// let res = text_links2html(i);
+/// assert_eq!(res, expected);
+/// ```
+///
+/// ### Rendered text
+///
+/// This is how the rendered text looks like in the browser:
+///
+/// <pre>abc<a href="https://dest0" title="">text0</a>abc
+/// </pre>
+///
+///
 /// ## HTML
 ///
 /// HTML _inline links_ are sanitized and passed through.
@@ -399,6 +425,31 @@ pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <a href="https://dest3" title="">:label3: https://dest3</a>
 /// </pre>
 ///
+///
+/// ## Wikitext
+///
+/// ```
+/// use parse_hyperlinks::renderer::text_rawlinks2html;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc[https://dest0 text0]abc
+/// "#;
+///
+/// let expected = "\
+/// <pre>abc<a href=\"https://dest0\" title=\"\">[https://dest0 text0]</a>abc
+/// </pre>";
+///
+/// let res = text_rawlinks2html(i);
+/// assert_eq!(res, expected);
+/// ```
+///
+/// ### Rendered text
+///
+/// This is how the rendered text looks like in the browser:
+///
+/// <pre>abc<a href="https://dest0" title="">[https://dest0 text0]</a>abc
+/// </pre>
+///
 /// ## HTML
 ///
 /// HTML _inline links_ are sanitized and their link
@@ -598,6 +649,29 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 /// <a href="https://dest2" title="">text2</a>
 /// <a href="https://dest3" title="">https:&#x2F;&#x2F;dest3</a>
 ///
+///
+/// ## Wikitext
+///
+/// ```
+/// use parse_hyperlinks::renderer::links2html;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc[https://dest0 text0]abc
+/// "#;
+///
+/// let expected = "\
+/// <a href=\"https://dest0\" title=\"\">text0</a>
+/// ";
+///
+/// let res = links2html(i);
+/// assert_eq!(res, expected);
+/// ```
+///
+/// ### Rendered text
+///
+/// This is how the rendered text looks like in the browser:
+///
+/// <a href="https://dest0" title="">text0</a>
 ///
 ///
 /// ## HTML

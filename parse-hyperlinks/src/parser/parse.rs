@@ -16,6 +16,7 @@ use crate::parser::restructured_text::rst_label2label_link;
 use crate::parser::restructured_text::rst_text2dest_link;
 use crate::parser::restructured_text::rst_text2label_link;
 use crate::parser::restructured_text::rst_text_label2dest_link;
+use crate::parser::wikitext::wikitext_text2dest_link;
 use crate::parser::Link;
 use nom::branch::alt;
 use nom::bytes::complete::take_till;
@@ -266,7 +267,9 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         if line_start || input_start {
             if let Ok((k, r)) = alt((
                 // Now we search for `label2*`.
-                // These parsers do not care about the indent, as long it is only whitespace.
+                // These parsers do not care about the indent, as long it is
+                // only whitespace.
+                wikitext_text2dest_link,
                 md_label2dest_link,
                 adoc_label2dest_link,
             ))(j)
@@ -278,6 +281,8 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 
         // Regular `text` links can start everywhere.
         if let Ok((k, r)) = alt((
+            // This should be first, because it is very specific.
+            wikitext_text2dest_link,
             // Start with `text2dest`.
             md_text2dest_link,
             // `rst_text2dest` must be always placed before `rst_text2label`.
@@ -393,6 +398,7 @@ abc https://adoc_destination1[adoc text1] abc
 abc {adoc-label2}abc {adoc-label3}[adoc text3]abc
  :adoc-label4: https://adoc_destination4
 abc{adoc-label5}abc https://adoc_destination6 abc
+abc[https://wikitext.link Wikitext Testlink]abc
 "#;
 
         let expected = Link::Label2Dest(
@@ -510,9 +516,18 @@ abc{adoc-label5}abc https://adoc_destination6 abc
             Cow::from("https://adoc_destination6"),
             Cow::from(""),
         );
-        let (_i, (skipped, res)) = take_link(i).unwrap();
+        let (i, (skipped, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
         assert_eq!(skipped, "abc ");
+
+        let expected = Link::Text2Dest(
+            Cow::from("Wikitext Testlink"),
+            Cow::from("https://wikitext.link"),
+            Cow::from(""),
+        );
+        let (_i, (skipped, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+        assert_eq!(skipped, " abc\nabc");
     }
 
     #[test]

@@ -6,6 +6,7 @@ pub mod html;
 pub mod markdown;
 pub mod parse;
 pub mod restructured_text;
+pub mod wikitext;
 
 use std::borrow::Cow;
 

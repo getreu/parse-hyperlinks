@@ -4,9 +4,11 @@
 //! [CommonMark Specification 0.30](https://spec.commonmark.org/0.30/),
 //! [reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
 //! (revision 8571, date 2020-10-28),
-//! [Asciidoctor User Manual, chapter 26](https://asciidoctor.org/docs/user-manual/#url) (date 2020-12-03)
-//! and the
+//! [Asciidoctor User Manual, chapter 26](https://asciidoctor.org/docs/user-manual/#url) (date 2020-12-03),
+//! the
 //! [HTML 5.2: section 4.5.](https://www.w3.org/TR/html52/textlevel-semantics.html#the-a-element)
+//! specification
+//! and the [Wikitext v1.0.0](https://www.mediawiki.org/wiki/Specs/wikitext/1.0.0)
 //! specification.
 #![allow(dead_code)]
 
