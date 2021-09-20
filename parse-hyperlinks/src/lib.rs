@@ -1,7 +1,7 @@
 //! Library and application for parsing hyperlinks and link reference
 //! definitions in Markdown, reStructuredText, Asciidoc and HTML format. The
 //! library implements the
-//! [CommonMark Specification 0.29](https://spec.commonmark.org/0.29/),
+//! [CommonMark Specification 0.30](https://spec.commonmark.org/0.30/),
 //! [reStructuredText Markup Specification](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)
 //! (revision 8571, date 2020-10-28),
 //! [Asciidoctor User Manual, chapter 26](https://asciidoctor.org/docs/user-manual/#url) (date 2020-12-03)

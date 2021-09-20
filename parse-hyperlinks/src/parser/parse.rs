@@ -23,7 +23,7 @@ use nom::character::complete::anychar;
 use std::borrow::Cow;
 
 /// Link max label. This limits the damage of a forgotten closing brackets.
-/// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-label)
+/// [CommonMark Spec](https://spec.commonmark.org/0.30/#link-label)
 pub const LABEL_LEN_MAX: usize = 999;
 
 /// Consumes the input until it finds a Markdown, RestructuredText, Asciidoc or

@@ -63,26 +63,32 @@ pub fn md_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("\nabc", (Cow::from("label"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
-/// CommonMark Spec: A [link reference definition] consists of a [link
-/// label], indented up to three spaces, followed by a colon (`:`), optional
-/// [whitespace] (including up to one [line ending]), a [link destination],
-/// optional [whitespace] (including up to one [line ending]), and an
-/// optional [link title], which if it is present must be separated from the
-/// [link destination] by [whitespace]. No further [non-whitespace
-/// characters] may occur on the line.
 ///
-/// [link reference definition]: https://spec.commonmark.org/0.29/#link-reference-definition
-/// [link label]: https://spec.commonmark.org/0.29/#link-label
-/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
-/// [line ending]: https://spec.commonmark.org/0.29/#line-ending
-/// [link destination]: https://spec.commonmark.org/0.29/#link-destination
-/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
-/// [line ending]: https://spec.commonmark.org/0.29/#line-ending
-/// [link title]: https://spec.commonmark.org/0.29/#link-title
-/// [link destination]: https://spec.commonmark.org/0.29/#link-destination
-/// [whitespace]: https://spec.commonmark.org/0.29/#whitespace
-/// [non-whitespace characters]: https://spec.commonmark.org/0.29/#non-whitespace-character
+/// [CommonMark
+/// Spec](https://spec.commonmark.org/0.30/#link-reference-definition)\ A [link
+/// reference
+/// definition](https://spec.commonmark.org/0.30/#link-reference-definition)
+/// consists of a [link label](https://spec.commonmark.org/0.30/#link-label),
+/// optionally preceded by up to three spaces of indentation, followed by a
+/// colon (`:`), optional spaces or tabs (including up to one [line
+/// ending](https://spec.commonmark.org/0.30/#line-ending)), a [link
+/// destination](https://spec.commonmark.org/0.30/#link-destination), optional
+/// spaces or tabs (including up to one [line
+/// ending](https://spec.commonmark.org/0.30/#line-ending)), and an optional
+/// [link title](https://spec.commonmark.org/0.30/#link-title), which if it is
+/// present must be separated from the [link
+/// destination](https://spec.commonmark.org/0.30/#link-destination) by spaces
+/// or tabs. No further character may occur.
 ///
+/// A [link reference
+/// definition](https://spec.commonmark.org/0.30/#link-reference-definition)
+/// does not correspond to a structural element of a document. Instead, it
+/// defines a label which can be used in [reference
+/// links](https://spec.commonmark.org/0.30/#reference-link) and reference-style
+/// [images](https://spec.commonmark.org/0.30/#images) elsewhere in the
+/// document. [Link reference
+/// definitions](https://spec.commonmark.org/0.30/#link-reference-definition)
+/// can come either before or after the links that use them.
 pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
@@ -220,17 +226,20 @@ fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(md_parse_link_destination, md_escaped_str_transform)(i)
 }
 
-/// A [link destination](https://spec.commonmark.org/0.29/#link-destination)
+/// A [link destination](https://spec.commonmark.org/0.30/#link-destination)
 /// consists of either
-/// - a sequence of zero or more characters between an opening `<` and a
-///   closing `>` that contains no line breaks or unescaped `<` or `>`
-///   characters, or
-/// - a nonempty sequence of characters that does not start with `<`, does not
-///   include ASCII space or control characters, and includes parentheses only if
-///   (a) they are backslash-escaped or (b) they are part of a balanced pair of
-///   unescaped parentheses. (Implementations may impose limits on parentheses
-///   nesting to avoid performance issues, but at least three levels of nesting
-///   should be supported.)
+///
+/// * a sequence of zero or more characters between an opening `<` and a
+/// closing `>` that contains no line endings or unescaped `<` or `>`
+/// characters, or
+/// * a nonempty sequence of characters that does not start with `<`, does not
+/// include [ASCII control
+/// characters](https://spec.commonmark.org/0.30/#ascii-control-character) or
+/// [space](https://spec.commonmark.org/0.30/#space) character, and includes
+/// parentheses only if (a) they are backslash-escaped or (b) they are part of a
+/// balanced pair of unescaped parentheses. (Implementations may impose limits
+/// on parentheses nesting to avoid performance issues, but at least three
+/// levels of nesting should be supported.)
 fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
     alt((
         nom::sequence::delimited(
@@ -242,10 +251,11 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
             ),
             tag(">"),
         ),
-        map_parser(
+        map(nom::bytes::complete::tag("<>"), |_| ""),
+        alt((
             nom::bytes::complete::is_not(" \t\r\n"),
-            all_consuming(take_until_unbalanced('(', ')')),
-        ),
+            nom::combinator::success(""),
+        )),
     ))(i)
 }
 
@@ -375,6 +385,29 @@ mod tests {
                 "abc",
                 (Cow::from("text"), Cow::from("url"), Cow::from("link title"))
             ))
+        );
+        // [Example 483](https://spec.commonmark.org/0.30/#example-483)
+        assert_eq!(
+            md_text2dest("[](./target.md)abc"),
+            Ok((
+                "abc",
+                (Cow::from(""), Cow::from("./target.md"), Cow::from(""))
+            ))
+        );
+        // [Example 484](https://spec.commonmark.org/0.30/#example-484)
+        assert_eq!(
+            md_text2dest("[link]()abc"),
+            Ok(("abc", (Cow::from("link"), Cow::from(""), Cow::from(""))))
+        );
+        // [Example 485](https://spec.commonmark.org/0.30/#example-485)
+        assert_eq!(
+            md_text2dest("[link](<>)abc"),
+            Ok(("abc", (Cow::from("link"), Cow::from(""), Cow::from(""))))
+        );
+        // [Example 486](https://spec.commonmark.org/0.30/#example-486)
+        assert_eq!(
+            md_text2dest("[]()abc"),
+            Ok(("abc", (Cow::from(""), Cow::from(""), Cow::from(""))))
         );
     }
 
@@ -658,13 +691,10 @@ mod tests {
             md_parse_link_destination(r#"<u\<r\>l>abc"#),
             Ok(("abc", r#"u\<r\>l"#))
         );
+        assert_eq!(md_parse_link_destination("<url> abc"), Ok((" abc", "url")));
         assert_eq!(
-            md_link_destination("<url> abc"),
-            Ok((" abc", Cow::from("url")))
-        );
-        assert_eq!(
-            md_link_destination("<url>\nabc"),
-            Ok(("\nabc", Cow::from("url")))
+            md_parse_link_destination("<url>\nabc"),
+            Ok(("\nabc", "url"))
         );
         assert_eq!(
             md_parse_link_destination("<url 2>abc"),
@@ -687,6 +717,11 @@ mod tests {
             md_parse_link_destination("ur()l\nabc"),
             Ok(("\nabc", "ur()l"))
         );
+        assert_eq!(md_parse_link_destination("<>abc"), Ok(("abc", "")));
+        assert_eq!(md_parse_link_destination("<>\nabc"), Ok(("\nabc", "")));
+        assert_eq!(md_parse_link_destination("url"), Ok(("", "url")));
+        assert_eq!(md_parse_link_destination(""), Ok(("", "")));
+        assert_eq!(md_parse_link_destination("\nabc"), Ok(("\nabc", "")));
     }
 
     #[test]
