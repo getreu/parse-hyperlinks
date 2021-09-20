@@ -17,10 +17,11 @@ use std::borrow::Cow;
 /// `""`.  The back ticks \` in reStructuredText can be omitted when only one word is enclosed
 /// without spaces.
 #[derive(Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub enum Link<'a> {
     /// In (stand alone) **inline links** the destination and title are given
     /// immediately after the link text. When an _inline link_ is rendered, only
-    /// the `link_text` is visible in the continuos text.
+    /// the `link_text` is visible in the continuous text.
     /// * Markdown example:
     ///   ```md
     ///       [link_text](link_dest "link title")
