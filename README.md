@@ -2,12 +2,12 @@
 
 [Atext2html](https://crates.io/crates/atext2html) is a command line utility
 written with [Nom](https://crates.io/crates/nom) to recognize hyperlinks and
-link reference definitions in Markdown, reStructuredText, Asciidoc and HTML
-formatted text input. [Atext2html](https://crates.io/crates/atext2html) renders
-the source text verbatim to HTML while making hyperlinks clickable. By default
-the hyperlink's text appears the same as in the source text. When the flag
-`--render-links` is given, hyperlinks are represented only by their link text,
-which makes inline links more readable.
+link reference definitions in Markdown, reStructuredText, Asciidoc, Wikitext and
+HTML formatted text input. [Atext2html](https://crates.io/crates/atext2html)
+renders the source text verbatim to HTML while making hyperlinks clickable. By
+default the hyperlink's text appears the same as in the source text. When the
+flag `--render-links` is given, hyperlinks are represented only by their link
+text, which makes inline links more readable.
 
 [![Cargo](https://img.shields.io/crates/v/atext2html.svg)](
 https://crates.io/crates/atext2html)
@@ -202,6 +202,40 @@ ARGS:
    abc<a href="https://destination33" title="">{label33}</a>abc
    <a href="https://destination32" title="">:label32: https://destination32</a>
    <a href="https://destination33" title="">:label33: https://destination33</a>
+   </pre>
+
+
+## Wikitext
+
+1. Create a file `input.txt` with text and hyperlinks:
+
+   ```wikitext
+   abc
+   abc[https://destination31 text31]abc
+   ```
+
+2. Run `atext2html`:
+
+   ```shell
+   $ ./atext2html -o output.html input.txt
+   ```
+
+3. Inspect `output.html`:
+
+   ```html
+   <pre>abc
+   abc<a href="https://destination31" title="">[https://destination31 text31]</a>abc
+   ```
+
+   This is how it looks like in the web-browser:
+
+   ```shell
+   $ firefox output.html
+   ```
+
+   <pre>
+   abc
+   abc<a href="https://destination31" title="">[https://destination31 text31]</a>abc
    </pre>
 
 
