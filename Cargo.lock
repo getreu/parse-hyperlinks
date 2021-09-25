@@ -13,10 +13,10 @@ dependencies = [
 
 [[package]]
 name = "atext2html"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "lazy_static",
- "parse-hyperlinks 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parse-hyperlinks 0.23.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt",
 ]
 
@@ -93,9 +93,9 @@ checksum = "a2a5ac8f984bfcf3a823267e5fde638acc3325f6496633a5da6bb6eb2171e103"
 
 [[package]]
 name = "memchr"
-version = "2.3.4"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
+checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
 
 [[package]]
 name = "minimal-lexical"
@@ -116,7 +116,7 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "html-escape",
  "nom",
@@ -126,9 +126,9 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbaeb1376af2f3cf4ae9aa2ffdfc77e8b599d483ee3510ba57b37a3e6d62fb02"
+checksum = "56b2e3474102a0b6492bbbd4964b8af8c3a14bf48402d2a4b34fef9d09bae5d2"
 dependencies = [
  "html-escape",
  "nom",
@@ -138,11 +138,11 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks-extras"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "html-escape",
  "nom",
- "parse-hyperlinks 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parse-hyperlinks 0.23.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "percent-encoding",
  "thiserror",
 ]
