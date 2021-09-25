@@ -1,0 +1,16 @@
+[package]
+name = "parse-hyperlinks-html"
+version = "0.23.1"
+authors = ["Jens Getreu <getreu@web.de>"]
+edition = "2018"
+keywords = ["parser", "markup", "hyperlink", "Markdown", "reStructuredText"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://gitlab.com/getreu/parse-hyperlinks"
+homepage = "https://gitlab.com/getreu/parse-hyperlinks"
+description = "This crate moved to `parse-hyperlinks-extras`."
+categories = ["command-line-utilities", "parser-implementations"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

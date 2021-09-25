@@ -5,3 +5,5 @@ members = [
     "parse-hyperlinks",
     "parse-hyperlinks-extras",
 ]
+
+exclude = [ "parse-hyperlinks-html" ]
