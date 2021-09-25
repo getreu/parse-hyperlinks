@@ -2,9 +2,9 @@
 //! Only HTML no other markup languages are parsed here.
 #![allow(clippy::type_complexity)]
 
-use crate::parser::parse::take_img;
-use crate::parser::parse::take_img_link;
-use crate::parser::parse::take_link;
+use crate::parser::parse_html::take_img;
+use crate::parser::parse_html::take_img_link;
+use crate::parser::parse_html::take_link;
 use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
 

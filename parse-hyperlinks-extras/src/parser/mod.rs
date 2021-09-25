@@ -2,4 +2,4 @@
 //! image elements from HTML text input.
 
 pub mod html;
-pub mod parse;
+pub mod parse_html;
