@@ -19,7 +19,7 @@ use parse_hyperlinks::parser::Link;
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks_html::parser::parse::take_img_link;
+/// use parse_hyperlinks_extras::parser::parse::take_img_link;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="destination1" alt="text1">abc
@@ -76,7 +76,7 @@ pub fn take_img_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks_html::parser::parse::take_link;
+/// use parse_hyperlinks_extras::parser::parse::take_link;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\

@@ -20,7 +20,7 @@ use std::borrow::Cow;
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks_html::iterator::Hyperlink;
+/// use parse_hyperlinks_extras::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\n\
@@ -43,7 +43,7 @@ use std::borrow::Cow;
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks_html::iterator::Hyperlink;
+/// use parse_hyperlinks_extras::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\
@@ -121,7 +121,7 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks_html::iterator::InlineImage;
+/// use parse_hyperlinks_extras::iterator::InlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">efg<img src="dest2" alt="text2">hij"#;
@@ -137,7 +137,7 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks_html::iterator::InlineImage;
+/// use parse_hyperlinks_extras::iterator::InlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
