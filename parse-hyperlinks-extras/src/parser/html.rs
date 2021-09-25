@@ -24,7 +24,7 @@ pub fn html_img_link(i: &str) -> nom::IResult<&str, Link> {
 /// The parser expects to start at the link start (`<`) to succeed.
 /// ```
 /// use parse_hyperlinks;
-/// use parse_hyperlinks_extras::parser::image::html_img;
+/// use parse_hyperlinks_extras::parser::html::html_img;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
