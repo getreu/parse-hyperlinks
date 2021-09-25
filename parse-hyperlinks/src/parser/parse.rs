@@ -1,6 +1,6 @@
-//! This module implements parsers to extract hyperlinks and link reference definitions from text
-//! input. The parsers search for Markdown, ReStructuredText, Asciidoc and HTML formatted links.
-//! Inline images are ignored here.
+//! This module implements parsers to extract hyperlinks and link reference
+//! definitions from text input. The parsers search for Markdown,
+//! ReStructuredText, Asciidoc, Wikitext and HTML formatted links.
 #![allow(dead_code)]
 #![allow(clippy::type_complexity)]
 

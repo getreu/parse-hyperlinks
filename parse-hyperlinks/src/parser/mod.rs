@@ -1,5 +1,5 @@
 //! This module implements parsers to extract hyperlinks and link reference
-//! definitions as well as HTML image elements from text input.
+//! definitions from text input.
 
 pub mod asciidoc;
 pub mod html;
@@ -10,13 +10,14 @@ pub mod wikitext;
 
 use std::borrow::Cow;
 
-/// A link can be an _inline link_, a _reference link_, a _link reference definition_, a combined
-/// _inline link / link reference definition_, a _reference alias_ or an _inline image_. This is
-/// the main return type of this API.
+/// A link can be an _inline link_, a _reference link_, a _link reference
+/// definition_, a combined _inline link / link reference definition_, a
+/// _reference alias_ or an _inline image_. This is the main return type of this
+/// API.
 ///
-/// The _link title_ in Markdown is optional, when not given the string is set to the empty string
-/// `""`.  The back ticks \` in reStructuredText can be omitted when only one word is enclosed
-/// without spaces.
+/// The _link title_ in Markdown is optional, when not given the string is set
+/// to the empty string `""`.  The back ticks \` in reStructuredText can be
+/// omitted when only one word is enclosed without spaces.
 #[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum Link<'a> {
@@ -27,15 +28,17 @@ pub enum Link<'a> {
     ///   ```md
     ///       [link_text](link_dest "link title")
     ///   ```
-    ///
     /// * reStructuredText example:
     ///   ```rst
     ///       `link_text <link_dest>`__
     ///   ```
-    ///
     /// *  Asciidoc example:
     ///    ```adoc
     ///    http://link_dest[link_text]
+    ///    ```
+    /// *  Wikitext example:
+    ///    ```wm
+    ///    [http://link_dest link_text]
     ///    ```
     /// The tuple is defined as follows:
     /// ```text
@@ -143,5 +146,6 @@ pub enum Link<'a> {
     /// ```text
     /// Image(img_alt, img_src)
     /// ```
+    /// Note: this crate does not contain parsers for this variant.
     Image(Cow<'a, str>, Cow<'a, str>),
 }
