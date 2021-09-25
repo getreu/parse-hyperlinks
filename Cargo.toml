@@ -6,4 +6,3 @@ members = [
     "parse-hyperlinks-extras",
 ]
 
-exclude = [ "parse-hyperlinks-html" ]
