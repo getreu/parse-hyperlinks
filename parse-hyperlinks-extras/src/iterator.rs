@@ -3,6 +3,7 @@
 #![allow(clippy::type_complexity)]
 
 use crate::parser::parse::take_img;
+use crate::parser::parse::take_img_link;
 use crate::parser::parse::take_link;
 use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
@@ -181,6 +182,103 @@ impl<'a> Iterator for InlineImage<'a> {
             let consumed = &self.input[skipped.len()..self.input.len() - remaining_input.len()];
             // Assigning output.
             output = Some(((skipped, consumed, remaining_input), (alt, src)));
+            debug_assert_eq!(self.input, {
+                let mut s = "".to_string();
+                s.push_str(skipped);
+                s.push_str(consumed);
+                s.push_str(remaining_input);
+                s
+            });
+            self.input = remaining_input;
+        };
+        output
+    }
+}
+
+#[derive(Debug, PartialEq)]
+/// Iterator over the hyperlinks and inline images in the HTML formatted `input` text.
+/// This struct holds the iterator's state, as an advancing pointer into the `input` text.  The
+/// iterator's `next()` method returns a tuple with another tuples inside:
+/// `Some(((input_split), destination))`.
+///
+/// The tuple has the following parts:
+/// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
+///
+/// # Input split
+///
+/// ```
+/// use parse_hyperlinks_extras::iterator::HyperlinkOrInlineImage;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc<img src="dest1" alt="text1">abc
+/// abc<a href="dest2" title="title2">text2</a>abc"#;
+///
+/// let mut iter = HyperlinkOrInlineImage::new(i);
+/// assert_eq!(iter.next().unwrap().0, ("abc",
+///     r#"<img src="dest1" alt="text1">"#,
+///     "abc\nabc<a href=\"dest2\" title=\"title2\">text2</a>abc"
+///     ));
+/// assert_eq!(iter.next().unwrap().0, ("abc\nabc",
+///     "<a href=\"dest2\" title=\"title2\">text2</a>",
+///     "abc"
+///     ));
+/// assert_eq!(iter.next(), None);
+/// ```
+/// # Link content
+/// ## HTML
+///
+/// ```
+/// use parse_hyperlinks_extras::iterator::HyperlinkOrInlineImage;
+/// use std::borrow::Cow;
+///
+/// let i = r#"abc<img src="dest1" alt="text1">abc
+/// abc<a href="dest2" title="title2">text2</a>abc"#;
+///
+///
+/// let mut iter = HyperlinkOrInlineImage::new(i);
+/// assert_eq!(iter.next().unwrap().1, (Cow::from("dest1")));
+/// assert_eq!(iter.next().unwrap().1, (Cow::from("dest2")));
+/// assert_eq!(iter.next(), None);
+/// ```
+pub struct HyperlinkOrInlineImage<'a> {
+    /// The remaining text input.
+    input: &'a str,
+}
+
+/// Constructor for the `HyperlinkOrInlineImage` struct.
+impl<'a> HyperlinkOrInlineImage<'a> {
+    /// Constructor for the iterator. `input` is the text with hyperlinks and
+    /// inline images to be extracted.
+    #[inline]
+    pub fn new(input: &'a str) -> Self {
+        Self { input }
+    }
+}
+
+/// Iterator over the HTML hyperlinks and inline images in the `input`-text.
+/// The iterator's `next()` method returns a tuple with 2 tuples inside:
+/// * `Some(((input_split)(link_content)))`
+///
+/// Each tuple has the following parts:
+/// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
+/// * `link_content = image_src` for inline images or `link_content = destination`
+///   for hyperlinks.
+///
+impl<'a> Iterator for HyperlinkOrInlineImage<'a> {
+    type Item = ((&'a str, &'a str, &'a str), Cow<'a, str>);
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut output = None;
+
+        if let Ok((remaining_input, (skipped, img_link))) = take_img_link(self.input) {
+            let dest = match img_link {
+                Link::Text2Dest(_, d, _) => d,
+                Link::Image(_, s) => s,
+                _ => unimplemented!("take_img_link() should not return this variant"),
+            };
+
+            let consumed = &self.input[skipped.len()..self.input.len() - remaining_input.len()];
+            // Assigning output.
+            output = Some(((skipped, consumed, remaining_input), dest));
             debug_assert_eq!(self.input, {
                 let mut s = "".to_string();
                 s.push_str(skipped);
