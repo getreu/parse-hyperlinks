@@ -7,6 +7,7 @@ use crate::parser::html::html_img;
 use crate::parser::html::html_img_link;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
+use parse_hyperlinks::parser::html::html_text2dest;
 use parse_hyperlinks::parser::html::html_text2dest_link;
 use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
@@ -71,27 +72,28 @@ pub fn take_img(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>))> {
 /// (`Link::Text2Dest`).
 ///
 /// The parser consumes the finding and returns
-/// `Ok((remaining_input, (skipped_input, Link)))` or some error.
+/// `Ok((remaining_input, (skipped_input, (link_text, link_destination, link_title))))`
+/// or some error.
 ///
 ///
 /// # HTML
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks_extras::parser::parse_html::take_text2dest_link;
+/// use parse_hyperlinks_extras::parser::parse_html::take_text2dest;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<a href="dest1" title="title1">text1</a>abc
 /// abc<a href="dest2" title="title2">text2</a>abc"#;
 ///
-/// let (i, r) = take_text2dest_link(i).unwrap();
+/// let (i, r) = take_text2dest(i).unwrap();
 /// assert_eq!(r.0, "abc");
-/// assert_eq!(r.1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
-/// let (i, r) = take_text2dest_link(i).unwrap();
+/// assert_eq!(r.1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
+/// let (i, r) = take_text2dest(i).unwrap();
 /// assert_eq!(r.0, "abc\nabc");
-/// assert_eq!(r.1, Link::Text2Dest(Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
+/// assert_eq!(r.1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
 /// ```
-pub fn take_text2dest_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
+pub fn take_text2dest(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>, Cow<str>))> {
     let mut j = i;
     let mut skip_count = 0;
 
@@ -99,7 +101,7 @@ pub fn take_text2dest_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         // Start searching for inline hyperlinks.
 
         // Regular `Link::Text2Dest` can start everywhere.
-        if let Ok((k, r)) = html_text2dest_link(j) {
+        if let Ok((k, r)) = html_text2dest(j) {
             break (k, r);
         };
 

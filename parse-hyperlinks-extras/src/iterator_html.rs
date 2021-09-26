@@ -4,7 +4,7 @@
 
 use crate::parser::parse_html::take_img;
 use crate::parser::parse_html::take_link;
-use crate::parser::parse_html::take_text2dest_link;
+use crate::parser::parse_html::take_text2dest;
 use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
 
@@ -87,8 +87,8 @@ impl<'a> Iterator for Hyperlink<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
 
-        if let Ok((remaining_input, (skipped, Link::Text2Dest(link_text, link_dest, link_title)))) =
-            take_text2dest_link(self.input)
+        if let Ok((remaining_input, (skipped, (link_text, link_dest, link_title)))) =
+            take_text2dest(self.input)
         {
             let consumed = &self.input[skipped.len()..self.input.len() - remaining_input.len()];
             // Assigning output.
