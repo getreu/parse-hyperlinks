@@ -2,9 +2,9 @@
 //! Only HTML no other markup languages are parsed here.
 #![allow(clippy::type_complexity)]
 
-use crate::parser::parse_html::take_img;
 use crate::parser::parse_html::take_img_link;
 use crate::parser::parse_html::take_link;
+use crate::parser::parse_html::take_text2dest_link;
 use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
 
@@ -21,7 +21,7 @@ use std::borrow::Cow;
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks_extras::html_iterator::Hyperlink;
+/// use parse_hyperlinks_extras::iterator_html::Hyperlink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\n\
@@ -44,7 +44,7 @@ use std::borrow::Cow;
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks_extras::html_iterator::Hyperlink;
+/// use parse_hyperlinks_extras::iterator_html::Hyperlink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\
@@ -88,7 +88,7 @@ impl<'a> Iterator for Hyperlink<'a> {
         let mut output = None;
 
         if let Ok((remaining_input, (skipped, Link::Text2Dest(link_text, link_dest, link_title)))) =
-            take_link(self.input)
+            take_text2dest_link(self.input)
         {
             let consumed = &self.input[skipped.len()..self.input.len() - remaining_input.len()];
             // Assigning output.
@@ -122,7 +122,7 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks_extras::html_iterator::InlineImage;
+/// use parse_hyperlinks_extras::iterator_html::InlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">efg<img src="dest2" alt="text2">hij"#;
@@ -138,7 +138,7 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks_extras::html_iterator::InlineImage;
+/// use parse_hyperlinks_extras::iterator_html::InlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
@@ -178,7 +178,7 @@ impl<'a> Iterator for InlineImage<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
 
-        if let Ok((remaining_input, (skipped, Link::Image(alt, src)))) = take_img(self.input) {
+        if let Ok((remaining_input, (skipped, Link::Image(alt, src)))) = take_img_link(self.input) {
             let consumed = &self.input[skipped.len()..self.input.len() - remaining_input.len()];
             // Assigning output.
             output = Some(((skipped, consumed, remaining_input), (alt, src)));
@@ -207,13 +207,13 @@ impl<'a> Iterator for InlineImage<'a> {
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks_extras::html_iterator::HyperlinkOrInlineImage;
+/// use parse_hyperlinks_extras::iterator_html::HyperlinkInlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
 /// abc<a href="dest2" title="title2">text2</a>abc"#;
 ///
-/// let mut iter = HyperlinkOrInlineImage::new(i);
+/// let mut iter = HyperlinkInlineImage::new(i);
 /// assert_eq!(iter.next().unwrap().0, ("abc",
 ///     r#"<img src="dest1" alt="text1">"#,
 ///     "abc\nabc<a href=\"dest2\" title=\"title2\">text2</a>abc"
@@ -228,25 +228,25 @@ impl<'a> Iterator for InlineImage<'a> {
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks_extras::html_iterator::HyperlinkOrInlineImage;
+/// use parse_hyperlinks_extras::iterator_html::HyperlinkInlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
 /// abc<a href="dest2" title="title2">text2</a>abc"#;
 ///
 ///
-/// let mut iter = HyperlinkOrInlineImage::new(i);
+/// let mut iter = HyperlinkInlineImage::new(i);
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("dest1")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("dest2")));
 /// assert_eq!(iter.next(), None);
 /// ```
-pub struct HyperlinkOrInlineImage<'a> {
+pub struct HyperlinkInlineImage<'a> {
     /// The remaining text input.
     input: &'a str,
 }
 
-/// Constructor for the `HyperlinkOrInlineImage` struct.
-impl<'a> HyperlinkOrInlineImage<'a> {
+/// Constructor for the `HyperlinkInlineImage` struct.
+impl<'a> HyperlinkInlineImage<'a> {
     /// Constructor for the iterator. `input` is the text with hyperlinks and
     /// inline images to be extracted.
     #[inline]
@@ -264,16 +264,16 @@ impl<'a> HyperlinkOrInlineImage<'a> {
 /// * `link_content = image_src` for inline images or `link_content = destination`
 ///   for hyperlinks.
 ///
-impl<'a> Iterator for HyperlinkOrInlineImage<'a> {
+impl<'a> Iterator for HyperlinkInlineImage<'a> {
     type Item = ((&'a str, &'a str, &'a str), Cow<'a, str>);
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
 
-        if let Ok((remaining_input, (skipped, img_link))) = take_img_link(self.input) {
+        if let Ok((remaining_input, (skipped, img_link))) = take_link(self.input) {
             let dest = match img_link {
                 Link::Text2Dest(_, d, _) => d,
                 Link::Image(_, s) => s,
-                _ => unimplemented!("take_img_link() should not return this variant"),
+                _ => unimplemented!("take_link() should not return this variant"),
             };
 
             let consumed = &self.input[skipped.len()..self.input.len() - remaining_input.len()];

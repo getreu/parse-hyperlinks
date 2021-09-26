@@ -19,21 +19,21 @@ use parse_hyperlinks::parser::Link;
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks_extras::parser::parse_html::take_img;
+/// use parse_hyperlinks_extras::parser::parse_html::take_img_link;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="destination1" alt="text1">abc
 /// abc<img src="destination2" alt="text2">abc
 /// "#;
 ///
-/// let (i, r) = take_img(i).unwrap();
+/// let (i, r) = take_img_link(i).unwrap();
 /// assert_eq!(r.0, "abc");
 /// assert_eq!(r.1, Link::Image(Cow::from("text1"), Cow::from("destination1")));
-/// let (i, r) = take_img(i).unwrap();
+/// let (i, r) = take_img_link(i).unwrap();
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, Link::Image(Cow::from("text2"), Cow::from("destination2")));
 /// ```
-pub fn take_img(i: &str) -> nom::IResult<&str, (&str, Link)> {
+pub fn take_img_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let mut j = i;
     let mut skip_count = 0;
 
@@ -84,7 +84,7 @@ pub fn take_img(i: &str) -> nom::IResult<&str, (&str, Link)> {
 ///
 /// let (i, r) = take_link(i).unwrap();
 /// ```
-pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
+pub fn take_text2dest_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let mut j = i;
     let mut skip_count = 0;
 
@@ -128,7 +128,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks_extras::parser::parse_html::take_img_link;
+/// use parse_hyperlinks_extras::parser::parse_html::take_link;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
@@ -137,20 +137,20 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 /// abc<a href="dest4" title="title4">text4</a>abc";
 /// "#;
 ///
-/// let (i, r) = take_img_link(i).unwrap();
+/// let (i, r) = take_link(i).unwrap();
 /// assert_eq!(r.0, "abc");
 /// assert_eq!(r.1, Link::Image(Cow::from("text1"), Cow::from("dest1")));
-/// let (i, r) = take_img_link(i).unwrap();
+/// let (i, r) = take_link(i).unwrap();
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, Link::Text2Dest(Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
-/// let (i, r) = take_img_link(i).unwrap();
+/// let (i, r) = take_link(i).unwrap();
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, Link::Image(Cow::from("text3"), Cow::from("dest3")));
-/// let (i, r) = take_img_link(i).unwrap();
+/// let (i, r) = take_link(i).unwrap();
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, Link::Text2Dest(Cow::from("text4"), Cow::from("dest4"), Cow::from("title4")));
 /// ```
-pub fn take_img_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
+pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let mut j = i;
     let mut skip_count = 0;
 

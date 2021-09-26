@@ -5,5 +5,5 @@
 
 #![allow(dead_code)]
 
-pub mod html_iterator;
+pub mod iterator_html;
 pub mod parser;
