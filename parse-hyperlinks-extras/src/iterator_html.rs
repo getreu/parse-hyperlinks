@@ -2,7 +2,7 @@
 //! Only HTML no other markup languages are parsed here.
 #![allow(clippy::type_complexity)]
 
-use crate::parser::parse_html::take_img_link;
+use crate::parser::parse_html::take_img;
 use crate::parser::parse_html::take_link;
 use crate::parser::parse_html::take_text2dest_link;
 use parse_hyperlinks::parser::Link;
@@ -178,7 +178,7 @@ impl<'a> Iterator for InlineImage<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
 
-        if let Ok((remaining_input, (skipped, Link::Image(alt, src)))) = take_img_link(self.input) {
+        if let Ok((remaining_input, (skipped, (alt, src)))) = take_img(self.input) {
             let consumed = &self.input[skipped.len()..self.input.len() - remaining_input.len()];
             // Assigning output.
             output = Some(((skipped, consumed, remaining_input), (alt, src)));
