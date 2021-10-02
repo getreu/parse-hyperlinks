@@ -1,6 +1,6 @@
 [package]
 name = "parse-hyperlinks-extras"
-version = "0.23.2"
+version = "0.23.3"
 authors = ["Jens Getreu <getreu@web.de>"]
 edition = "2018"
 keywords = ["parser", "markup", "hyperlink", "Markdown", "reStructuredText"]
@@ -17,4 +17,4 @@ html-escape = "0.2.9"
 percent-encoding = "2.1.0"
 thiserror = "1.0.26"
 #parse-hyperlinks = { path = "../parse-hyperlinks" }
-parse-hyperlinks = "0.23.2"
+parse-hyperlinks = "0.23.3"
