@@ -23,7 +23,7 @@ illustrates the usage of the underlying library
 provides insights about the operating principle of this utility.
 
 In addition to the above,
-[Parse-hyperlinks-html](https://crates.io/crates/parse-hyperlinks-html) defines
+[Parse-hyperlinks-extras](https://crates.io/crates/parse-hyperlinks-extras) defines
 some extra parsers needed by the
 [Tp-Note](https://crates.io/crates/tp-note) application.
 

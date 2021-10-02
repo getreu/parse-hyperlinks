@@ -22,9 +22,9 @@ use nom::error::ParseError;
 use nom::Err;
 use nom::IResult;
 
-/// A parser similar to `nom::bytes::complete::take_until()`, but that does not
-/// stop at balanced opening and closing tags. It is designed to work inside the
-/// `nom::sequence::delimited()` parser.
+/// A parser similar to `nom::bytes::complete::take_until()`, except that this
+/// one does not stop at balanced opening and closing tags. It is designed to
+/// work inside the `nom::sequence::delimited()` parser.
 ///
 /// # Basic usage
 /// ```
