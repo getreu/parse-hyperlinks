@@ -20,6 +20,7 @@ use std::borrow::Cow;
 ///
 /// # HTML
 ///
+#[allow(clippy::type_complexity)]
 /// ```
 /// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks_extras::parser::parse_html::take_img;
@@ -78,6 +79,7 @@ pub fn take_img(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>))> {
 ///
 /// # HTML
 ///
+#[allow(clippy::type_complexity)]
 /// ```
 /// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks_extras::parser::parse_html::take_text2dest;

@@ -2,7 +2,7 @@
 name = "atext2html"
 version = "0.23.3"
 authors = ["Jens Getreu <getreu@getreu@web.de>"]
-edition = "2018"
+edition = "2021"
 
 keywords = ["parser", "markup", "hyperlink", "Markdown", "reStructuredText"]
 license = "MIT/Apache-2.0"
