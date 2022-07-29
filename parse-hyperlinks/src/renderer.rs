@@ -513,7 +513,7 @@ pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 ) -> Result<(), io::Error> {
     let input = input.as_ref();
 
-    let verb_renderer = |verb: Cow<'a, str>| verb;
+    let verb_renderer = |verb| verb;
 
     let link_renderer = |(consumed, (_, dest, title)): (Cow<str>, (_, String, String))| {
         let mut s = String::new();
