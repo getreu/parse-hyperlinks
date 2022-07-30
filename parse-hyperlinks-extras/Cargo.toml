@@ -1,6 +1,6 @@
 [package]
 name = "parse-hyperlinks-extras"
-version = "0.23.3"
+version = "0.23.4"
 authors = ["Jens Getreu <getreu@web.de>"]
 edition = "2021"
 keywords = ["parser", "markup", "hyperlink", "Markdown", "reStructuredText"]
@@ -12,9 +12,9 @@ description = "A Nom parser library for hyperlinks with markup."
 categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
-nom= "7.0.0"
-html-escape = "0.2.9"
+nom= "7.1.1"
+html-escape = "0.2.11"
 percent-encoding = "2.1.0"
-thiserror = "1.0.26"
+thiserror = "1.0.31"
 #parse-hyperlinks = { path = "../parse-hyperlinks" }
-parse-hyperlinks = "0.23.3"
+parse-hyperlinks = "0.23.4"
