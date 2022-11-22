@@ -105,6 +105,23 @@ mod tests {
             tag_img(r#"<IMG src="http://getreu.net/my&amp;dog.png" alt="My dog">abc"#).unwrap(),
             expected
         );
+        assert_eq!(
+            tag_img(r#"<IMG src="http://getreu.net/my&amp;dog.png" alt="My dog"/>abc"#).unwrap(),
+            expected
+        );
+        assert_eq!(
+            tag_img(r#"<IMG src="http://getreu.net/my&amp;dog.png" alt="My dog" />abc"#).unwrap(),
+            expected
+        );
+
+        let expected = (
+            "abc",
+            (Cow::from("Some picture"), Cow::from("t%20m%20p.jpg")),
+        );
+        assert_eq!(
+            tag_img(r#"<img src="t%20m%20p.jpg" alt="Some picture" />abc"#).unwrap(),
+            expected
+        );
     }
 
     #[test]

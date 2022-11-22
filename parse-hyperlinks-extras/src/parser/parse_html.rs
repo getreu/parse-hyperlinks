@@ -196,3 +196,20 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 
     Ok((l, (skipped_input, link)))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::parse_html::take_link;
+
+    #[test]
+    fn test_take_link() {
+        let (i, r) = take_link(r#"<img src="t%20m%20p.jpg" alt="test1" />"#).unwrap();
+        assert_eq!(i, "");
+        assert_eq!(r.0, "");
+        assert_eq!(
+            r.1,
+            Link::Image(Cow::from("test1"), Cow::from("t%20m%20p.jpg"))
+        );
+    }
+}
