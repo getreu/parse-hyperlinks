@@ -51,7 +51,7 @@ lazy_static! {
 /// Uses the version-number defined in `../Cargo.toml`.
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 /// (c) Jens Getreu
-const AUTHOR: &str = "(c) Jens Getreu, 2020-2021";
+const AUTHOR: &str = "(c) Jens Getreu, 2020-2023";
 
 /// Minimal application that prints all Markdown and
 /// RestructuredText links in `stdin`as HTML to `stdout`.

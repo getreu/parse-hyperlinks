@@ -1,8 +1,3 @@
----
-title: "Extra parsers for hyperlinks in lightweight markup"
-filename_sync: false
----
-
 # Extra parsers for hyperlinks in lightweight markup
 
 This crate is based on and extends the
