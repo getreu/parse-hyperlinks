@@ -1,15 +1,15 @@
 [package]
 name = "parse-hyperlinks"
-version = "0.23.4"
-authors = ["Jens Getreu <getreu@getreu@web.de>"]
-edition = "2021"
-keywords = ["parser", "markup", "hyperlink", "Markdown", "reStructuredText"]
-license = "MIT/Apache-2.0"
-readme = "README.md"
-repository = "https://gitlab.com/getreu/parse-hyperlinks"
-homepage = "https://gitlab.com/getreu/parse-hyperlinks"
+authors.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+homepage.workspace = true
+version.workspace = true
 description = "A Nom parser library for hyperlinks with markup."
-categories = ["command-line-utilities", "parser-implementations"]
+categories = ["parser-implementations"]
 
 [dependencies]
 nom= "7.1.1"
