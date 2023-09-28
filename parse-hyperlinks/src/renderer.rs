@@ -259,13 +259,11 @@ pub fn text_links2html(input: &str) -> String {
 ///     Ok(())
 /// }
 /// ```
-pub fn text_links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
-    input: S,
-    output: &mut W,
-) -> Result<(), io::Error> {
-    let input = input.as_ref();
-
-    let verb_renderer = |verb| verb;
+pub fn text_links2html_writer<'a, W>(input: &'a str, output: &mut W) -> Result<(), io::Error>
+where
+    W: Write,
+{
+    let verb_renderer = |verb: Cow<'a, str>| verb;
 
     let link_renderer = |(_, (text, dest, title)): (_, (String, String, String))| {
         let mut s = String::new();
@@ -507,13 +505,11 @@ pub fn text_rawlinks2html(input: &str) -> String {
 ///     Ok(())
 /// }
 /// ```
-pub fn text_rawlinks2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
-    input: S,
-    output: &mut W,
-) -> Result<(), io::Error> {
-    let input = input.as_ref();
-
-    let verb_renderer = |verb| verb;
+pub fn text_rawlinks2html_writer<'a, W>(input: &'a str, output: &mut W) -> Result<(), io::Error>
+where
+    W: Write,
+{
+    let verb_renderer = |verb: Cow<'a, str>| verb;
 
     let link_renderer = |(consumed, (_, dest, title)): (Cow<str>, (_, String, String))| {
         let mut s = String::new();
