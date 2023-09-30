@@ -9,6 +9,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace1;
 use nom::combinator::*;
+use percent_encoding::percent_decode;
 use std::borrow::Cow;
 
 /// The following character are escapable in _link text_, _link label_, _link
@@ -31,15 +32,42 @@ pub fn md_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
-///   md_text2dest(r#"[text](<destination> "title")abc"#),
-///   Ok(("abc", (Cow::from("text"), Cow::from("destination"), Cow::from("title"))))
+///   md_text2dest(r#"[text](<dest> "title")abc"#),
+///   Ok(("abc", (Cow::from("text"), Cow::from("dest"), Cow::from("title"))))
+/// );
+///
+/// assert_eq!(
+///   md_text2dest(r#"<foo@dest>abc"#),
+///   Ok(("abc", (Cow::from("foo@dest"), Cow::from("foo@dest"), Cow::from(""))))
 /// );
 /// ```
 pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    map(
-        nom::sequence::tuple((md_link_text, md_link_destination_enclosed)),
-        |(a, (b, c))| (a, b, c),
-    )(i)
+    alt((
+        // Parse autolink.
+        map(
+            nom::sequence::delimited(
+                tag("<"),
+                verify(
+                    nom::bytes::complete::take_till1(|c| {
+                        c == ' ' || c == '\t' || c == '\r' || c == '>'
+                    }),
+                    |res: &str| res.contains(':') || res.contains('@'),
+                ),
+                tag(">"),
+            ),
+            |a: &str| {
+                let a = percent_decode(a.as_bytes())
+                    .decode_utf8()
+                    .unwrap_or(Cow::Borrowed(a));
+                (a.clone(), a, Cow::from(""))
+            },
+        ),
+        // Parse inline link.
+        map(
+            nom::sequence::tuple((md_link_text, md_link_destination_enclosed)),
+            |(a, (b, c))| (a, b, c),
+        ),
+    ))(i)
 }
 
 /// Wrapper around `md_label2dest()` that packs the result in
@@ -411,25 +439,56 @@ mod tests {
             Ok(("abc", (Cow::from(""), Cow::from(""), Cow::from(""))))
         );
         // [Example 597](https://spec.commonmark.org/0.30/#example-597)
-        // assert_eq!(
-        //     md_text2dest("<a+b+c:d>abc"),
-        //     Ok((
-        //         "abc",
-        //         (Cow::from("a+b+c:d"), Cow::from("a+b+c:d"), Cow::from(""))
-        //     ))
-        // );
+        assert_eq!(
+            md_text2dest("<a+b+c:d>abc"),
+            Ok((
+                "abc",
+                (Cow::from("a+b+c:d"), Cow::from("a+b+c:d"), Cow::from(""))
+            ))
+        );
         //[Example 603](https://spec.commonmark.org/0.30/#example-603)
-        // assert_eq!(
-        //     md_text2dest("<foo@bar.example.com>abc"),
-        //     Ok((
-        //         "abc",
-        //         (
-        //             Cow::from("foo@bar.example.com"),
-        //             Cow::from("foo@bar.example.com"),
-        //             Cow::from("")
-        //         )
-        //     ))
-        // );
+        assert_eq!(
+            md_text2dest("<foo@bar.example.com>abc"),
+            Ok((
+                "abc",
+                (
+                    Cow::from("foo@bar.example.com"),
+                    Cow::from("foo@bar.example.com"),
+                    Cow::from("")
+                )
+            ))
+        );
+        assert_eq!(
+            md_text2dest("<foo.example.com>abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "<foo.example.com>abc",
+                ErrorKind::Tag
+            )))
+        );
+        //[Example 603](https://spec.commonmark.org/0.30/#example-603)
+        assert_eq!(
+            md_text2dest("<foo@bar.exam%20ple.com>abc"),
+            Ok((
+                "abc",
+                (
+                    Cow::from("foo@bar.exam ple.com"),
+                    Cow::from("foo@bar.exam ple.com"),
+                    Cow::from("")
+                )
+            ))
+        );
+        //[Example 603](https://spec.commonmark.org/0.30/#example-603)
+        assert_eq!(
+            md_text2dest("<foo@bar.exam%fgple.com>abc"),
+            Ok((
+                "abc",
+                (
+                    Cow::from("foo@bar.exam%fgple.com"),
+                    Cow::from("foo@bar.exam%fgple.com"),
+                    Cow::from("")
+                )
+            ))
+        );
     }
 
     #[test]
