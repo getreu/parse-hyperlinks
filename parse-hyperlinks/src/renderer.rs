@@ -65,6 +65,7 @@ where
 /// [text3]: dest3 "title3"
 /// [label1]: dest1 "title1"
 /// abc[text3]abc
+/// abc<foo@dest4>abc
 /// "#;
 ///
 /// let expected = "\
@@ -74,6 +75,7 @@ where
 /// <a href=\"dest3\" title=\"title3\">[text3]: dest3 &quot;title3&quot;</a>
 /// <a href=\"dest1\" title=\"title1\">[label1]: dest1 &quot;title1&quot;</a>
 /// abc<a href=\"dest3\" title=\"title3\">text3</a>abc
+/// abc<a href=\"foo@dest4\" title=\"\">foo@dest4</a>abc
 /// </pre>";
 /// let res = text_links2html(i);
 /// assert_eq!(res, expected);
@@ -89,6 +91,7 @@ where
 /// <a href="dest3" title="title3">[text3]: dest3 &quot;title3&quot;</a>
 /// <a href="dest1" title="title1">[label1]: dest1 &quot;title1&quot;</a>
 /// abc<a href="dest3" title="title3">text3</a>abc
+/// abc<a href="foo@dest4" title="">foo@dest4</a>abc
 /// </pre>
 ///
 /// ## reStructuredText
@@ -307,6 +310,7 @@ where
 /// [text3]: dest3 "title3"
 /// [label1]: dest1 "title1"
 /// abc[text3]abc
+/// abc<foo@dest4>abc
 /// "#;
 ///
 /// let expected = "\
@@ -316,6 +320,7 @@ where
 /// <a href=\"dest3\" title=\"title3\">[text3]: dest3 \"title3\"</a>
 /// <a href=\"dest1\" title=\"title1\">[label1]: dest1 \"title1\"</a>
 /// abc<a href=\"dest3\" title=\"title3\">[text3]</a>abc
+/// abc<a href=\"foo@dest4\" title=\"\">&lt;foo@dest4&gt;</a>abc
 /// </pre>";
 ///
 /// let res = text_rawlinks2html(i);
@@ -332,6 +337,7 @@ where
 /// <a href="dest3" title="title3">[text3]: dest3 "title3"</a>
 /// <a href="dest1" title="title1">[label1]: dest1 "title1"</a>
 /// abc<a href="dest3" title="title3">[text3]</a>abc
+/// abc<a href="foo@dest4" title="">&lt;foo@dest4&gt;</a>abc
 /// </pre>
 ///
 /// ## reStructuredText
@@ -551,6 +557,7 @@ where
 /// [text3]: dest3 "title3"
 /// [label1]: dest1 "title1"
 /// abc[text3]abc
+/// abc<foo@dest4>abc
 /// "#;
 ///
 /// let expected = "\
@@ -558,6 +565,7 @@ where
 /// <a href=\"dest1\" title=\"title1\">text1</a>
 /// <a href=\"dest2\" title=\"title2\">text2</a>
 /// <a href=\"dest3\" title=\"title3\">text3</a>
+/// <a href=\"foo@dest4\" title=\"\">foo@dest4</a>
 /// ";
 /// let res = links2html(i);
 /// assert_eq!(res, expected);
@@ -571,6 +579,7 @@ where
 /// <a href="dest1" title="title1">text1</a>
 /// <a href="dest2" title="title2">text2</a>
 /// <a href="dest3" title="title3">text3</a>
+/// <a href="foo@dest4" title="">foo@dest4</a>
 ///
 ///
 /// ## reStructuredText

@@ -229,11 +229,16 @@ enum Status<'a> {
 /// use parse_hyperlinks::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
-/// let i = "abc[text0](dest0)efg[text1](dest1)hij";
+/// let i = "abc[text0](dest0)efg[text1](dest1)hij<foo@dest2>klm";
 ///
 /// let mut iter = Hyperlink::new(i, false);
-/// assert_eq!(iter.next().unwrap().0, ("abc", "[text0](dest0)", "efg[text1](dest1)hij"));
-/// assert_eq!(iter.next().unwrap().0, ("efg", "[text1](dest1)", "hij"));
+/// assert_eq!(iter.next().unwrap().0, ("abc",
+///                                     "[text0](dest0)",
+///                                     "efg[text1](dest1)hij<foo@dest2>klm"));
+/// assert_eq!(iter.next().unwrap().0, ("efg",
+///                                     "[text1](dest1)",
+///                                      "hij<foo@dest2>klm"));
+/// assert_eq!(iter.next().unwrap().0, ("hij", "<foo@dest2>", "klm"));
 /// assert_eq!(iter.next(), None);
 /// ```
 /// # Link content
@@ -559,6 +564,7 @@ __ rst_label6_
 abc `rst text5`__abc
 abc `rst text6`__abc
 abc `rst text_label7 <rst_destination7>`_abc
+abc<foo@md_dest5>abc
 "#;
 
         let hc = HyperlinkCollection::from(i, false);
@@ -631,10 +637,19 @@ abc `rst text_label7 <rst_destination7>`_abc
             "",
         ),
     ),
+    (
+        452,
+        14,
+        Text2Dest(
+            "foo@md_dest5",
+            "foo@md_dest5",
+            "",
+        ),
+    ),
 ]"#;
         let res = format!("{:#?}", hc.text2dest_label);
-        //eprintln!("{}", res);
-        assert_eq!(hc.text2dest_label.len(), 8);
+        eprintln!("{}", res);
+        assert_eq!(hc.text2dest_label.len(), 9);
         assert_eq!(res, expected);
 
         let expected = r#"[
