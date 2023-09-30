@@ -36,9 +36,10 @@ pub fn md_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// );
 /// ```
 pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
-    let (i, link_text) = md_link_text(i)?;
-    let (i, (link_destination, link_title)) = md_link_destination_enclosed(i)?;
-    Ok((i, (link_text, link_destination, link_title)))
+    map(
+        nom::sequence::tuple((md_link_text, md_link_destination_enclosed)),
+        |(a, (b, c))| (a, b, c),
+    )(i)
 }
 
 /// Wrapper around `md_label2dest()` that packs the result in
@@ -409,6 +410,26 @@ mod tests {
             md_text2dest("[]()abc"),
             Ok(("abc", (Cow::from(""), Cow::from(""), Cow::from(""))))
         );
+        // [Example 597](https://spec.commonmark.org/0.30/#example-597)
+        // assert_eq!(
+        //     md_text2dest("<a+b+c:d>abc"),
+        //     Ok((
+        //         "abc",
+        //         (Cow::from("a+b+c:d"), Cow::from("a+b+c:d"), Cow::from(""))
+        //     ))
+        // );
+        //[Example 603](https://spec.commonmark.org/0.30/#example-603)
+        // assert_eq!(
+        //     md_text2dest("<foo@bar.example.com>abc"),
+        //     Ok((
+        //         "abc",
+        //         (
+        //             Cow::from("foo@bar.example.com"),
+        //             Cow::from("foo@bar.example.com"),
+        //             Cow::from("")
+        //         )
+        //     ))
+        // );
     }
 
     #[test]
