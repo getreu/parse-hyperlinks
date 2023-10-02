@@ -195,16 +195,32 @@ impl<'a> Iterator for InlineImage<'a> {
     }
 }
 
+/// The state of the iterator.
 #[derive(Debug, PartialEq)]
+pub struct HyperlinkInlineImage<'a> {
+    /// The remaining text input.
+    input: &'a str,
+}
+
+/// Constructor for the `HyperlinkInlineImage` struct.
+impl<'a> HyperlinkInlineImage<'a> {
+    /// Constructor for the iterator. `input` is the text with hyperlinks and
+    /// inline images to be extracted.
+    #[inline]
+    pub fn new(input: &'a str) -> Self {
+        Self { input }
+    }
+}
+
 /// Iterator over the hyperlinks and inline images in the HTML formatted `input` text.
-/// This struct holds the iterator's state, as an advancing pointer into the `input` text.  The
-/// iterator's `next()` method returns a tuple with another tuples inside:
-/// `Some(((input_split), destination))`.
+/// This struct holds the iterator's state, as an advancing pointer into the `input` text.  
+/// The iterator's `next()` method returns a tuple with 2 tuples inside:
+/// * `Some(((input_split), Link))`
 ///
-/// The tuple has the following parts:
+/// The first tuple has the following parts:
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
-///
-/// # Input split
+/// * `Link` is of type `use parse_hyperlinks::parser::Link` and can be one of
+///   the variants `Link::Text2Dest` or `Link::Image`.
 ///
 /// ```
 /// use parse_hyperlinks_extras::iterator_html::HyperlinkInlineImage;
@@ -229,6 +245,7 @@ impl<'a> Iterator for InlineImage<'a> {
 ///
 /// ```
 /// use parse_hyperlinks_extras::iterator_html::HyperlinkInlineImage;
+/// use parse_hyperlinks::parser::Link;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
@@ -236,49 +253,24 @@ impl<'a> Iterator for InlineImage<'a> {
 ///
 ///
 /// let mut iter = HyperlinkInlineImage::new(i);
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("dest1")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("dest2")));
+/// assert_eq!(iter.next().unwrap().1,
+///            Link::Image(Cow::from("text1"), Cow::from("dest1")));
+/// assert_eq!(iter.next().unwrap().1,
+///            Link::Text2Dest(Cow::from("text2"),
+///                            Cow::from("dest2"),
+///                            Cow::from("title2")));
 /// assert_eq!(iter.next(), None);
 /// ```
-pub struct HyperlinkInlineImage<'a> {
-    /// The remaining text input.
-    input: &'a str,
-}
-
-/// Constructor for the `HyperlinkInlineImage` struct.
-impl<'a> HyperlinkInlineImage<'a> {
-    /// Constructor for the iterator. `input` is the text with hyperlinks and
-    /// inline images to be extracted.
-    #[inline]
-    pub fn new(input: &'a str) -> Self {
-        Self { input }
-    }
-}
-
-/// Iterator over the HTML hyperlinks and inline images in the `input`-text.
-/// The iterator's `next()` method returns a tuple with 2 tuples inside:
-/// * `Some(((input_split)(link_content)))`
-///
-/// Each tuple has the following parts:
-/// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
-/// * `link_content = image_src` for inline images or `link_content = destination`
-///   for hyperlinks.
 ///
 impl<'a> Iterator for HyperlinkInlineImage<'a> {
-    type Item = ((&'a str, &'a str, &'a str), Cow<'a, str>);
+    type Item = ((&'a str, &'a str, &'a str), Link<'a>);
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
 
-        if let Ok((remaining_input, (skipped, img_link))) = take_link(self.input) {
-            let dest = match img_link {
-                Link::Text2Dest(_, d, _) => d,
-                Link::Image(_, s) => s,
-                _ => unimplemented!("take_link() should not return this variant"),
-            };
-
+        if let Ok((remaining_input, (skipped, link))) = take_link(self.input) {
             let consumed = &self.input[skipped.len()..self.input.len() - remaining_input.len()];
             // Assigning output.
-            output = Some(((skipped, consumed, remaining_input), dest));
+            output = Some(((skipped, consumed, remaining_input), link));
             debug_assert_eq!(self.input, {
                 let mut s = "".to_string();
                 s.push_str(skipped);
