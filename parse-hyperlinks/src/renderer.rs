@@ -3,7 +3,6 @@
 
 use crate::iterator::Hyperlink;
 use html_escape::encode_double_quoted_attribute;
-use html_escape::encode_safe;
 use html_escape::encode_text;
 use std::borrow::Cow;
 use std::io;
@@ -35,7 +34,7 @@ where
         let skipped = encode_text(skipped2);
         let consumed = encode_text(consumed2);
         let remaining = encode_text(remaining2);
-        let text = encode_safe(&text2).to_string();
+        let text = encode_text(&text2).to_string();
         let dest = encode_double_quoted_attribute(&dest2).to_string();
         let title = encode_double_quoted_attribute(&title2).to_string();
         output.write_all(verb_renderer(skipped).as_bytes())?;
@@ -72,8 +71,8 @@ where
 /// <pre>abc<a href=\"dest0\" title=\"title0\">text0</a>abc
 /// abc<a href=\"dest1\" title=\"title1\">text1</a>abc
 /// abc<a href=\"dest2\" title=\"title2\">text2</a>abc
-/// <a href=\"dest3\" title=\"title3\">[text3]: dest3 &quot;title3&quot;</a>
-/// <a href=\"dest1\" title=\"title1\">[label1]: dest1 &quot;title1&quot;</a>
+/// <a href=\"dest3\" title=\"title3\">[text3]: dest3 \"title3\"</a>
+/// <a href=\"dest1\" title=\"title1\">[label1]: dest1 \"title1\"</a>
 /// abc<a href=\"dest3\" title=\"title3\">text3</a>abc
 /// abc<a href=\"foo@dest4\" title=\"\">foo@dest4</a>abc
 /// </pre>";
@@ -160,9 +159,9 @@ where
 /// <pre>abc <a href=\"https://dest0\" title=\"\">text0</a>abc
 /// abc <a href=\"https://dest1\" title=\"\">text1</a>abc
 /// abc<a href=\"https://dest2\" title=\"\">text2</a>abc
-/// abc<a href=\"https://dest3\" title=\"\">https:&#x2F;&#x2F;dest3</a>abc
-/// <a href=\"https://dest2\" title=\"\">:label2: https:&#x2F;&#x2F;dest2</a>
-/// <a href=\"https://dest3\" title=\"\">:label3: https:&#x2F;&#x2F;dest3</a>
+/// abc<a href=\"https://dest3\" title=\"\">https://dest3</a>abc
+/// <a href=\"https://dest2\" title=\"\">:label2: https://dest2</a>
+/// <a href=\"https://dest3\" title=\"\">:label3: https://dest3</a>
 /// </pre>";
 ///
 /// let res = text_links2html(i);
@@ -176,9 +175,9 @@ where
 /// <pre>abc <a href="https://dest0" title="">text0</a>abc
 /// abc <a href="https://dest1" title="">text1</a>abc
 /// abc<a href="https://dest2" title="">text2</a>abc
-/// abc<a href="https://dest3" title="">https:&#x2F;&#x2F;dest3</a>abc
-/// <a href="https://dest2" title="">:label2: https:&#x2F;&#x2F;dest2</a>
-/// <a href="https://dest3" title="">:label3: https:&#x2F;&#x2F;dest3</a>
+/// abc<a href="https://dest3" title="">https://dest3</a>abc
+/// <a href="https://dest2" title="">:label2: https://dest2</a>
+/// <a href="https://dest3" title="">:label3: https://dest3</a>
 /// </pre>
 ///
 ///
@@ -638,7 +637,7 @@ where
 /// <a href=\"https://dest0\" title=\"\">text0</a>
 /// <a href=\"https://dest1\" title=\"\">text1</a>
 /// <a href=\"https://dest2\" title=\"\">text2</a>
-/// <a href=\"https://dest3\" title=\"\">https:&#x2F;&#x2F;dest3</a>
+/// <a href=\"https://dest3\" title=\"\">https://dest3</a>
 /// ";
 ///
 /// let res = links2html(i);
@@ -652,7 +651,7 @@ where
 /// <a href="https://dest0" title="">text0</a>
 /// <a href="https://dest1" title="">text1</a>
 /// <a href="https://dest2" title="">text2</a>
-/// <a href="https://dest3" title="">https:&#x2F;&#x2F;dest3</a>
+/// <a href="https://dest3" title="">https://dest3</a>
 ///
 ///
 /// ## Wikitext
@@ -773,8 +772,8 @@ abc[label3]abc[label4]abc
 
         let expected = r#"<pre>abc<a href="destination1" title="title1">text1</a>abc
 abc <a href="destination2" title="title2">text2</a>
-  <a href="destination3" title="title3">[label3]: destination3 &quot;title3&quot;</a>
-  <a href="destination1" title="title1">[label1]: destination1 &quot;title1&quot;</a>
+  <a href="destination3" title="title3">[label3]: destination3 "title3"</a>
+  <a href="destination1" title="title1">[label1]: destination1 "title1"</a>
 abc<a href="destination3" title="title3">label3</a>abc[label4]abc
 </pre>"#;
         let res = text_links2html(i);
