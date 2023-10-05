@@ -269,6 +269,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
                 // Now we search for `label2*`.
                 // These parsers do not care about the indent, as long it is
                 // only whitespace.
+                md_text2dest_link,
                 wikitext_text2dest_link,
                 md_label2dest_link,
                 adoc_label2dest_link,
@@ -281,10 +282,10 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 
         // Regular `text` links can start everywhere.
         if let Ok((k, r)) = alt((
-            // This should be first, because it is very specific.
-            wikitext_text2dest_link,
             // Start with `text2dest`.
             md_text2dest_link,
+            // This should be first, because it is very specific.
+            wikitext_text2dest_link,
             // `rst_text2dest` must be always placed before `rst_text2label`.
             rst_text2dest_link,
             rst_text_label2dest_link,
@@ -613,6 +614,41 @@ __ label5
         assert_eq!(res, expected);
 
         let expected = Link::Label2Dest(Cow::from("_"), Cow::from("label5"), Cow::from(""));
+        let (_i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_take_link5() {
+        let i = r#"[http://getreu.net](<http://blog.getreu.net>)abc"
+[http://getreu.net](<http://blog.getreu.net>)def"
+ghi[http://getreu.net](<http://blog.getreu.net>)jkl"#;
+
+        let expected = Link::Text2Dest(
+            Cow::from("http://getreu.net"),
+            Cow::from("http://blog.getreu.net"),
+            Cow::from(""),
+        );
+        let (i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let (_i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+
+        let (_i, (_, res)) = take_link(i).unwrap();
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_take_link6() {
+        let i = r#"abc<http://getreu%20Ü.net>def
+"#;
+
+        let expected = Link::Text2Dest(
+            Cow::from("http://getreu Ü.net"),
+            Cow::from("http://getreu Ü.net"),
+            Cow::from(""),
+        );
         let (_i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
     }

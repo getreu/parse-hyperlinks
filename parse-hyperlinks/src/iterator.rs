@@ -564,7 +564,8 @@ __ rst_label6_
 abc `rst text5`__abc
 abc `rst text6`__abc
 abc `rst text_label7 <rst_destination7>`_abc
-abc<foo@md_dest5>abc
+abc<foo@mdÜ%20dest8>abc
+abc[http://text9](<http://destination9> "title9")
 "#;
 
         let hc = HyperlinkCollection::from(i, false);
@@ -639,18 +640,27 @@ abc<foo@md_dest5>abc
     ),
     (
         452,
-        14,
+        18,
         Text2Dest(
-            "foo@md_dest5",
-            "foo@md_dest5",
+            "foo@mdÜ dest8",
+            "foo@mdÜ dest8",
             "",
+        ),
+    ),
+    (
+        477,
+        46,
+        Text2Dest(
+            "http://text9",
+            "http://destination9",
+            "title9",
         ),
     ),
 ]"#;
         let res = format!("{:#?}", hc.text2dest_label);
         eprintln!("{}", res);
-        assert_eq!(hc.text2dest_label.len(), 9);
         assert_eq!(res, expected);
+        assert_eq!(hc.text2dest_label.len(), 10);
 
         let expected = r#"[
     (
