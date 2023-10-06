@@ -9,7 +9,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace1;
 use nom::combinator::*;
-use percent_encoding::{percent_decode, percent_decode_str};
+use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
 /// The following character are escapable in _link text_, _link label_, _link
@@ -49,7 +49,7 @@ pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
                 tag("<"),
                 map_parser(
                     nom::bytes::complete::take_till1(|c: char| c.is_ascii_whitespace() || c == '>'),
-                    md_absolute_uri,
+                    alt((md_absolute_uri, md_email_address)),
                 ),
                 tag(">"),
             ),
@@ -408,6 +408,30 @@ fn md_absolute_uri(i: &str) -> nom::IResult<&str, Cow<str>> {
     )(i)
 }
 
+/// Parses an Email address. This parser consumes all input to succeed.
+/// As it only checks and forwards, the result type is `Cow::Borrowed`.
+/// The check is not as strict but inspired by
+/// [HTML5 spec](https://html.spec.whatwg.org/multipage/forms.html#e-mail-state-(type=email)):
+/// and [CommonMark Spec](https://spec.commonmark.org/0.30/#email-autolink)
+/// The link’s label is the email address, and the
+/// URL is `mailto:` followed by the email address.
+///
+fn md_email_address(i: &str) -> nom::IResult<&str, Cow<str>> {
+    let j = i;
+    map(
+        all_consuming(nom::sequence::separated_pair(
+            // Parse scheme.
+            nom::bytes::complete::take_till1(|c: char| {
+                !(c.is_alphanumeric() || ".!#$%&'*+\\/=?^_`{|}~-".contains(c))
+            }),
+            tag("@"),
+            // Parse domain.
+            nom::bytes::complete::take_till1(|c: char| !(c.is_alphanumeric() || ".-".contains(c))),
+        )),
+        |(_, _)| Cow::Borrowed(j),
+    )(i)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -511,30 +535,6 @@ mod tests {
                 "<foo.example.com>abc",
                 ErrorKind::Tag
             )))
-        );
-        //[Example 603](https://spec.commonmark.org/0.30/#example-603)
-        assert_eq!(
-            md_text2dest("<foo@bar.exam%20ple.com>abc"),
-            Ok((
-                "abc",
-                (
-                    Cow::from("foo@bar.exam ple.com"),
-                    Cow::from("foo@bar.exam ple.com"),
-                    Cow::from("")
-                )
-            ))
-        );
-        //[Example 603](https://spec.commonmark.org/0.30/#example-603)
-        assert_eq!(
-            md_text2dest("<foo@bar.exam%fgple.com>abc"),
-            Ok((
-                "abc",
-                (
-                    Cow::from("foo@bar.exam%fgple.com"),
-                    Cow::from("foo@bar.exam%fgple.com"),
-                    Cow::from("")
-                )
-            ))
         );
     }
 
@@ -954,6 +954,13 @@ mod tests {
             )))
         );
         assert_eq!(
+            md_absolute_uri("sche&me:domain"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "&me:domain",
+                ErrorKind::Tag
+            )))
+        );
+        assert_eq!(
             md_absolute_uri("scheme+much+too.long......................:uri"),
             Err(nom::Err::Error(nom::error::Error::new(
                 "scheme+much+too.long......................:uri",
@@ -989,5 +996,28 @@ mod tests {
         let res = md_absolute_uri("scheme:domai%25n").unwrap();
         assert!(matches!(res.1, Cow::Owned(..)));
         assert_eq!(res.1, Cow::from("scheme:domai%n"));
+    }
+
+    #[test]
+    fn test_md_email_address() {
+        assert_eq!(
+            md_email_address("local@domain"),
+            Ok(("", Cow::Borrowed("local@domain")))
+        );
+        assert_eq!(
+            md_email_address("localÜ@domainÜ"),
+            Ok(("", Cow::Borrowed("localÜ@domainÜ")))
+        );
+        assert_eq!(
+            md_email_address("lo.cal@domain"),
+            Ok(("", Cow::Borrowed("lo.cal@domain")))
+        );
+        assert_eq!(
+            md_email_address("lo_cal@do_main"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "_main",
+                ErrorKind::Eof
+            )))
+        );
     }
 }

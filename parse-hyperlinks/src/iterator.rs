@@ -564,7 +564,8 @@ __ rst_label6_
 abc `rst text5`__abc
 abc `rst text6`__abc
 abc `rst text_label7 <rst_destination7>`_abc
-abc<foo@mdÜ%20dest8>abc
+abc<scheme:md_dest8>abc
+abc<local@md_email8>abc
 abc[http://text9](<http://destination9> "title9")
 "#;
 
@@ -640,15 +641,15 @@ abc[http://text9](<http://destination9> "title9")
     ),
     (
         452,
-        18,
+        17,
         Text2Dest(
-            "foo@mdÜ dest8",
-            "foo@mdÜ dest8",
+            "scheme:md_dest8",
+            "scheme:md_dest8",
             "",
         ),
     ),
     (
-        477,
+        500,
         46,
         Text2Dest(
             "http://text9",
