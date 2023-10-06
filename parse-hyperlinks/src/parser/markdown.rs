@@ -880,6 +880,8 @@ mod tests {
 
     #[test]
     fn test_md_link_title() {
+        // Similar to the
+        // [Example 504](https://spec.commonmark.org/0.30/#example-504)
         assert_eq!(
             md_link_title(" (title)abc"),
             Ok(("abc", Cow::from("title")))
