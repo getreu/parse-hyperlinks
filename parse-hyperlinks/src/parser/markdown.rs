@@ -438,6 +438,13 @@ mod tests {
             md_text2dest("[]()abc"),
             Ok(("abc", (Cow::from(""), Cow::from(""), Cow::from(""))))
         );
+        assert_eq!(
+            md_text2dest("[text]abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "abc",
+                ErrorKind::Tag
+            )))
+        );
         // [Example 597](https://spec.commonmark.org/0.30/#example-597)
         assert_eq!(
             md_text2dest("<a+b+c:d>abc"),
