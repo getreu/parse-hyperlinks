@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "atext2html"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "lazy_static",
  "parse-hyperlinks",
@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "html-escape",
  "nom",
@@ -125,7 +125,7 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks-extras"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "html-escape",
  "nom",
