@@ -44,16 +44,13 @@ pub fn md_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     alt((
         // Parse autolink.
-        map(
-            nom::sequence::delimited(
-                tag("<"),
-                map_parser(
-                    nom::bytes::complete::take_till1(|c: char| c.is_ascii_whitespace() || c == '>'),
-                    alt((md_absolute_uri, md_email_address)),
-                ),
-                tag(">"),
+        nom::sequence::delimited(
+            tag("<"),
+            map_parser(
+                nom::bytes::complete::take_till1(|c: char| c.is_ascii_whitespace() || c == '>'),
+                alt((md_absolute_uri, md_email_address)),
             ),
-            |a: Cow<str>| (a.clone(), a, Cow::from("")),
+            tag(">"),
         ),
         // Parse inline link.
         map(
@@ -378,7 +375,7 @@ fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// period (”.”), or hyphen (”-”).
 ///
 /// [CommonMark Spec](https://spec.commonmark.org/0.30/#autolinks)
-fn md_absolute_uri(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn md_absolute_uri(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let j = i;
     map(
         all_consuming(nom::sequence::separated_pair(
@@ -399,11 +396,12 @@ fn md_absolute_uri(i: &str) -> nom::IResult<&str, Cow<str>> {
             ),
         )),
         |(scheme, domain)| {
-            if matches!(domain, Cow::Borrowed(..)) {
+            let uri = if matches!(domain, Cow::Borrowed(..)) {
                 Cow::Borrowed(j)
             } else {
                 Cow::Owned(format!("{scheme}:{domain}"))
-            }
+            };
+            (uri.clone(), uri, Cow::from(""))
         },
     )(i)
 }
@@ -416,7 +414,7 @@ fn md_absolute_uri(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// The link’s label is the email address, and the
 /// URL is `mailto:` followed by the email address.
 ///
-fn md_email_address(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn md_email_address(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
     let j = i;
     map(
         all_consuming(nom::sequence::separated_pair(
@@ -428,7 +426,7 @@ fn md_email_address(i: &str) -> nom::IResult<&str, Cow<str>> {
             // Parse domain.
             nom::bytes::complete::take_till1(|c: char| !(c.is_alphanumeric() || ".-".contains(c))),
         )),
-        |(_, _)| Cow::Borrowed(j),
+        |(_, _)| (Cow::Borrowed(j), Cow::Borrowed(j), Cow::Borrowed("")),
     )(i)
 }
 
@@ -932,12 +930,16 @@ mod tests {
     #[test]
     fn test_md_absolute_uri() {
         assert_eq!(
-            md_absolute_uri("http://domain.com"),
-            Ok(("", Cow::Borrowed("http://domain.com")))
+            md_absolute_uri("http://domain.com").unwrap().1 .0,
+            Cow::Borrowed("http://domain.com")
         );
         assert_eq!(
-            md_absolute_uri("scheme:domain"),
-            Ok(("", Cow::Borrowed("scheme:domain")))
+            md_absolute_uri("http://domain.com").unwrap().1 .1,
+            Cow::Borrowed("http://domain.com")
+        );
+        assert_eq!(
+            md_absolute_uri("scheme:domain").unwrap().1 .1,
+            Cow::Borrowed("scheme:domain")
         );
         assert_eq!(
             md_absolute_uri("scheme:domain abc"),
@@ -990,27 +992,27 @@ mod tests {
         );
 
         let res = md_absolute_uri("scheme:domain").unwrap();
-        assert!(matches!(res.1, Cow::Borrowed(..)));
-        assert_eq!(res.1, Cow::from("scheme:domain"));
+        assert!(matches!(res.1 .0, Cow::Borrowed(..)));
+        assert_eq!(res.1 .0, Cow::from("scheme:domain"));
 
         let res = md_absolute_uri("scheme:domai%25n").unwrap();
-        assert!(matches!(res.1, Cow::Owned(..)));
-        assert_eq!(res.1, Cow::from("scheme:domai%n"));
+        assert!(matches!(res.1 .0, Cow::Owned(..)));
+        assert_eq!(res.1 .0, Cow::from("scheme:domai%n"));
     }
 
     #[test]
     fn test_md_email_address() {
         assert_eq!(
-            md_email_address("local@domain"),
-            Ok(("", Cow::Borrowed("local@domain")))
+            md_email_address("local@domain").unwrap().1 .1,
+            Cow::Borrowed("local@domain")
         );
         assert_eq!(
-            md_email_address("localÜ@domainÜ"),
-            Ok(("", Cow::Borrowed("localÜ@domainÜ")))
+            md_email_address("localÜ@domainÜ").unwrap().1 .1,
+            Cow::Borrowed("localÜ@domainÜ")
         );
         assert_eq!(
-            md_email_address("lo.cal@domain"),
-            Ok(("", Cow::Borrowed("lo.cal@domain")))
+            md_email_address("lo.cal@domain").unwrap().1 .1,
+            Cow::Borrowed("lo.cal@domain")
         );
         assert_eq!(
             md_email_address("lo_cal@do_main"),
