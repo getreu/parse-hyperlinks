@@ -37,8 +37,12 @@ pub fn md_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// );
 ///
 /// assert_eq!(
+///   md_text2dest(r#"<scheme:dest>abc"#),
+///   Ok(("abc", (Cow::from("scheme:dest"), Cow::from("scheme:dest"), Cow::from(""))))
+/// );
+/// assert_eq!(
 ///   md_text2dest(r#"<foo@dest>abc"#),
-///   Ok(("abc", (Cow::from("foo@dest"), Cow::from("foo@dest"), Cow::from(""))))
+///   Ok(("abc", (Cow::from("foo@dest"), Cow::from("mailto:foo@dest"), Cow::from(""))))
 /// );
 /// ```
 pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
@@ -426,7 +430,13 @@ fn md_email_address(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
             // Parse domain.
             nom::bytes::complete::take_till1(|c: char| !(c.is_alphanumeric() || ".-".contains(c))),
         )),
-        |(_, _)| (Cow::Borrowed(j), Cow::Borrowed(j), Cow::Borrowed("")),
+        |(_, _)| {
+            (
+                Cow::Borrowed(j),
+                Cow::Owned(format!("mailto:{}", j.to_string())),
+                Cow::Borrowed(""),
+            )
+        },
     )(i)
 }
 
@@ -522,7 +532,7 @@ mod tests {
                 "abc",
                 (
                     Cow::from("foo@bar.example.com"),
-                    Cow::from("foo@bar.example.com"),
+                    Cow::from("mailto:foo@bar.example.com"),
                     Cow::from("")
                 )
             ))
@@ -1002,18 +1012,24 @@ mod tests {
 
     #[test]
     fn test_md_email_address() {
-        assert_eq!(
-            md_email_address("local@domain").unwrap().1 .1,
-            Cow::Borrowed("local@domain")
-        );
-        assert_eq!(
-            md_email_address("localÜ@domainÜ").unwrap().1 .1,
-            Cow::Borrowed("localÜ@domainÜ")
-        );
-        assert_eq!(
-            md_email_address("lo.cal@domain").unwrap().1 .1,
-            Cow::Borrowed("lo.cal@domain")
-        );
+        let res = md_email_address("local@domain").unwrap();
+        assert!(matches!(res.1 .0, Cow::Borrowed(..)));
+        assert!(matches!(res.1 .1, Cow::Owned(..)));
+        assert_eq!(res.1 .0, Cow::from("local@domain"));
+        assert_eq!(res.1 .1, Cow::from("mailto:local@domain"));
+
+        let res = md_email_address("localÜ@domainÜ").unwrap();
+        assert!(matches!(res.1 .0, Cow::Borrowed(..)));
+        assert!(matches!(res.1 .1, Cow::Owned(..)));
+        assert_eq!(res.1 .0, Cow::from("localÜ@domainÜ"));
+        assert_eq!(res.1 .1, Cow::from("mailto:localÜ@domainÜ"));
+
+        let res = md_email_address("lo.cal@domain").unwrap();
+        assert!(matches!(res.1 .0, Cow::Borrowed(..)));
+        assert!(matches!(res.1 .1, Cow::Owned(..)));
+        assert_eq!(res.1 .0, Cow::from("lo.cal@domain"));
+        assert_eq!(res.1 .1, Cow::from("mailto:lo.cal@domain"));
+
         assert_eq!(
             md_email_address("lo_cal@do_main"),
             Err(nom::Err::Error(nom::error::Error::new(
