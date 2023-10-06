@@ -538,11 +538,7 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// assert_eq!(r, Some((Cow::from("t"), Cow::from("v"), Cow::from("w"))));
 /// ```
 pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
-    if let Some((_, (text, dest, title))) = Hyperlink::new(i, false).next() {
-        Some((text, dest, title))
-    } else {
-        None
-    }
+    Hyperlink::new(i, false).next().map(|(_, l)| l)
 }
 
 #[cfg(test)]
