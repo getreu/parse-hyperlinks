@@ -9,7 +9,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace1;
 use nom::combinator::*;
-use percent_encoding::percent_decode;
+use percent_encoding::{percent_decode, percent_decode_str};
 use std::borrow::Cow;
 
 /// The following character are escapable in _link text_, _link label_, _link
@@ -47,20 +47,13 @@ pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
         map(
             nom::sequence::delimited(
                 tag("<"),
-                verify(
-                    nom::bytes::complete::take_till1(|c| {
-                        c == ' ' || c == '\t' || c == '\r' || c == '>'
-                    }),
-                    |res: &str| res.contains(':') || res.contains('@'),
+                map_parser(
+                    nom::bytes::complete::take_till1(|c: char| c.is_ascii_whitespace() || c == '>'),
+                    md_absolute_uri,
                 ),
                 tag(">"),
             ),
-            |a: &str| {
-                let a = percent_decode(a.as_bytes())
-                    .decode_utf8()
-                    .unwrap_or(Cow::Borrowed(a));
-                (a.clone(), a, Cow::from(""))
-            },
+            |a: Cow<str>| (a.clone(), a, Cow::from("")),
         ),
         // Parse inline link.
         map(
@@ -223,7 +216,7 @@ fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
     )(i)
 }
 
-/// Parses _link label_.
+/// Parses a _link label_.
 /// A link label begins with a left bracket ([) and ends with the first right
 /// bracket (]) that is not backslash-escaped. Between these brackets there must
 /// be at least one non-whitespace character. Unescaped square bracket characters
@@ -365,6 +358,53 @@ fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
             nom::character::complete::one_of(ESCAPABLE),
         ),
         |s| if s == i { Cow::from(i) } else { Cow::from(s) },
+    )(i)
+}
+
+/// Parses an [absolute URI](https://spec.commonmark.org/0.30/#absolute-uri).
+/// This parser consumes all input to succeed.
+/// An absolute URI, for these purposes, consists of a
+/// [scheme](https://spec.commonmark.org/0.30/#scheme) followed by a
+/// colon (`:`) followed by zero or more characters other [ASCII control
+/// characters](https://spec.commonmark.org/0.30/#ascii-control-character),
+/// [space](https://spec.commonmark.org/0.30/#space), `<`, and `>`. If the
+/// URI includes these characters, they must be percent-encoded (e.g. `%20`
+/// for a space).
+///
+/// For purposes of this spec, a
+/// [scheme](https://spec.commonmark.org/0.30/#scheme) is any sequence of
+/// 2–32 characters beginning with an ASCII letter and followed by any
+/// combination of ASCII letters, digits, or the symbols plus (”+”),
+/// period (”.”), or hyphen (”-”).
+///
+/// [CommonMark Spec](https://spec.commonmark.org/0.30/#autolinks)
+fn md_absolute_uri(i: &str) -> nom::IResult<&str, Cow<str>> {
+    let j = i;
+    map(
+        all_consuming(nom::sequence::separated_pair(
+            // Parse scheme.
+            verify(
+                nom::bytes::complete::take_till1(|c: char| {
+                    !(c.is_ascii_alphanumeric() || "+.-".contains(c))
+                }),
+                |s: &str| s.len() >= 2 && s.len() <= 32,
+            ),
+            tag(":"),
+            // Parse domain.
+            map_res(
+                nom::bytes::complete::take_till1(|c: char| {
+                    c.is_ascii_control() || c.is_ascii_whitespace() || "<>".contains(c)
+                }),
+                |s| percent_decode_str(s).decode_utf8(),
+            ),
+        )),
+        |(scheme, domain)| {
+            if matches!(domain, Cow::Borrowed(..)) {
+                Cow::Borrowed(j)
+            } else {
+                Cow::Owned(format!("{scheme}:{domain}"))
+            }
+        },
     )(i)
 }
 
@@ -888,5 +928,66 @@ mod tests {
                 ErrorKind::Verify
             )))
         );
+    }
+    #[test]
+    fn test_md_absolute_uri() {
+        assert_eq!(
+            md_absolute_uri("http://domain.com"),
+            Ok(("", Cow::Borrowed("http://domain.com")))
+        );
+        assert_eq!(
+            md_absolute_uri("scheme:domain"),
+            Ok(("", Cow::Borrowed("scheme:domain")))
+        );
+        assert_eq!(
+            md_absolute_uri("scheme:domain abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                " abc",
+                ErrorKind::Eof
+            )))
+        );
+        assert_eq!(
+            md_absolute_uri("h:domain"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "h:domain",
+                ErrorKind::Verify
+            )))
+        );
+        assert_eq!(
+            md_absolute_uri("scheme+much+too.long......................:uri"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "scheme+much+too.long......................:uri",
+                ErrorKind::Verify
+            )))
+        );
+        assert_eq!(
+            md_absolute_uri("httpÜ:domain abc"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                "Ü:domain abc",
+                ErrorKind::Tag
+            )))
+        );
+        assert_eq!(
+            md_absolute_uri("no colon"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                " colon",
+                ErrorKind::Tag
+            )))
+        );
+        assert_eq!(
+            md_absolute_uri("scheme:domai>n"),
+            Err(nom::Err::Error(nom::error::Error::new(
+                ">n",
+                ErrorKind::Eof
+            )))
+        );
+
+        let res = md_absolute_uri("scheme:domain").unwrap();
+        assert!(matches!(res.1, Cow::Borrowed(..)));
+        assert_eq!(res.1, Cow::from("scheme:domain"));
+
+        let res = md_absolute_uri("scheme:domai%25n").unwrap();
+        assert!(matches!(res.1, Cow::Owned(..)));
+        assert_eq!(res.1, Cow::from("scheme:domai%n"));
     }
 }
