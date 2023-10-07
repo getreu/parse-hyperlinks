@@ -7,7 +7,8 @@ pub mod markdown;
 pub mod parse;
 pub mod restructured_text;
 pub mod wikitext;
-
+use nom::error::ErrorKind;
+use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
 /// A link can be an _inline link_, a _reference link_, a _link reference
@@ -148,4 +149,31 @@ pub enum Link<'a> {
     /// ```
     /// Note: this crate does not contain parsers for this variant.
     Image(Cow<'a, str>, Cow<'a, str>),
+}
+
+/// A parser that decodes percent encoded URLS.
+/// This parser consumes all input. It returns `Err` when the percent-decoded
+/// bytes are not well-formed in UTF-8.
+/// ```text
+/// use std::borrow::Cow;
+///
+/// let res = percent_decode("https://getreu.net/?q=%5Ba%20b%5D").unwrap();
+/// assert_eq!(res, ("", Cow::Owned("https://getreu.net/?q=[a b]".to_string())));
+///```
+fn percent_decode(i: &str) -> nom::IResult<&str, Cow<str>> {
+    let decoded = percent_decode_str(i)
+        .decode_utf8()
+        .map_err(|_| nom::Err::Error(nom::error::Error::new(i, ErrorKind::EscapedTransform)))?;
+    Ok(("", decoded))
+}
+
+#[test]
+fn test_percent_decode() {
+    let res = percent_decode("percent%20encoded string").unwrap();
+    assert!(matches!(res.1, Cow::Owned(..)));
+    assert_eq!(res.1, Cow::from("percent encoded string"));
+
+    let res = percent_decode("nothing").unwrap();
+    assert!(matches!(res.1, Cow::Borrowed(..)));
+    assert_eq!(res.1, Cow::from("nothing"));
 }

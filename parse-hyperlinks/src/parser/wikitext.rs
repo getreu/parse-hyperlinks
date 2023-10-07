@@ -2,11 +2,11 @@
 #![allow(dead_code)]
 #![allow(clippy::type_complexity)]
 
+use crate::parser::percent_decode;
 use crate::parser::Link;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
-use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
 /// Wrapper around `wikitext_text2dest()` that packs the result in
@@ -66,11 +66,10 @@ fn parse_inner(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 
 /// Parse URL.
 fn parse_url(i: &str) -> nom::IResult<&str, Cow<str>> {
-    nom::combinator::peek(alt((tag("http:"), tag("https:"), tag("mailto:"))))(i)?;
-    // We can safely unwrap here because `str` is guaranteed to be
-    // UTF-8.
-    let url = percent_decode_str(i).decode_utf8().unwrap();
-    Ok(("", url))
+    nom::sequence::preceded(
+        nom::combinator::peek(alt((tag("http:"), tag("https:"), tag("mailto:")))),
+        percent_decode,
+    )(i)
 }
 
 #[test]

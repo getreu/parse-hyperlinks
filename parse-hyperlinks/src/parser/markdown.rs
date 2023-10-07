@@ -3,13 +3,13 @@
 #![allow(clippy::type_complexity)]
 
 use crate::parser::parse::LABEL_LEN_MAX;
+use crate::parser::percent_decode;
 use crate::parser::Link;
 use crate::take_until_unbalanced;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace1;
 use nom::combinator::*;
-use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
 /// The following character are escapable in _link text_, _link label_, _link
@@ -392,11 +392,11 @@ fn md_absolute_uri(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)
             ),
             tag(":"),
             // Parse domain.
-            map_res(
+            map_parser(
                 nom::bytes::complete::take_till1(|c: char| {
                     c.is_ascii_control() || c.is_ascii_whitespace() || "<>".contains(c)
                 }),
-                |s| percent_decode_str(s).decode_utf8(),
+                percent_decode,
             ),
         )),
         |(scheme, domain)| {

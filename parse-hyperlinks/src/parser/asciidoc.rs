@@ -3,6 +3,7 @@
 #![allow(clippy::type_complexity)]
 
 use crate::parser::parse::LABEL_LEN_MAX;
+use crate::parser::percent_decode;
 use crate::parser::Link;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -10,8 +11,6 @@ use nom::bytes::complete::tag_no_case;
 use nom::character::complete::char;
 use nom::character::complete::space0;
 use nom::combinator::peek;
-use nom::error::ErrorKind;
-use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
 /// Wrapper around `adoc_text2dest()` that packs the result in
@@ -323,21 +322,6 @@ fn adoc_parse_http_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
         nom::bytes::complete::take_till1(|c| c == '[' || c == ' ' || c == '\t' || c == '\n'),
     )(i)?;
     Ok((j, Cow::Borrowed(s)))
-}
-
-/// A parser that decodes percent encoded URLS.
-/// Fails when the percent codes can not be mapped to valid UTF8.
-/// ```text
-/// use std::borrow::Cow;
-///
-/// let res = percent_decode("https://getreu.net/?q=%5Ba%20b%5D").unwrap();
-/// assert_eq!(res, ("", Cow::Owned("https://getreu.net/?q=[a b]".to_string())));
-///```
-fn percent_decode(i: &str) -> nom::IResult<&str, Cow<str>> {
-    let decoded = percent_decode_str(i)
-        .decode_utf8()
-        .map_err(|_| nom::Err::Error(nom::error::Error::new(i, ErrorKind::EscapedTransform)))?;
-    Ok(("", decoded))
 }
 
 /// Parses a link destination starting with `link:http://` or `link:https://` ending
