@@ -204,12 +204,44 @@ mod tests {
 
     #[test]
     fn test_take_link() {
-        let (i, r) = take_link(r#"<img src="t%20m%20p.jpg" alt="test1" />"#).unwrap();
+        let (i, r) = take_link(r#"<img src="t%20m%20p&amp;.jpg" alt="test1" />"#).unwrap();
         assert_eq!(i, "");
         assert_eq!(r.0, "");
         assert_eq!(
             r.1,
-            Link::Image(Cow::from("test1"), Cow::from("t%20m%20p.jpg"))
+            Link::Image(Cow::from("test1"), Cow::from("t%20m%20p&.jpg"))
+        );
+
+        //
+        let (i, r) = take_link(
+            r#"<a href="http://getreu.net/%C3%9C%20&amp;">http://getreu.net/Ü%20&amp;</a>abc"#,
+        )
+        .unwrap();
+        assert_eq!(i, "abc");
+        assert_eq!(r.0, "");
+        assert_eq!(
+            r.1,
+            Link::Text2Dest(
+                Cow::from("http://getreu.net/Ü%20&"),
+                Cow::from("http://getreu.net/%C3%9C%20&"),
+                Cow::from(""),
+            )
+        );
+
+        //
+        let (i, r) = take_link(
+            r#"<a href="http://getreu.net/%C3%9C%20&amp;">http://getreu.net/Ü &amp;</a>abc"#,
+        )
+        .unwrap();
+        assert_eq!(i, "abc");
+        assert_eq!(r.0, "");
+        assert_eq!(
+            r.1,
+            Link::Text2Dest(
+                Cow::from("http://getreu.net/Ü &"),
+                Cow::from("http://getreu.net/%C3%9C%20&"),
+                Cow::from(""),
+            )
         );
     }
 }
