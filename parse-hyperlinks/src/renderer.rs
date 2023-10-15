@@ -34,7 +34,7 @@ where
         let skipped = encode_text(skipped2);
         let consumed = encode_text(consumed2);
         let remaining = encode_text(remaining2);
-        let text = encode_text(&text2).to_string();
+        let text = text2.to_string();
         let dest = encode_double_quoted_attribute(&dest2).to_string();
         let title = encode_double_quoted_attribute(&title2).to_string();
         output.write_all(verb_renderer(skipped).as_bytes())?;
