@@ -179,4 +179,25 @@ mod tests {
             expected
         );
     }
+
+    #[test]
+    fn test_image_link() {
+        // input = r#"[![Add to wallet](https://booking.stenaline.de/-/media/Images/DE/Logos/add-to-apple-wallet_143x44.png?w=220&hash=DCF2971402505063EB697C19F884E5A325794B38)](https://booking.stenaline.de/book/Confirmation/PassBook/895137609)"#;
+        // // TODO
+        // let expected = (
+        //     "",
+        //     vec![
+        //         ("", Cow::from("")),
+        //         ("src", Cow::from("http://getreu.net/my&dog.png")),
+        //         ("", Cow::from("")),
+        //         ("alt", Cow::from("My dog")),
+        //         ("", Cow::from("")),
+        //     ],
+        // );
+        // assert_eq!(
+        //     todo(r#"abc src="http://getreu.net/my&amp;dog.png" abc alt="My dog" abc"#)
+        //         .unwrap(),
+        //     expected
+        // );
+    }
 }
