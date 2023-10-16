@@ -2,6 +2,7 @@
 //! hyperlinks clickable.
 
 use crate::iterator::Hyperlink;
+use crate::parser::Link;
 use html_escape::encode_double_quoted_attribute;
 use html_escape::encode_text;
 use std::borrow::Cow;
@@ -19,7 +20,7 @@ fn render<'a, O, P, W>(
 ) -> Result<(), io::Error>
 where
     O: Fn(Cow<'a, str>) -> Cow<'a, str>,
-    P: Fn((Cow<'a, str>, (String, String, String))) -> String,
+    P: Fn((Cow<'a, str>, Link<'a>)) -> String,
     W: Write,
 {
     // As this will be overwritten inside the loop, the first value only counts
@@ -28,17 +29,13 @@ where
     let mut rest = Cow::Borrowed(input);
 
     output.write_all(begin_doc.as_bytes())?;
-    for ((skipped2, consumed2, remaining2), (text2, dest2, title2)) in
-        Hyperlink::new(input, render_label)
-    {
+    for ((skipped2, consumed2, remaining2), link) in Hyperlink::new(input, render_label) {
+        // (text2, dest2, title2)
         let skipped = encode_text(skipped2);
         let consumed = encode_text(consumed2);
         let remaining = encode_text(remaining2);
-        let text = text2.to_string();
-        let dest = encode_double_quoted_attribute(&dest2).to_string();
-        let title = encode_double_quoted_attribute(&title2).to_string();
         output.write_all(verb_renderer(skipped).as_bytes())?;
-        let rendered_link = link_renderer((consumed, (text, dest, title)));
+        let rendered_link = link_renderer((consumed, link));
         output.write_all(rendered_link.as_bytes())?;
         rest = remaining;
     }
@@ -267,16 +264,23 @@ where
 {
     let verb_renderer = |verb: Cow<'a, str>| verb;
 
-    let link_renderer = |(_, (text, dest, title)): (_, (String, String, String))| {
-        let mut s = String::new();
-        s.push_str(r#"<a href=""#);
-        s.push_str(&*dest);
-        s.push_str(r#"" title=""#);
-        s.push_str(&*title);
-        s.push_str(r#"">"#);
-        s.push_str(&*text);
-        s.push_str(r#"</a>"#);
-        s
+    let link_renderer = |(_consumed, link)| match link {
+        Link::Text2Dest(text, dest, title) => format!(
+            r#"<a href="{}" title="{}">{}</a>"#,
+            encode_double_quoted_attribute(dest.as_ref()),
+            encode_double_quoted_attribute(title.as_ref()),
+            text
+        ),
+        Link::Image2Dest(text1, alt, src, text2, dest, title) => format!(
+            r#"<a href="{}" title="{}">{}<img alt="{}" src="{}"/>{}</a>"#,
+            encode_double_quoted_attribute(dest.as_ref()),
+            encode_double_quoted_attribute(title.as_ref()),
+            text1,
+            encode_double_quoted_attribute(alt.as_ref()),
+            encode_double_quoted_attribute(src.as_ref()),
+            text2,
+        ),
+        e => format!("<ERROR rendering: {:?}>", e),
     };
 
     render(
@@ -516,16 +520,20 @@ where
 {
     let verb_renderer = |verb: Cow<'a, str>| verb;
 
-    let link_renderer = |(consumed, (_, dest, title)): (Cow<str>, (_, String, String))| {
-        let mut s = String::new();
-        s.push_str(r#"<a href=""#);
-        s.push_str(&*dest);
-        s.push_str(r#"" title=""#);
-        s.push_str(&*title);
-        s.push_str(r#"">"#);
-        s.push_str(&*consumed);
-        s.push_str(r#"</a>"#);
-        s
+    let link_renderer = |(consumed, link)| match link {
+        Link::Text2Dest(_text, dest, title) => format!(
+            r#"<a href="{}" title="{}">{}</a>"#,
+            encode_double_quoted_attribute(dest.as_ref()),
+            encode_double_quoted_attribute(title.as_ref()),
+            consumed
+        ),
+        Link::Image2Dest(_text1, _alt, _src, _text2, dest, title) => format!(
+            r#"<a href="{}" title="{}">{}</a>"#,
+            encode_double_quoted_attribute(dest.as_ref()),
+            encode_double_quoted_attribute(title.as_ref()),
+            consumed
+        ),
+        e => format!("<ERROR rendering: {:?}>", e),
     };
 
     render(
@@ -742,16 +750,22 @@ pub fn links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 
     let verb_renderer = |_| Cow::Borrowed("");
 
-    let link_renderer = |(_, (text, dest, title)): (_, (String, String, String))| {
-        let mut s = String::new();
-        s.push_str(r#"<a href=""#);
-        s.push_str(&*dest);
-        s.push_str(r#"" title=""#);
-        s.push_str(&*title);
-        s.push_str(r#"">"#);
-        s.push_str(&*text);
-        s.push_str("</a>\n");
-        s
+    let link_renderer = |(_consumed, link)| match link {
+        Link::Text2Dest(text, dest, title) => format!(
+            "<a href=\"{}\" title=\"{}\">{}</a>\n",
+            encode_double_quoted_attribute(dest.as_ref()),
+            encode_double_quoted_attribute(title.as_ref()),
+            text
+        ),
+        Link::Image2Dest(text1, alt, _src, text2, dest, title) => format!(
+            "<a href=\"{}\" title=\"{}\">{}[{}]{}</a>\n",
+            encode_double_quoted_attribute(dest.as_ref()),
+            encode_double_quoted_attribute(title.as_ref()),
+            text1,
+            alt,
+            text2,
+        ),
+        e => format!("<ERROR rendering: {:?}>", e),
     };
 
     render(input, "", "", verb_renderer, link_renderer, false, output)

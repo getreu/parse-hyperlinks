@@ -48,7 +48,9 @@ impl<'a> HyperlinkCollection<'a> {
         while let Ok((j, (skipped, res))) = take_link(i) {
             match res {
                 // `Text2Dest` is stored without modification in `hc.text2dest_label`.
-                l if matches!(l, Link::Text2Dest { .. }) => {
+                l if matches!(l, Link::Text2Dest { .. })
+                    || matches!(l, Link::Image2Dest { .. }) =>
+                {
                     let link_offset = input_idx + skipped.len();
                     let link_len = i.len() - j.len() - skipped.len();
                     hc.text2dest_label.push((link_offset, link_len, l));
@@ -165,8 +167,8 @@ impl<'a> HyperlinkCollection<'a> {
     /// `Link::Text2Dest` object. Then the item form the fist list is replaced by
     /// this new object. After this operation the
     /// `HyperlinkCollection::text2text_label` list contains only
-    /// `Link::Text2Dest` objects (and some unresolvable `Link::Text2Label`
-    /// objects).
+    /// `Link::Text2Dest` and `Link::Image2Dest` objects (and some unresolvable
+    /// `Link::Text2Label` objects).
     #[inline]
     fn resolve_text2label_references(&mut self) {
         let mut idx = 0;
@@ -201,7 +203,8 @@ impl<'a> HyperlinkCollection<'a> {
 enum Status<'a> {
     /// Initial state. Iterator is not started.
     Init,
-    /// So far only `Text2Dest` links are coming, no links need to be resolved.
+    /// So far only `Text2Dest` and `Image2Dest` links are coming, no links
+    /// need to be resolved.
     DirectSearch(&'a str),
     /// As soon as the first reference appears, the remaining text is read and
     /// all links are resolved. The tuple describes a resolved link. The first
@@ -215,13 +218,13 @@ enum Status<'a> {
 
 #[derive(Debug, PartialEq)]
 /// Iterator over all the hyperlinks in the `input` text.
-/// This struct holds the iterator's state and an advancing pointer into the `input` text.
-/// The iterator's `next()` method returns a tuple with 2 tuples inside:
-/// `Some(((input_split)(link_content)))`.
+/// This struct holds the iterator's state and an advancing pointer into the
+/// `input` text. The iterator's `next()` method returns a tuple with a tuples
+/// inside: `Some(((input_split), Link))`.
 ///
 /// Each tuple has the following parts:
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
-/// * `link_content = (link_text, link_destination, link_title)`
+/// * `Link` is `Link::Text2Dest` or `Link::Image2Dest`
 ///
 /// # Input split
 ///
@@ -244,6 +247,7 @@ enum Status<'a> {
 /// # Link content
 /// ## Markdown
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
@@ -256,16 +260,17 @@ enum Status<'a> {
 /// "#;
 ///
 /// let mut iter = Hyperlink::new(i, false);
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text0"), Cow::from("dest0"), Cow::from("title0")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text3"), Cow::from("dest3"), Cow::from("title3")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text0"), Cow::from("dest0"), Cow::from("title0")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text3"), Cow::from("dest3"), Cow::from("title3")));
 /// assert_eq!(iter.next(), None);
 /// ```
 ///
 /// ## reStructuredText
 ///
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
@@ -282,16 +287,17 @@ enum Status<'a> {
 /// "#;
 ///
 /// let mut iter = Hyperlink::new(i, false);
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text3"), Cow::from("dest3"), Cow::from("")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text5"), Cow::from("dest5"), Cow::from("")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text2"), Cow::from("dest2"), Cow::from("")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text3"), Cow::from("dest3"), Cow::from("")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text5"), Cow::from("dest5"), Cow::from("")));
 /// assert_eq!(iter.next(), None);
 ///
 /// ```
 /// ## Asciidoc
 ///
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
@@ -305,26 +311,29 @@ enum Status<'a> {
 /// "#;
 ///
 /// let mut iter = Hyperlink::new(i, false);
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text0"), Cow::from("https://dest0"), Cow::from("")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("https://dest1"), Cow::from("")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("https://dest2"), Cow::from("")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("https://dest3"), Cow::from("https://dest3"), Cow::from("")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text0"), Cow::from("https://dest0"), Cow::from("")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("https://dest1"), Cow::from("")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text2"), Cow::from("https://dest2"), Cow::from("")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("https://dest3"), Cow::from("https://dest3"), Cow::from("")));
 /// assert_eq!(iter.next(), None);
 /// ```
 ///
 /// # HTML
 ///
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::iterator::Hyperlink;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<a href="dest1" title="title1">text1</a>abc
 /// abc<a href="dest2" title="title2">text2</a>abc
+/// abc<a href="dest3" title="title3">cde<img alt="alt3" src="src3"/>fgh</a>abc
 /// "#;
 ///
 /// let mut iter = Hyperlink::new(i, false);
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
-/// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
+/// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
+/// assert_eq!(iter.next().unwrap().1, Link::Image2Dest(Cow::from("cde"), Cow::from("alt3"), Cow::from("src3"), Cow::from("fgh"), Cow::from("dest3"), Cow::from("title3")));
 /// assert_eq!(iter.next(), None);
 /// ```
 pub struct Hyperlink<'a> {
@@ -353,6 +362,7 @@ impl<'a> Hyperlink<'a> {
     /// By default `Label2Dest` link reference definitions are not rendered:
     ///
     /// ```
+    /// use parse_hyperlinks::parser::Link;
     /// use parse_hyperlinks::iterator::Hyperlink;
     /// use std::borrow::Cow;
     ///
@@ -361,7 +371,7 @@ impl<'a> Hyperlink<'a> {
     /// "#;
     ///
     /// let mut iter = Hyperlink::new(i, false);
-    /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
+    /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
     /// assert_eq!(iter.next(), None);
     /// ```
     ///
@@ -373,6 +383,7 @@ impl<'a> Hyperlink<'a> {
     /// e.g. `Hyperlink::new(i, true)`.
     ///
     /// ```
+    /// use parse_hyperlinks::parser::Link;
     /// use parse_hyperlinks::iterator::Hyperlink;
     /// use std::borrow::Cow;
     ///
@@ -381,8 +392,8 @@ impl<'a> Hyperlink<'a> {
     /// "#;
     ///
     /// let mut iter = Hyperlink::new(i, true);
-    /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
-    /// assert_eq!(iter.next().unwrap().1, (Cow::from("[label1]: dest1 \"title1\""), Cow::from("dest1"), Cow::from("title1")));
+    /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
+    /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("[label1]: dest1 \"title1\""), Cow::from("dest1"), Cow::from("title1")));
     /// assert_eq!(iter.next(), None);
     /// ```
     ///
@@ -408,10 +419,7 @@ impl<'a> Hyperlink<'a> {
 ///
 impl<'a> Iterator for Hyperlink<'a> {
     #[allow(clippy::type_complexity)]
-    type Item = (
-        (&'a str, &'a str, &'a str),
-        (Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
-    );
+    type Item = ((&'a str, &'a str, &'a str), Link<'a>);
     /// The iterator operates in 2 modes:
     /// 1. `Status::DirectSearch`: This is the starting state. So far
     ///    the iterator has only encountered inline links so far.
@@ -445,59 +453,78 @@ impl<'a> Iterator for Hyperlink<'a> {
 
                 Status::DirectSearch(input) => {
                     // We stay in direct mode.
-                    if let Ok((remaining_input, (skipped, Link::Text2Dest(te, de, ti)))) =
-                        take_link(input)
-                    {
-                        let consumed = &input[skipped.len()..input.len() - remaining_input.len()];
-                        // Assing output.
-                        output = Some(((skipped, consumed, remaining_input), (te, de, ti)));
-                        debug_assert_eq!(input, {
-                            let mut s = "".to_string();
-                            s.push_str(skipped);
-                            s.push_str(consumed);
-                            s.push_str(remaining_input);
-                            s
-                        });
-                        // Same state, we leave the loop.
-                        again = false;
-                        Status::DirectSearch(remaining_input)
-                    } else {
-                        // We switch to resolving mode.
-                        self.input = input;
-                        let mut hc = HyperlinkCollection::from(input, self.render_label);
-                        hc.resolve_label2label_references();
-                        hc.resolve_text2label_references();
-                        let mut resolved_links = Vec::new();
-                        swap(&mut hc.text2dest_label, &mut resolved_links);
-
-                        // Advance state machine and match one more time.
-                        Status::ResolvedLinks(resolved_links)
-                    }
-                }
-
-                Status::ResolvedLinks(mut resolved_links) => {
-                    while !resolved_links.is_empty() {
-                        if let (input_offset, len, Link::Text2Dest(te, de, ti)) =
-                            resolved_links.remove(0)
+                    match take_link(input) {
+                        Ok((remaining_input, (skipped, link)))
+                            if match link {
+                                Link::Text2Dest(_, _, _) => true,
+                                Link::Image2Dest(_, _, _, _, _, _) => true,
+                                _ => false,
+                            } =>
                         {
-                            let skipped = &self.input
-                                [(self.last_output_offset + self.last_output_len)..input_offset];
-                            let consumed = &self.input[input_offset..input_offset + len];
-                            let remaining_input = &self.input[input_offset + len..];
-                            // Assign output.
-                            output = Some(((skipped, consumed, remaining_input), (te, de, ti)));
-                            debug_assert_eq!(self.input, {
-                                let mut s = (&self.input
-                                    [..self.last_output_offset + self.last_output_len])
-                                    .to_string();
+                            let consumed =
+                                &input[skipped.len()..input.len() - remaining_input.len()];
+                            // Assinig output.
+                            output = Some(((skipped, consumed, remaining_input), link));
+                            debug_assert_eq!(input, {
+                                let mut s = "".to_string();
                                 s.push_str(skipped);
                                 s.push_str(consumed);
                                 s.push_str(remaining_input);
                                 s
                             });
-                            self.last_output_offset = input_offset;
-                            self.last_output_len = len;
-                            break;
+                            // Same state, we leave the loop.
+                            again = false;
+                            Status::DirectSearch(remaining_input)
+                        }
+                        _ => {
+                            // We switch to resolving mode.
+                            self.input = input;
+                            let mut hc = HyperlinkCollection::from(input, self.render_label);
+                            hc.resolve_label2label_references();
+                            hc.resolve_text2label_references();
+                            let mut resolved_links = Vec::new();
+                            swap(&mut hc.text2dest_label, &mut resolved_links);
+
+                            // Advance state machine and match one more time.
+                            Status::ResolvedLinks(resolved_links)
+                        }
+                    }
+                }
+
+                Status::ResolvedLinks(mut resolved_links) => {
+                    while !resolved_links.is_empty() {
+                        // if let (input_offset, len, Link::Text2Dest(te, de, ti)) =
+                        //     resolved_links.remove(0)
+                        // Ok((remaining_input, (skipped, link)))
+                        match resolved_links.remove(0) {
+                            (input_offset, len, link)
+                                if match link {
+                                    Link::Text2Dest(_, _, _) => true,
+                                    Link::Image2Dest(_, _, _, _, _, _) => true,
+                                    _ => false,
+                                } =>
+                            {
+                                let skipped = &self.input[(self.last_output_offset
+                                    + self.last_output_len)
+                                    ..input_offset];
+                                let consumed = &self.input[input_offset..input_offset + len];
+                                let remaining_input = &self.input[input_offset + len..];
+                                // Assign output.
+                                output = Some(((skipped, consumed, remaining_input), link));
+                                debug_assert_eq!(self.input, {
+                                    let mut s = (&self.input
+                                        [..self.last_output_offset + self.last_output_len])
+                                        .to_string();
+                                    s.push_str(skipped);
+                                    s.push_str(consumed);
+                                    s.push_str(remaining_input);
+                                    s
+                                });
+                                self.last_output_offset = input_offset;
+                                self.last_output_len = len;
+                                break;
+                            }
+                            _ => {}
                         };
                     }
                     again = false;
@@ -521,12 +548,13 @@ impl<'a> Iterator for Hyperlink<'a> {
 }
 
 /// Recognizes hyperlinks in all supported markup languages
-/// and returns the first hyperlink found as tuple:
-/// `Some((link_text, link_destination, link_title))`.
-///
+/// and returns the first hyperlink found as
+/// `Some(Link::Text2Dest` or `Some(Link::Image2Dest)`.
 /// Returns `None` if no hyperlink is found.
+///
 /// This function resolves _link references_.
 /// ```
+/// use parse_hyperlinks::parser::Link;
 /// use parse_hyperlinks::iterator::first_hyperlink;
 /// use std::borrow::Cow;
 ///
@@ -535,9 +563,9 @@ impl<'a> Iterator for Hyperlink<'a> {
 ///            abc"#;
 ///
 /// let r = first_hyperlink(i);
-/// assert_eq!(r, Some((Cow::from("t"), Cow::from("v"), Cow::from("w"))));
+/// assert_eq!(r, Some(Link::Text2Dest(Cow::from("t"), Cow::from("v"), Cow::from("w"))));
 /// ```
-pub fn first_hyperlink(i: &str) -> Option<(Cow<str>, Cow<str>, Cow<str>)> {
+pub fn first_hyperlink(i: &str) -> Option<Link> {
     Hyperlink::new(i, false).next().map(|(_, l)| l)
 }
 
@@ -563,6 +591,7 @@ abc `rst text_label7 <rst_destination7>`_abc
 abc<scheme:md_dest8>abc
 abc<local@md_email8>abc
 abc[http://text9](<http://destination9> "title9")
+abc[def![alt10](img10.png)ghi](doc10.md "title10")jkl
 "#;
 
         let hc = HyperlinkCollection::from(i, false);
@@ -653,11 +682,23 @@ abc[http://text9](<http://destination9> "title9")
             "title9",
         ),
     ),
+    (
+        550,
+        47,
+        Image2Dest(
+            "def",
+            "alt10",
+            "img10.png",
+            "ghi",
+            "doc10.md",
+            "title10",
+        ),
+    ),
 ]"#;
         let res = format!("{:#?}", hc.text2dest_label);
         eprintln!("{}", res);
         assert_eq!(res, expected);
-        assert_eq!(hc.text2dest_label.len(), 10);
+        assert_eq!(hc.text2dest_label.len(), 11);
 
         let expected = r#"[
     (
@@ -893,16 +934,18 @@ abc [text2](destination2 "title2")
    .. _label4: label3_
 abc[label3]abc[label5]abc
 label4_
+abc[text5-1![alt5](src5)text5-2](dest5 "title5")abc
         "#;
 
         let mut iter = Hyperlink::new(i, false);
 
-        let expected = (Cow::from("text0"), Cow::from("destination0"), Cow::from(""));
+        let expected =
+            Link::Text2Dest(Cow::from("text0"), Cow::from("destination0"), Cow::from(""));
         let item = iter.next().unwrap();
         //eprintln!("item: {:#?}", item);
         assert_eq!(item.1, expected);
 
-        let expected = (
+        let expected = Link::Text2Dest(
             Cow::from("text1"),
             Cow::from("destination1"),
             Cow::from("title1"),
@@ -911,7 +954,7 @@ label4_
         //eprintln!("item: {:#?}", item);
         assert_eq!(item.1, expected);
 
-        let expected = (
+        let expected = Link::Text2Dest(
             Cow::from("text2"),
             Cow::from("destination2"),
             Cow::from("title2"),
@@ -920,7 +963,7 @@ label4_
         //eprintln!("item: {:#?}", item);
         assert_eq!(item.1, expected);
 
-        let expected = (
+        let expected = Link::Text2Dest(
             Cow::from("label3"),
             Cow::from("destination3"),
             Cow::from("title3"),
@@ -929,10 +972,22 @@ label4_
         //eprintln!("item: {:#?}", item);
         assert_eq!(item.1, expected);
 
-        let expected = (
+        let expected = Link::Text2Dest(
             Cow::from("label4"),
             Cow::from("destination3"),
             Cow::from("title3"),
+        );
+        let item = iter.next().unwrap();
+        //eprintln!("item: {:#?}", item);
+        assert_eq!(item.1, expected);
+
+        let expected = Link::Image2Dest(
+            Cow::from("text5-1"),
+            Cow::from("alt5"),
+            Cow::from("src5"),
+            Cow::from("text5-2"),
+            Cow::from("dest5"),
+            Cow::from("title5"),
         );
         let item = iter.next().unwrap();
         //eprintln!("item: {:#?}", item);
