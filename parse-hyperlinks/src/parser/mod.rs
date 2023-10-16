@@ -5,6 +5,7 @@ pub mod asciidoc;
 pub mod html;
 pub mod html_img;
 pub mod markdown;
+pub mod markdown_img;
 pub mod parse;
 pub mod restructured_text;
 pub mod wikitext;
