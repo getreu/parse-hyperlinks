@@ -2,12 +2,15 @@
 #![allow(dead_code)]
 
 use crate::parser::html::attribute_list;
+use crate::parser::html::tag_a_opening as href_tag_a_opening;
 use crate::parser::Link;
+use html_escape::decode_html_entities;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
 use nom::error::Error;
 use nom::error::ErrorKind;
+use nom::sequence::tuple;
 use std::borrow::Cow;
 
 /// Wrapper around `html_img()` that packs the result in
@@ -47,6 +50,65 @@ fn tag_img(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
         nom::combinator::map_parser(is_not(">"), parse_attributes),
         tag(">"),
     )(i)
+}
+
+/// Wrapper around `html_img()` that packs the result in
+/// `Link::Image`.
+pub fn html_img2dest_link(i: &str) -> nom::IResult<&str, Link> {
+    let (i, (text1, img_alt, img_src, text2, dest, title)) = html_img2dest(i)?;
+    Ok((
+        i,
+        Link::Image2Dest(text1, img_alt, img_src, text2, dest, title),
+    ))
+}
+
+/// Parse an HTML inline hyperlink with embedded image.
+///
+/// It returns either
+// `Ok((i, (text1, img_alt, img_src, text2, dest, title)))` or some error.
+///
+///
+/// The parser expects to start at the link start (`<`) to succeed.
+/// ```
+/// use parse_hyperlinks::parser::Link;
+/// use parse_hyperlinks::parser::html_img::html_img2dest;
+/// use std::borrow::Cow;
+///
+/// assert_eq!(
+///   html_img2dest("<a href=\"my doc.html\" title=\"title\">\
+///                    before<img src=\"dog.png\" alt=\"alt dog\"/>after\
+///                    </a>abc"),
+///   Ok(("abc",
+///    (Cow::from("before"), Cow::from("alt dog"), Cow::from("dog.png"),
+///     Cow::from("after"), Cow::from("my doc.html"), Cow::from("title"),
+/// ))));
+/// ```
+pub fn html_img2dest(
+    i: &str,
+) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>)> {
+    let (i, ((dest, title), text)) = nom::sequence::terminated(
+        nom::sequence::pair(
+            href_tag_a_opening,
+            alt((
+                nom::bytes::complete::take_until("</a>"),
+                nom::bytes::complete::take_until("</A>"),
+            )),
+        ),
+        // HTML is case insensitive. XHTML, that is being XML is case sensitive.
+        // Here we deal with HTML.
+        alt((tag("</a>"), tag("</A>"))),
+    )(i)?;
+
+    let (_, (text1, (img_alt, img_src), text2)) = tuple((
+        nom::bytes::complete::take_until("<img"),
+        html_img,
+        nom::combinator::rest,
+    ))(text)?;
+
+    let text1 = decode_html_entities(text1);
+    let text2 = decode_html_entities(text2);
+
+    Ok((i, (text1, img_alt, img_src, text2, dest, title)))
 }
 
 /// Extracts the `src` and `alt` attributes and returns

@@ -53,7 +53,7 @@ pub fn html_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
 
 /// Parses a `<a ...>` opening tag and returns
 /// either `Ok((i, (link_destination, link_title)))` or some error.
-fn tag_a_opening(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub(crate) fn tag_a_opening(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     nom::sequence::delimited(
         // HTML is case insensitive. XHTML, that is being XML is case sensitive.
         // Here we deal with HTML.
