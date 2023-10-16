@@ -283,7 +283,7 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
 }
 
 /// Matches `md_link_destination` in parenthesis.
-fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub(crate) fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     map_parser(
         nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
         nom::sequence::tuple((
