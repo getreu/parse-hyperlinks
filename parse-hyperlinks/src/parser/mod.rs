@@ -3,6 +3,7 @@
 
 pub mod asciidoc;
 pub mod html;
+pub mod html_img;
 pub mod markdown;
 pub mod parse;
 pub mod restructured_text;
@@ -11,17 +12,34 @@ use nom::error::ErrorKind;
 use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
 
-/// A link can be an _inline link_, a _reference link_, a _link reference
-/// definition_, a combined _inline link / link reference definition_, a
-/// _reference alias_ or an _inline image_. This is the main return type of this
-/// API.
+/// A [hyperlink] with the following variants:
+/// * an [inline link] `Text2Dev`,
+/// * a [reference link] `Text2Label`,
+/// * a [link reference definition] `Label2Dest`,
+/// * a [combined inline link / link reference definition] `TextLabel2Dest`,
+/// * a [reference alias] `Label2Label`,
+/// * an [inline image] `Image` or
+/// * an [inline link with embedded inline image] `Image2Dest`
+/// This is the main return type of this API.
 ///
 /// The _link title_ in Markdown is optional, when not given the string is set
 /// to the empty string `""`.  The back ticks \` in reStructuredText can be
 /// omitted when only one word is enclosed without spaces.
+///
+/// [markup hyperlink]: https://spec.commonmark.org/0.30/#links)
+/// [reference link]: https://spec.commonmark.org/0.30/#reference-link
+/// [link reference definition]: https://spec.commonmark.org/0.30/#link-reference-definition
+/// [combined inline link / link reference definition]: https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-references
+/// [reference alias]: https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#hyperlink-references
+/// [inline image]: https://spec.commonmark.org/0.30/#images
+/// [inline link with embedded inline image]: https://spec.commonmark.org/0.30/#example-519
 #[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum Link<'a> {
+    /// An _inline link_ with the following tuple values:
+    /// ```text
+    /// Text2Dest(link_text, link_destination, link_title)
+    /// ```
     /// In (stand alone) **inline links** the destination and title are given
     /// immediately after the link text. When an _inline link_ is rendered, only
     /// the `link_text` is visible in the continuous text.
@@ -41,15 +59,15 @@ pub enum Link<'a> {
     ///    ```wm
     ///    [http://link_dest link_text]
     ///    ```
-    /// The tuple is defined as follows:
-    /// ```text
-    /// Text2Dest(link_text, link_destination, link_title)
-    /// ```
     Text2Dest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
 
-    /// In **reference links** the destination and title are defined elsewhere in
-    /// the document in some _link reference definition_. When a _reference link_
-    /// is rendered only `link_text` is visible.
+    /// A _reference link_ with the following tuple values:
+    /// ```text
+    /// Text2Label(link_text, link_label)
+    /// ```
+    /// In **reference links** the destination and title are defined elsewhere
+    /// in the document in some _link reference definition_. When a _reference
+    /// link_ is rendered only `link_text` is visible.
     /// * Markdown examples:
     ///   ```md
     ///   [link_text][link_label]
@@ -68,13 +86,12 @@ pub enum Link<'a> {
     ///   ```adoc
     ///   {link_label}[link_text]
     ///   ```
-    ///
-    /// The tuple is defined as follows:
-    /// ```text
-    /// Text2Label(link_text, link_label)
-    /// ```
     Text2Label(Cow<'a, str>, Cow<'a, str>),
 
+    /// A _link reference definition_ with the following tuple values:
+    /// ```text
+    /// Label2Dest(link_label, link_destination, link_title)
+    /// ```
     /// A **link reference definition** refers to a _reference link_ with the
     /// same _link label_. A _link reference definition_ is not visible
     /// when the document is rendered.
@@ -97,18 +114,16 @@ pub enum Link<'a> {
     ///   ```adoc
     ///   :link_label: http://link_dest
     ///   ```
-    ///
-    /// The tuple is defined as follows:
-    /// ```text
-    /// Label2Dest(link_label, link_destination, link_title)
-    /// ```
     Label2Dest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
 
+    /// An _inline link/link reference definition'_ with tuple values:
+    /// ```text
+    /// Label2Dest(link_text_label, link_destination, link_title)
+    /// ```
     /// This type represents a combined **inline link** and **link reference
-    /// definition**.
-    /// Semantically `TextLabel2Dest` is a shorthand for two links `Text2Dest` and
-    /// `Label2Dest` in one object, where _link text_ and _link label_ are the
-    /// same string. When rendered, _link text_ is visible.
+    /// definition**. Semantically `TextLabel2Dest` is a shorthand for two links
+    /// `Text2Dest` and `Label2Dest` in one object, where _link text_ and _link
+    /// label_ are the same string. When rendered, _link text_ is visible.
     ///
     /// * Consider the following reStructuredText link:
     ///   ```rst
@@ -116,16 +131,16 @@ pub enum Link<'a> {
     ///
     ///   `a <b>`_
     ///   ```
-    ///   In this link is `b` the _link destination_ and `a` has a double role: it
-    ///   defines _link text_ of the first link `Text2Dest("a", "b", "")` and _link
-    ///   label_ of the second link `Label2Dest("a", "b", "")`.
+    ///   In this link is `b` the _link destination_ and `a` has a double role:
+    ///   it defines _link text_ of the first link `Text2Dest("a", "b", "")` and
+    ///   _link label_ of the second link `Label2Dest("a", "b", "")`.
     ///
-    /// The tuple is defined as follows:
-    /// ```text
-    /// Label2Dest(link_text_label, link_destination, link_title)
-    /// ```
     TextLabel2Dest(Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
 
+    /// A _reference alias_ with the following tuple values:
+    /// ```text
+    /// Label2Label(alt_link_label, link_label)
+    /// ```
     /// The **reference alias** defines an alternative link label
     /// `alt_link_label` for an existing `link_label` defined elsewhere in the
     /// document. At some point, the `link_label` must be resolved to a
@@ -135,20 +150,28 @@ pub enum Link<'a> {
     /// ```rst
     /// .. _`alt_link_label`: `link_label`_
     /// ```
-    ///
-    /// The tuple is defined as follows:
-    /// ```text
-    /// Label2Label(alt_link_label, link_label)
-    /// ```
     Label2Label(Cow<'a, str>, Cow<'a, str>),
 
-    /// Inline Image.
-    /// The tuple is defined as follows:
+    /// An _inline image_ with the following tuple values:
     /// ```text
     /// Image(img_alt, img_src)
     /// ```
     /// Note: this crate does not contain parsers for this variant.
     Image(Cow<'a, str>, Cow<'a, str>),
+
+    /// An _inline link_ with embedded _inline image_ and the following
+    /// tuple values.
+    /// ```text
+    /// Image2Text(text1, img_alt, img_src, text2, dest, title)
+    /// ```
+    Image2Dest(
+        Cow<'a, str>,
+        Cow<'a, str>,
+        Cow<'a, str>,
+        Cow<'a, str>,
+        Cow<'a, str>,
+        Cow<'a, str>,
+    ),
 }
 
 /// A parser that decodes percent encoded URLS.
