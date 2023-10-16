@@ -3,12 +3,12 @@
 //! no other markup languages are recognized.
 #![allow(dead_code)]
 
-use crate::parser::html::html_img;
-use crate::parser::html::html_img_link;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
 use parse_hyperlinks::parser::html::html_text2dest;
 use parse_hyperlinks::parser::html::html_text2dest_link;
+use parse_hyperlinks::parser::html_img::html_img;
+use parse_hyperlinks::parser::html_img::html_img_link;
 use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
 

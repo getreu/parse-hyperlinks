@@ -1,13 +1,13 @@
 //! This module implements parsers for HTML image elements.
 #![allow(dead_code)]
 
+use crate::parser::html::attribute_list;
+use crate::parser::Link;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
 use nom::error::Error;
 use nom::error::ErrorKind;
-use parse_hyperlinks::parser::html::attribute_list;
-use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
 
 /// Wrapper around `html_img()` that packs the result in
@@ -24,7 +24,7 @@ pub fn html_img_link(i: &str) -> nom::IResult<&str, Link> {
 /// The parser expects to start at the link start (`<`) to succeed.
 /// ```
 /// use parse_hyperlinks;
-/// use parse_hyperlinks_extras::parser::html::html_img;
+/// use parse_hyperlinks::parser::html_img::html_img;
 /// use std::borrow::Cow;
 ///
 /// assert_eq!(
@@ -86,7 +86,7 @@ fn parse_attributes(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parse_hyperlinks::parser::html::attribute_list;
+    use crate::parser::html::attribute_list;
 
     #[test]
     fn test_tag_img() {
@@ -178,26 +178,5 @@ mod tests {
                 .unwrap(),
             expected
         );
-    }
-
-    #[test]
-    fn test_image_link() {
-        // input = r#"[![Add to wallet](https://booking.stenaline.de/-/media/Images/DE/Logos/add-to-apple-wallet_143x44.png?w=220&hash=DCF2971402505063EB697C19F884E5A325794B38)](https://booking.stenaline.de/book/Confirmation/PassBook/895137609)"#;
-        // // TODO
-        // let expected = (
-        //     "",
-        //     vec![
-        //         ("", Cow::from("")),
-        //         ("src", Cow::from("http://getreu.net/my&dog.png")),
-        //         ("", Cow::from("")),
-        //         ("alt", Cow::from("My dog")),
-        //         ("", Cow::from("")),
-        //     ],
-        // );
-        // assert_eq!(
-        //     todo(r#"abc src="http://getreu.net/my&amp;dog.png" abc alt="My dog" abc"#)
-        //         .unwrap(),
-        //     expected
-        // );
     }
 }
