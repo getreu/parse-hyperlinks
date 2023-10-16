@@ -210,7 +210,7 @@ pub fn md_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 /// an open bracket `[`, a sequence of zero or more inlines, and a close
 /// bracket `]`.
 /// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-text)
-fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
+pub(crate) fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
         nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]")),
         md_escaped_str_transform,
@@ -245,7 +245,7 @@ fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
 
 /// This is a wrapper around `md_parse_link_destination()`. It takes its result
 /// and removes the `\` before the escaped characters `ESCAPABLE`.
-fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+pub(crate) fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(md_parse_link_destination, md_escaped_str_transform)(i)
 }
 
@@ -284,16 +284,17 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
 
 /// Matches `md_link_destination` in parenthesis.
 fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
-    let (rest, inner) =
-        nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")"))(i)?;
-    let (i, link_destination) = md_link_destination(inner)?;
-    let (_i, link_title) = alt((
-        // Take link title.
-        md_link_title,
-        nom::combinator::success(Cow::from("")),
-    ))(i)?;
-
-    Ok((rest, (link_destination, link_title)))
+    map_parser(
+        nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
+        nom::sequence::tuple((
+            md_link_destination,
+            alt((
+                // Take link title.
+                md_link_title,
+                nom::combinator::success(Cow::from("")),
+            )),
+        )),
+    )(i)
 }
 
 /// This is a wrapper around `md_parse_link_title()`. It takes its result
