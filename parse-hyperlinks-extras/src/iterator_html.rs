@@ -214,13 +214,13 @@ impl<'a> HyperlinkInlineImage<'a> {
 
 /// Iterator over the hyperlinks and inline images in the HTML formatted `input` text.
 /// This struct holds the iterator's state, as an advancing pointer into the `input` text.  
-/// The iterator's `next()` method returns a tuple with 2 tuples inside:
+/// The iterator's `next()` method returns a tuple with a tuple inside:
 /// * `Some(((input_split), Link))`
 ///
 /// The first tuple has the following parts:
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
-/// * `Link` is of type `use parse_hyperlinks::parser::Link` and can be one of
-///   the variants `Link::Text2Dest` or `Link::Image`.
+/// * `Link` is of type `parse_hyperlinks::parser::Link` and can be one of
+///   the variants `Link::Text2Dest`, `Link::Image` or `Link::Imgage2Dest`.
 ///
 /// ```
 /// use parse_hyperlinks_extras::iterator_html::HyperlinkInlineImage;
@@ -249,8 +249,9 @@ impl<'a> HyperlinkInlineImage<'a> {
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
-/// abc<a href="dest2" title="title2">text2</a>abc"#;
-///
+/// abc<a href="dest2" title="title2">text2</a>abc
+/// abc<a href="dest3" title="title3">cde<img alt="alt3" src="src3"/>fgh</a>abc
+/// "#;
 ///
 /// let mut iter = HyperlinkInlineImage::new(i);
 /// assert_eq!(iter.next().unwrap().1,
@@ -259,6 +260,9 @@ impl<'a> HyperlinkInlineImage<'a> {
 ///            Link::Text2Dest(Cow::from("text2"),
 ///                            Cow::from("dest2"),
 ///                            Cow::from("title2")));
+/// assert_eq!(iter.next().unwrap().1,
+///  Link::Image2Dest(Cow::from("cde"), Cow::from("alt3"), Cow::from("src3"),
+///                 Cow::from("fgh"), Cow::from("dest3"), Cow::from("title3")));
 /// assert_eq!(iter.next(), None);
 /// ```
 ///

@@ -8,6 +8,7 @@ use nom::character::complete::anychar;
 use parse_hyperlinks::parser::html::html_text2dest;
 use parse_hyperlinks::parser::html::html_text2dest_link;
 use parse_hyperlinks::parser::html_img::html_img;
+use parse_hyperlinks::parser::html_img::html_img2dest_link;
 use parse_hyperlinks::parser::html_img::html_img_link;
 use parse_hyperlinks::parser::Link;
 use std::borrow::Cow;
@@ -145,7 +146,8 @@ pub fn take_text2dest(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>,
 /// let i = r#"abc<img src="dest1" alt="text1">abc
 /// abc<a href="dest2" title="title2">text2</a>abc
 /// abc<img src="dest3" alt="text3">abc
-/// abc<a href="dest4" title="title4">text4</a>abc";
+/// abc<a href="dest4" title="title4">text4</a>abc
+/// abc<a href="dest5" title="title5">cde<img alt="alt5" src="src5"/>fgh</a>abc
 /// "#;
 ///
 /// let (i, r) = take_link(i).unwrap();
@@ -160,6 +162,9 @@ pub fn take_text2dest(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>,
 /// let (i, r) = take_link(i).unwrap();
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, Link::Text2Dest(Cow::from("text4"), Cow::from("dest4"), Cow::from("title4")));
+/// let (i, r) = take_link(i).unwrap();
+/// assert_eq!(r.0, "abc\nabc");
+/// assert_eq!(r.1, Link::Image2Dest(Cow::from("cde"), Cow::from("alt5"), Cow::from("src5"), Cow::from("fgh"), Cow::from("dest5"), Cow::from("title5")));
 /// ```
 pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let mut j = i;
@@ -168,6 +173,10 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
     let res = loop {
         // Start searching for inline images.
 
+        // Regular `Link::Image` can start everywhere.
+        if let Ok((k, r)) = html_img2dest_link(j) {
+            break (k, r);
+        };
         // Regular `Link::Image` can start everywhere.
         if let Ok((k, r)) = html_img_link(j) {
             break (k, r);
