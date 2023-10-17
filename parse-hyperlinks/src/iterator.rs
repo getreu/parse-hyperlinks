@@ -10,7 +10,7 @@ use std::mem::swap;
 
 #[derive(Debug, PartialEq)]
 /// A collection of `Link` objects grouped by link type.
-struct HyperlinkCollection<'a> {
+struct MarkupLinkCollection<'a> {
     /// Vector storing all `Link::Text2Dest`, `Link::Text2Label` and `Link::TextLabel2Dest` links.
     /// The tuple is defined as follows: `(link_first_byte_offset, link_len, Link)`.
     text2dest_label: Vec<(usize, usize, Link<'a>)>,
@@ -22,7 +22,7 @@ struct HyperlinkCollection<'a> {
     label2dest: HashMap<Cow<'a, str>, (Cow<'a, str>, Cow<'a, str>)>,
 }
 
-impl<'a> HyperlinkCollection<'a> {
+impl<'a> MarkupLinkCollection<'a> {
     fn new() -> Self {
         Self {
             text2dest_label: Vec::new(),
@@ -39,7 +39,7 @@ impl<'a> HyperlinkCollection<'a> {
     #[inline]
     fn from(input: &'a str, render_label2dest: bool) -> Self {
         let mut i = input;
-        let mut hc = HyperlinkCollection::new();
+        let mut hc = MarkupLinkCollection::new();
         let mut anonymous_text2label_counter = 0;
         let mut anonymous_label2x_counter = 0;
         // This index refers to `input`.
@@ -479,7 +479,7 @@ impl<'a> Iterator for Hyperlink<'a> {
                         _ => {
                             // We switch to resolving mode.
                             self.input = input;
-                            let mut hc = HyperlinkCollection::from(input, self.render_label);
+                            let mut hc = MarkupLinkCollection::from(input, self.render_label);
                             hc.resolve_label2label_references();
                             hc.resolve_text2label_references();
                             let mut resolved_links = Vec::new();
@@ -594,7 +594,7 @@ abc[http://text9](<http://destination9> "title9")
 abc[def![alt10](img10.png)ghi](doc10.md "title10")jkl
 "#;
 
-        let hc = HyperlinkCollection::from(i, false);
+        let hc = MarkupLinkCollection::from(i, false);
 
         let expected = r#"[
     (
@@ -749,7 +749,7 @@ abc[def![alt10](img10.png)ghi](doc10.md "title10")jkl
   .. _label3: label2_
 "#;
 
-        let mut hc = HyperlinkCollection::from(i, false);
+        let mut hc = MarkupLinkCollection::from(i, false);
         hc.resolve_label2label_references();
         //eprintln!("{:#?}", hc);
         assert_eq!(hc.label2label.len(), 1);
@@ -788,7 +788,7 @@ abc[def![alt10](img10.png)ghi](doc10.md "title10")jkl
         label4_
         "#;
 
-        let mut hc = HyperlinkCollection::from(i, false);
+        let mut hc = MarkupLinkCollection::from(i, false);
         //eprintln!("{:#?}", hc);
         hc.resolve_label2label_references();
         //eprintln!("{:#?}", hc);
@@ -855,7 +855,7 @@ abc text5__ abc
   __ destination5
         "#;
 
-        let mut hc = HyperlinkCollection::from(i, false);
+        let mut hc = MarkupLinkCollection::from(i, false);
         //eprintln!("{:#?}", hc);
         hc.resolve_label2label_references();
         //eprintln!("{:#?}", hc);
@@ -905,7 +905,7 @@ abc
 [my homepage]: https://getreu.net
 abc"#;
 
-        let mut hc = HyperlinkCollection::from(i, false);
+        let mut hc = MarkupLinkCollection::from(i, false);
         eprintln!("{:#?}", hc);
         hc.resolve_label2label_references();
         //eprintln!("{:#?}", hc);
