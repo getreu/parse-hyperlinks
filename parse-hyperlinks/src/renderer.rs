@@ -1,7 +1,7 @@
 //! A set of functions providing markup source code to HTML renderer, that make
 //! hyperlinks clickable.
 
-use crate::iterator::Hyperlink;
+use crate::iterator::MarkupLink;
 use crate::parser::Link;
 use html_escape::encode_double_quoted_attribute;
 use html_escape::encode_text;
@@ -29,7 +29,7 @@ where
     let mut rest = Cow::Borrowed(input);
 
     output.write_all(begin_doc.as_bytes())?;
-    for ((skipped2, consumed2, remaining2), link) in Hyperlink::new(input, render_label) {
+    for ((skipped2, consumed2, remaining2), link) in MarkupLink::new(input, render_label) {
         // (text2, dest2, title2)
         let skipped = encode_text(skipped2);
         let consumed = encode_text(consumed2);

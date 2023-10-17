@@ -229,12 +229,12 @@ enum Status<'a> {
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks::iterator::Hyperlink;
+/// use parse_hyperlinks::iterator::MarkupLink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc[text0](dest0)efg[text1](dest1)hij<foo@dest2>klm";
 ///
-/// let mut iter = Hyperlink::new(i, false);
+/// let mut iter = MarkupLink::new(i, false);
 /// assert_eq!(iter.next().unwrap().0, ("abc",
 ///                                     "[text0](dest0)",
 ///                                     "efg[text1](dest1)hij<foo@dest2>klm"));
@@ -248,7 +248,7 @@ enum Status<'a> {
 /// ## Markdown
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::iterator::Hyperlink;
+/// use parse_hyperlinks::iterator::MarkupLink;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc[text0](dest0 "title0")abc
@@ -259,7 +259,7 @@ enum Status<'a> {
 /// abc[text3]abc
 /// "#;
 ///
-/// let mut iter = Hyperlink::new(i, false);
+/// let mut iter = MarkupLink::new(i, false);
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text0"), Cow::from("dest0"), Cow::from("title0")));
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
@@ -271,7 +271,7 @@ enum Status<'a> {
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::iterator::Hyperlink;
+/// use parse_hyperlinks::iterator::MarkupLink;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"
@@ -286,7 +286,7 @@ enum Status<'a> {
 /// __ dest5
 /// "#;
 ///
-/// let mut iter = Hyperlink::new(i, false);
+/// let mut iter = MarkupLink::new(i, false);
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("")));
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text2"), Cow::from("dest2"), Cow::from("")));
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text3"), Cow::from("dest3"), Cow::from("")));
@@ -298,7 +298,7 @@ enum Status<'a> {
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::iterator::Hyperlink;
+/// use parse_hyperlinks::iterator::MarkupLink;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc
@@ -310,7 +310,7 @@ enum Status<'a> {
 /// :label3: https://dest3
 /// "#;
 ///
-/// let mut iter = Hyperlink::new(i, false);
+/// let mut iter = MarkupLink::new(i, false);
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text0"), Cow::from("https://dest0"), Cow::from("")));
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("https://dest1"), Cow::from("")));
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text2"), Cow::from("https://dest2"), Cow::from("")));
@@ -322,7 +322,7 @@ enum Status<'a> {
 ///
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::iterator::Hyperlink;
+/// use parse_hyperlinks::iterator::MarkupLink;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<a href="dest1" title="title1">text1</a>abc
@@ -330,16 +330,16 @@ enum Status<'a> {
 /// abc<a href="dest3" title="title3">cde<img alt="alt3" src="src3"/>fgh</a>abc
 /// "#;
 ///
-/// let mut iter = Hyperlink::new(i, false);
+/// let mut iter = MarkupLink::new(i, false);
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
 /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
 /// assert_eq!(iter.next().unwrap().1, Link::Image2Dest(Cow::from("cde"), Cow::from("alt3"), Cow::from("src3"), Cow::from("fgh"), Cow::from("dest3"), Cow::from("title3")));
 /// assert_eq!(iter.next(), None);
 /// ```
-pub struct Hyperlink<'a> {
+pub struct MarkupLink<'a> {
     /// The remaining text input.
     input: &'a str,
-    /// Status of the `Hyperlink` state machine.
+    /// Status of the `MarkupLink` state machine.
     status: Status<'a>,
     /// Index where the last output started.
     last_output_offset: usize,
@@ -352,8 +352,8 @@ pub struct Hyperlink<'a> {
     render_label: bool,
 }
 
-/// Constructor for the `Hyperlink` struct.
-impl<'a> Hyperlink<'a> {
+/// Constructor for the `MarkupLink` struct.
+impl<'a> MarkupLink<'a> {
     /// Constructor for the iterator. `input` is the text with hyperlinks to be
     /// extracted.
     ///
@@ -363,14 +363,14 @@ impl<'a> Hyperlink<'a> {
     ///
     /// ```
     /// use parse_hyperlinks::parser::Link;
-    /// use parse_hyperlinks::iterator::Hyperlink;
+    /// use parse_hyperlinks::iterator::MarkupLink;
     /// use std::borrow::Cow;
     ///
     /// let i = r#"abc[text1][label1]abc
     /// [label1]: dest1 "title1"
     /// "#;
     ///
-    /// let mut iter = Hyperlink::new(i, false);
+    /// let mut iter = MarkupLink::new(i, false);
     /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
     /// assert_eq!(iter.next(), None);
     /// ```
@@ -379,19 +379,19 @@ impl<'a> Hyperlink<'a> {
     /// reference definitions are rendered like inline links: the full
     /// `Label2Dest` link reference definition's source will appear as _link
     /// text_ and its destination as _link destination_. To enable this feature,
-    /// construct `Hyperlink` with the second positional parameter set to `true`,
-    /// e.g. `Hyperlink::new(i, true)`.
+    /// construct `MarkupLink` with the second positional parameter set to `true`,
+    /// e.g. `MarkupLink::new(i, true)`.
     ///
     /// ```
     /// use parse_hyperlinks::parser::Link;
-    /// use parse_hyperlinks::iterator::Hyperlink;
+    /// use parse_hyperlinks::iterator::MarkupLink;
     /// use std::borrow::Cow;
     ///
     /// let i = r#"abc[text1][label1]abc
     /// [label1]: dest1 "title1"
     /// "#;
     ///
-    /// let mut iter = Hyperlink::new(i, true);
+    /// let mut iter = MarkupLink::new(i, true);
     /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
     /// assert_eq!(iter.next().unwrap().1, Link::Text2Dest(Cow::from("[label1]: dest1 \"title1\""), Cow::from("dest1"), Cow::from("title1")));
     /// assert_eq!(iter.next(), None);
@@ -417,7 +417,7 @@ impl<'a> Hyperlink<'a> {
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
 /// * `link_content = (link_text, link_destination, link_title)`
 ///
-impl<'a> Iterator for Hyperlink<'a> {
+impl<'a> Iterator for MarkupLink<'a> {
     #[allow(clippy::type_complexity)]
     type Item = ((&'a str, &'a str, &'a str), Link<'a>);
     /// The iterator operates in 2 modes:
@@ -566,7 +566,7 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// assert_eq!(r, Some(Link::Text2Dest(Cow::from("t"), Cow::from("v"), Cow::from("w"))));
 /// ```
 pub fn first_hyperlink(i: &str) -> Option<Link> {
-    Hyperlink::new(i, false).next().map(|(_, l)| l)
+    MarkupLink::new(i, false).next().map(|(_, l)| l)
 }
 
 #[cfg(test)]
@@ -937,7 +937,7 @@ label4_
 abc[text5-1![alt5](src5)text5-2](dest5 "title5")abc
         "#;
 
-        let mut iter = Hyperlink::new(i, false);
+        let mut iter = MarkupLink::new(i, false);
 
         let expected =
             Link::Text2Dest(Cow::from("text0"), Cow::from("destination0"), Cow::from(""));
@@ -1011,7 +1011,7 @@ more autolinks: <tpnote:20>, <getreu@web.de>,
 boring link text: [http://domain.com](http://getreu.net)
 [Jens Getreu's blog](https://blog.getreu.net "My blog")
 Some more text."#;
-        let mut iter = Hyperlink::new(i, false);
+        let mut iter = MarkupLink::new(i, false);
 
         let expected = Link::Text2Dest(
             Cow::from("tpnote:locallink.md"),
