@@ -62,6 +62,8 @@ where
 /// [label1]: dest1 "title1"
 /// abc[text3]abc
 /// abc<foo@dest4>abc
+/// abc![alt5](dest5)abc
+/// abc[![alt6](src6)](dest6)abc
 /// "#;
 ///
 /// let expected = "\
@@ -72,6 +74,8 @@ where
 /// <a href=\"dest1\" title=\"title1\">[label1]: dest1 \"title1\"</a>
 /// abc<a href=\"dest3\" title=\"title3\">text3</a>abc
 /// abc<a href=\"mailto:foo@dest4\" title=\"\">foo@dest4</a>abc
+/// abc<img src=\"dest5\" alt=\"alt5\">abc
+/// abc<a href=\"dest6\" title=\"\"><img alt=\"alt6\" src=\"src6\"></a>abc
 /// </pre>";
 /// let res = text_links2html(i);
 /// assert_eq!(res, expected);
@@ -88,6 +92,8 @@ where
 /// <a href="dest1" title="title1">[label1]: dest1 &quot;title1&quot;</a>
 /// abc<a href="dest3" title="title3">text3</a>abc
 /// abc<a href="foo@dest4" title="">foo@dest4</a>abc
+/// abc<img alt="alt5\" src=\"dest5\">abc
+/// abc<a href="dest6" title=""><img alt="alt6" src="src6"></a>abc
 /// </pre>
 ///
 /// ## reStructuredText
@@ -211,10 +217,14 @@ where
 /// use parse_hyperlinks::renderer::text_links2html;
 /// use std::borrow::Cow;
 ///
-/// let i = r#"abc<a href="dest1" title="title1">text1</a>abc"#;
+/// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc
+/// abc<img src=\"dest5\" alt=\"alt5\">abc
+/// abc<a href=\"dest6\" title=\"\"><img alt=\"alt6\" src=\"src6\"></a>abc
+/// ";
 ///
-/// let expected = "<pre>\
-/// abc<a href=\"dest1\" title=\"title1\">text1</a>abc\
+/// let expected = "<pre>abc<a href=\"dest1\" title=\"title1\">text1</a>abc
+/// abc<img src=\"dest5\" alt=\"alt5\">abc
+/// abc<a href=\"dest6\" title=\"\"><img alt=\"alt6\" src=\"src6\"></a>abc
 /// </pre>";
 ///
 /// let res = text_links2html(i);
@@ -272,13 +282,18 @@ where
             text
         ),
         Link::Image2Dest(text1, alt, src, text2, dest, title) => format!(
-            r#"<a href="{}" title="{}">{}<img alt="{}" src="{}"/>{}</a>"#,
+            r#"<a href="{}" title="{}">{}<img alt="{}" src="{}">{}</a>"#,
             encode_double_quoted_attribute(dest.as_ref()),
             encode_double_quoted_attribute(title.as_ref()),
             text1,
             encode_double_quoted_attribute(alt.as_ref()),
             encode_double_quoted_attribute(src.as_ref()),
             text2,
+        ),
+        Link::Image(alt, src) => format!(
+            r#"<img src="{}" alt="{}">"#,
+            encode_double_quoted_attribute(src.as_ref()),
+            encode_double_quoted_attribute(alt.as_ref()),
         ),
         e => format!("<ERROR rendering: {:?}>", e),
     };
@@ -314,6 +329,8 @@ where
 /// [label1]: dest1 "title1"
 /// abc[text3]abc
 /// abc<foo@dest4>abc
+/// abc![alt5](dest5)abc
+/// abc[![alt6](src6)](dest6)abc
 /// "#;
 ///
 /// let expected = "\
@@ -324,6 +341,8 @@ where
 /// <a href=\"dest1\" title=\"title1\">[label1]: dest1 \"title1\"</a>
 /// abc<a href=\"dest3\" title=\"title3\">[text3]</a>abc
 /// abc<a href=\"mailto:foo@dest4\" title=\"\">&lt;foo@dest4&gt;</a>abc
+/// abc<a href=\"dest5\" title=\"alt5\">![alt5](dest5)</a>abc
+/// abc<a href=\"dest6\" title=\"\">[![alt6](src6)](dest6)</a>abc
 /// </pre>";
 ///
 /// let res = text_rawlinks2html(i);
@@ -339,8 +358,8 @@ where
 /// abc<a href="dest2" title="title2">[text2](dest2 "title2")</a>abc
 /// <a href="dest3" title="title3">[text3]: dest3 "title3"</a>
 /// <a href="dest1" title="title1">[label1]: dest1 "title1"</a>
-/// abc<a href="dest3" title="title3">[text3]</a>abc
-/// abc<a href="foo@dest4" title="">&lt;foo@dest4&gt;</a>abc
+/// abc<a href="dest5" title="alt5">![alt5](dest5)</a>abc
+/// abc<a href="dest6" title="">[![alt6](src6)](dest6)</a>abc
 /// </pre>
 ///
 /// ## reStructuredText
@@ -466,12 +485,18 @@ where
 /// use parse_hyperlinks::renderer::text_rawlinks2html;
 /// use std::borrow::Cow;
 ///
-/// let i = r#"abc<a href="dest1" title="title1">text1</a>abc"#;
+/// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc
+/// abc<img src=\"dest5\" alt=\"alt5\">abc
+/// abc<a href=\"dest6\" title=\"\"><img alt=\"alt6\" src=\"src6\"></a>abc
+/// ";
 ///
-/// let expected = "\
-/// <pre>abc<a href=\"dest1\" title=\"title1\">\
-/// &lt;a href=\"dest1\" title=\"title1\"&gt;text1&lt;/a&gt;\
-/// </a>abc</pre>";
+/// let expected = "<pre>abc<a href=\"dest1\" title=\"title1\">\
+/// &lt;a href=\"dest1\" title=\"title1\"&gt;text1&lt;/a&gt;</a>abc
+/// abc<a href=\"dest5\" title=\"alt5\">\
+///    &lt;img src=\"dest5\" alt=\"alt5\"&gt;</a>abc
+/// abc<a href=\"dest6\" title=\"\">&lt;a href=\"dest6\" title=\"\"&gt;\
+///    &lt;img alt=\"alt6\" src=\"src6\"&gt;&lt;/a&gt;</a>abc
+/// </pre>";
 ///
 /// let res = text_rawlinks2html(i);
 /// assert_eq!(res, expected);
@@ -533,6 +558,12 @@ where
             encode_double_quoted_attribute(title.as_ref()),
             consumed
         ),
+        Link::Image(alt, src) => format!(
+            r#"<a href="{}" title="{}">{}</a>"#,
+            encode_double_quoted_attribute(src.as_ref()),
+            encode_double_quoted_attribute(alt.as_ref()),
+            consumed
+        ),
         e => format!("<ERROR rendering: {:?}>", e),
     };
 
@@ -565,14 +596,18 @@ where
 /// [label1]: dest1 "title1"
 /// abc[text3]abc
 /// abc<foo@dest4>abc
+/// abc![alt5](dest5)abc
+/// abc[![alt6](src6)](dest6)abc
 /// "#;
 ///
 /// let expected = "\
-/// <a href=\"dest0\" title=\"title0\">text0</a>
-/// <a href=\"dest1\" title=\"title1\">text1</a>
-/// <a href=\"dest2\" title=\"title2\">text2</a>
-/// <a href=\"dest3\" title=\"title3\">text3</a>
-/// <a href=\"mailto:foo@dest4\" title=\"\">foo@dest4</a>
+/// <a href=\"dest0\" title=\"title0\">text0</a><br>
+/// <a href=\"dest1\" title=\"title1\">text1</a><br>
+/// <a href=\"dest2\" title=\"title2\">text2</a><br>
+/// <a href=\"dest3\" title=\"title3\">text3</a><br>
+/// <a href=\"mailto:foo@dest4\" title=\"\">foo@dest4</a><br>
+/// <a href=\"dest5\">[alt5]</a><br>
+/// <a href=\"dest6\" title=\"\">[alt6]</a><br>
 /// ";
 /// let res = links2html(i);
 /// assert_eq!(res, expected);
@@ -582,11 +617,13 @@ where
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <a href="dest0" title="title0">text0</a>
-/// <a href="dest1" title="title1">text1</a>
-/// <a href="dest2" title="title2">text2</a>
-/// <a href="dest3" title="title3">text3</a>
-/// <a href="mailto:foo@dest4" title="">foo@dest4</a>
+/// <a href="dest0" title="title0">text0</a><br>
+/// <a href="dest1" title="title1">text1</a><br>
+/// <a href="dest2" title="title2">text2</a><br>
+/// <a href="dest3" title="title3">text3</a><br>
+/// <a href="mailto:foo@dest4" title="">foo@dest4</a><br>
+/// <a href="dest5">[alt5]</a><br>
+/// <a href="dest6" title="">[alt6]</a><br>
 ///
 ///
 /// ## reStructuredText
@@ -607,10 +644,10 @@ where
 /// "#;
 ///
 /// let expected = "\
-/// <a href=\"dest1\" title=\"\">text1</a>
-/// <a href=\"dest2\" title=\"\">text2</a>
-/// <a href=\"dest3\" title=\"\">text3</a>
-/// <a href=\"dest5\" title=\"\">text5</a>
+/// <a href=\"dest1\" title=\"\">text1</a><br>
+/// <a href=\"dest2\" title=\"\">text2</a><br>
+/// <a href=\"dest3\" title=\"\">text3</a><br>
+/// <a href=\"dest5\" title=\"\">text5</a><br>
 /// ";
 ///
 /// let res = links2html(i);
@@ -621,10 +658,10 @@ where
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <a href="dest1" title="">text1</a>
-/// <a href="dest2" title="">text2</a>
-/// <a href="dest3" title="">text3</a>
-/// <a href="dest5" title="">text5</a>
+/// <a href="dest1" title="">text1</a><br>
+/// <a href="dest2" title="">text2</a><br>
+/// <a href="dest3" title="">text3</a><br>
+/// <a href="dest5" title="">text5</a><br>
 ///
 ///
 /// ## Asciidoc
@@ -642,10 +679,10 @@ where
 /// "#;
 ///
 /// let expected = "\
-/// <a href=\"https://dest0\" title=\"\">text0</a>
-/// <a href=\"https://dest1\" title=\"\">text1</a>
-/// <a href=\"https://dest2\" title=\"\">text2</a>
-/// <a href=\"https://dest3\" title=\"\">https://dest3</a>
+/// <a href=\"https://dest0\" title=\"\">text0</a><br>
+/// <a href=\"https://dest1\" title=\"\">text1</a><br>
+/// <a href=\"https://dest2\" title=\"\">text2</a><br>
+/// <a href=\"https://dest3\" title=\"\">https://dest3</a><br>
 /// ";
 ///
 /// let res = links2html(i);
@@ -656,10 +693,10 @@ where
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <a href="https://dest0" title="">text0</a>
-/// <a href="https://dest1" title="">text1</a>
-/// <a href="https://dest2" title="">text2</a>
-/// <a href="https://dest3" title="">https://dest3</a>
+/// <a href="https://dest0" title="">text0</a><br>
+/// <a href="https://dest1" title="">text1</a><br>
+/// <a href="https://dest2" title="">text2</a><br>
+/// <a href="https://dest3" title="">https://dest3</a><br>
 ///
 ///
 /// ## Wikitext
@@ -672,7 +709,7 @@ where
 /// "#;
 ///
 /// let expected = "\
-/// <a href=\"https://dest0\" title=\"\">text0</a>
+/// <a href=\"https://dest0\" title=\"\">text0</a><br>
 /// ";
 ///
 /// let res = links2html(i);
@@ -683,7 +720,7 @@ where
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <a href="https://dest0" title="">text0</a>
+/// <a href="https://dest0" title="">text0</a><br>
 ///
 ///
 /// ## HTML
@@ -694,12 +731,15 @@ where
 /// use parse_hyperlinks::renderer::links2html;
 /// use std::borrow::Cow;
 ///
-/// let i = r#"abc<a href="dest1" title="title1">text1</a>abc
-/// abc<a href="dest2" title="title2">text2</a>abc"#;
+/// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc
+/// abc<img src=\"dest5\" alt=\"alt5\">abc
+/// abc<a href=\"dest6\" title=\"\"><img alt=\"alt6\" src=\"src6\"></a>abc
+/// ";
 ///
 /// let expected = "\
-/// <a href=\"dest1\" title=\"title1\">text1</a>
-/// <a href=\"dest2\" title=\"title2\">text2</a>
+/// <a href=\"dest1\" title=\"title1\">text1</a><br>
+/// <a href=\"dest5\">[alt5]</a><br>
+/// <a href=\"dest6\" title=\"\">[alt6]</a><br>
 /// ";
 ///
 /// let res = links2html(i);
@@ -710,8 +750,8 @@ where
 ///
 /// This is how the rendered text looks like in the browser:
 ///
-/// <a href="dest1" title="title1">text1</a>
-/// <a href="dest2" title="title2">text2</a>
+/// <a href="dest1" title="title1">text1</a><br>
+/// <a href="dest2" title="title2">text2</a><br>
 ///
 #[inline]
 pub fn links2html(input: &str) -> String {
@@ -752,18 +792,23 @@ pub fn links2html_writer<'a, S: 'a + AsRef<str>, W: Write>(
 
     let link_renderer = |(_consumed, link)| match link {
         Link::Text2Dest(text, dest, title) => format!(
-            "<a href=\"{}\" title=\"{}\">{}</a>\n",
+            "<a href=\"{}\" title=\"{}\">{}</a><br>\n",
             encode_double_quoted_attribute(dest.as_ref()),
             encode_double_quoted_attribute(title.as_ref()),
             text
         ),
         Link::Image2Dest(text1, alt, _src, text2, dest, title) => format!(
-            "<a href=\"{}\" title=\"{}\">{}[{}]{}</a>\n",
+            "<a href=\"{}\" title=\"{}\">{}[{}]{}</a><br>\n",
             encode_double_quoted_attribute(dest.as_ref()),
             encode_double_quoted_attribute(title.as_ref()),
             text1,
-            alt,
+            if !alt.is_empty() { &alt } else { &dest },
             text2,
+        ),
+        Link::Image(alt, src) => format!(
+            "<a href=\"{}\">[{}]</a><br>\n",
+            encode_double_quoted_attribute(src.as_ref()),
+            if !alt.is_empty() { &alt } else { &src },
         ),
         e => format!("<ERROR rendering: {:?}>", e),
     };
@@ -793,6 +838,21 @@ abc<a href="destination3" title="title3">label3</a>abc[label4]abc
         let res = text_links2html(i);
         //eprintln!("{}", res);
         assert_eq!(res, expected);
+
+        //
+        let i = r#"![alt1](src1)abc
+![](src2)abc
+[![alt3](src3)](dest3)abc
+[![](src4)](dest4)abc
+"#;
+        let expected = r#"<pre><img src="src1" alt="alt1">abc
+<img src="src2" alt="">abc
+<a href="dest3" title=""><img alt="alt3" src="src3"></a>abc
+<a href="dest4" title=""><img alt="" src="src4"></a>abc
+</pre>"#;
+        let res = text_links2html(i);
+        //eprintln!("{}", res);
+        assert_eq!(res, expected);
     }
 
     #[test]
@@ -817,12 +877,26 @@ abc [text2](destination2 "title2")
   [label1]: destination1 "title1"
 abc[label3]abc[label4]abc
 "#;
-
         let expected = r#"<pre>abc<a href="destination1" title="title1">[text1][label1]</a>abc
 abc <a href="destination2" title="title2">[text2](destination2 "title2")</a>
   <a href="destination3" title="title3">[label3]: destination3 "title3"</a>
   <a href="destination1" title="title1">[label1]: destination1 "title1"</a>
 abc<a href="destination3" title="title3">[label3]</a>abc[label4]abc
+</pre>"#;
+        let res = text_rawlinks2html(i);
+        //eprintln!("{}", res);
+        assert_eq!(res, expected);
+
+        //
+        let i = r#"![alt1](src1)abc
+![](src2)abc
+[![alt3](src3)](dest3)abc
+[![](src4)](dest4)abc
+"#;
+        let expected = r#"<pre><a href="src1" title="alt1">![alt1](src1)</a>abc
+<a href="src2" title="">![](src2)</a>abc
+<a href="dest3" title="">[![alt3](src3)](dest3)</a>abc
+<a href="dest4" title="">[![](src4)](dest4)</a>abc
 </pre>"#;
         let res = text_rawlinks2html(i);
         //eprintln!("{}", res);
@@ -838,9 +912,25 @@ abc [text2](destination2 "title2")
 abc[label3]abc[label4]abc
 "#;
 
-        let expected = r#"<a href="destination1" title="title1">text1</a>
-<a href="destination2" title="title2">text2</a>
-<a href="destination3" title="title3">label3</a>
+        let expected = r#"<a href="destination1" title="title1">text1</a><br>
+<a href="destination2" title="title2">text2</a><br>
+<a href="destination3" title="title3">label3</a><br>
+"#;
+        let res = links2html(i);
+        //eprintln!("{}", res);
+        assert_eq!(res, expected);
+
+        //
+        let i = r#"![alt1](src1)abc
+![](src2)abc
+[![alt3](src3)](dest3)abc
+[![](src4)](dest4)abc
+"#;
+
+        let expected = r#"<a href="src1">[alt1]</a><br>
+<a href="src2">[src2]</a><br>
+<a href="dest3" title="">[alt3]</a><br>
+<a href="dest4" title="">[dest4]</a><br>
 "#;
         let res = links2html(i);
         //eprintln!("{}", res);

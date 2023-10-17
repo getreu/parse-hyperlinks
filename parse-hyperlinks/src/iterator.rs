@@ -49,7 +49,8 @@ impl<'a> MarkupLinkCollection<'a> {
             match res {
                 // `Text2Dest` is stored without modification in `hc.text2dest_label`.
                 l if matches!(l, Link::Text2Dest { .. })
-                    || matches!(l, Link::Image2Dest { .. }) =>
+                    || matches!(l, Link::Image2Dest { .. })
+                    || matches!(l, Link::Image { .. }) =>
                 {
                     let link_offset = input_idx + skipped.len();
                     let link_len = i.len() - j.len() - skipped.len();
@@ -224,7 +225,7 @@ enum Status<'a> {
 ///
 /// Each tuple has the following parts:
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
-/// * `Link` is `Link::Text2Dest` or `Link::Image2Dest`
+/// * `Link` is `Link::Text2Dest`, `Link::Image2Dest`, or `Link::Image`.
 ///
 /// # Input split
 ///
@@ -458,6 +459,7 @@ impl<'a> Iterator for MarkupLink<'a> {
                             if match link {
                                 Link::Text2Dest(_, _, _) => true,
                                 Link::Image2Dest(_, _, _, _, _, _) => true,
+                                Link::Image(_, _) => true,
                                 _ => false,
                             } =>
                         {
@@ -501,6 +503,7 @@ impl<'a> Iterator for MarkupLink<'a> {
                                 if match link {
                                     Link::Text2Dest(_, _, _) => true,
                                     Link::Image2Dest(_, _, _, _, _, _) => true,
+                                    Link::Image(_, _) => true,
                                     _ => false,
                                 } =>
                             {

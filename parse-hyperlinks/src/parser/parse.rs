@@ -9,10 +9,12 @@ use crate::parser::asciidoc::adoc_text2dest_link;
 use crate::parser::asciidoc::adoc_text2label_link;
 use crate::parser::html::html_text2dest_link;
 use crate::parser::html_img::html_img2dest_link;
+use crate::parser::html_img::html_img_link;
 use crate::parser::markdown::md_label2dest_link;
 use crate::parser::markdown::md_text2dest_link;
 use crate::parser::markdown::md_text2label_link;
 use crate::parser::markdown_img::md_img2dest_link;
+use crate::parser::markdown_img::md_img_link;
 use crate::parser::restructured_text::rst_label2dest_link;
 use crate::parser::restructured_text::rst_label2label_link;
 use crate::parser::restructured_text::rst_text2dest_link;
@@ -271,8 +273,6 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
                 // Now we search for `label2*`.
                 // These parsers do not care about the indent, as long it is
                 // only whitespace.
-                md_text2dest_link,
-                wikitext_text2dest_link,
                 md_label2dest_link,
                 adoc_label2dest_link,
             ))(j)
@@ -285,6 +285,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         // Regular `text` links can start everywhere.
         if let Ok((k, r)) = alt((
             // Start with `text2dest`.
+            md_img_link,
             md_img2dest_link,
             md_text2dest_link,
             // This should be first, because it is very specific.
@@ -293,6 +294,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             rst_text2dest_link,
             rst_text_label2dest_link,
             adoc_text2label_link,
+            html_img_link,
             html_img2dest_link,
             html_text2dest_link,
         ))(j)
@@ -340,6 +342,8 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             || c == ' ' || c == '\t'
             // These are candidates for `rst_text2label`, `rst_text_label2dest` `rst_text2dest`:
             || c == '`'
+            // These could be the start of all `md_img` link types.
+            || c == '!'
             // These could be the start of all `md_*` link types.
             || c == '['
             // These could be the start of the `adoc_text2label` link type.
@@ -660,8 +664,7 @@ ghi[http://getreu.net](<http://blog.getreu.net>)jkl"#;
     #[test]
     fn test_take_link7() {
         let i = "abc[def![alt](img.png)ghi](doc.md \"title\")abc\
-            abc<a href=\"doc.md\" title=\"title\">def\
-            <img alt=\"alt\" src=\"img.png\" />ghi</a>jkl";
+            abc![alt2](dest2)abc";
 
         let expected = Link::Image2Dest(
             Cow::from("def"),
@@ -674,9 +677,10 @@ ghi[http://getreu.net](<http://blog.getreu.net>)jkl"#;
         let (i, (_, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
 
+        let expected = Link::Image(Cow::from("alt2"), Cow::from("dest2"));
         let (i, (skipped, res)) = take_link(i).unwrap();
         assert_eq!(res, expected);
-        assert_eq!(i, "jkl");
         assert_eq!(skipped, "abcabc");
+        assert_eq!(i, "abc");
     }
 }
