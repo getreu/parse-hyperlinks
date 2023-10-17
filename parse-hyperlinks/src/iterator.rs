@@ -555,17 +555,17 @@ impl<'a> Iterator for MarkupLink<'a> {
 /// This function resolves _link references_.
 /// ```
 /// use parse_hyperlinks::parser::Link;
-/// use parse_hyperlinks::iterator::first_hyperlink;
+/// use parse_hyperlinks::iterator::find_first;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc[t][u]abc
 ///            [u]: v "w"
 ///            abc"#;
 ///
-/// let r = first_hyperlink(i);
+/// let r = find_first(i);
 /// assert_eq!(r, Some(Link::Text2Dest(Cow::from("t"), Cow::from("v"), Cow::from("w"))));
 /// ```
-pub fn first_hyperlink(i: &str) -> Option<Link> {
+pub fn find_first(i: &str) -> Option<Link> {
     MarkupLink::new(i, false).next().map(|(_, l)| l)
 }
 
