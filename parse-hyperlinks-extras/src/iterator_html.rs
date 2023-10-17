@@ -122,12 +122,12 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks_extras::iterator_html::InlineImage;
+/// use parse_hyperlinks_extras::iterator_html::HtmlInlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">efg<img src="dest2" alt="text2">hij"#;
 ///
-/// let mut iter = InlineImage::new(i);
+/// let mut iter = HtmlInlineImage::new(i);
 /// assert_eq!(iter.next().unwrap().0, ("abc", r#"<img src="dest1" alt="text1">"#,
 ///       r#"efg<img src="dest2" alt="text2">hij"#));
 /// assert_eq!(iter.next().unwrap().0, ("efg", r#"<img src="dest2" alt="text2">"#,
@@ -138,25 +138,25 @@ impl<'a> Iterator for Hyperlink<'a> {
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks_extras::iterator_html::InlineImage;
+/// use parse_hyperlinks_extras::iterator_html::HtmlInlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
 /// abc<img src="dest2" alt="text2">abc
 /// "#;
 ///
-/// let mut iter = InlineImage::new(i);
+/// let mut iter = HtmlInlineImage::new(i);
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2")));
 /// assert_eq!(iter.next(), None);
 /// ```
-pub struct InlineImage<'a> {
+pub struct HtmlInlineImage<'a> {
     /// The remaining text input.
     input: &'a str,
 }
 
 /// Constructor for the `Hyperlink` struct.
-impl<'a> InlineImage<'a> {
+impl<'a> HtmlInlineImage<'a> {
     /// Constructor for the iterator. `input` is the text with inline images to be
     /// extracted.
     #[inline]
@@ -173,7 +173,7 @@ impl<'a> InlineImage<'a> {
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
 /// * `link_content = (image_alt, image_src)`
 ///
-impl<'a> Iterator for InlineImage<'a> {
+impl<'a> Iterator for HtmlInlineImage<'a> {
     type Item = ((&'a str, &'a str, &'a str), (Cow<'a, str>, Cow<'a, str>));
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
