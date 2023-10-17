@@ -1003,4 +1003,50 @@ abc[text5-1![alt5](src5)text5-2](dest5 "title5")abc
         //eprintln!("item: {:#?}", item);
         assert_eq!(item, expected);
     }
+
+    #[test]
+    fn test_next1() {
+        let i = r#"Some autolink: <tpnote:locallink.md>,
+more autolinks: <tpnote:20>, <getreu@web.de>,
+boring link text: [http://domain.com](http://getreu.net)
+[Jens Getreu's blog](https://blog.getreu.net "My blog")
+Some more text."#;
+        let mut iter = Hyperlink::new(i, false);
+
+        let expected = Link::Text2Dest(
+            Cow::from("tpnote:locallink.md"),
+            Cow::from("tpnote:locallink.md"),
+            Cow::from(""),
+        );
+        let item = iter.next().unwrap();
+        //eprintln!("item: {:#?}", item);
+        assert_eq!(item.1, expected);
+
+        let expected = Link::Text2Dest(
+            Cow::from("tpnote:20"),
+            Cow::from("tpnote:20"),
+            Cow::from(""),
+        );
+        let item = iter.next().unwrap();
+        //eprintln!("item: {:#?}", item);
+        assert_eq!(item.1, expected);
+
+        let expected = Link::Text2Dest(
+            Cow::from("getreu@web.de"),
+            Cow::from("mailto:getreu@web.de"),
+            Cow::from(""),
+        );
+        let item = iter.next().unwrap();
+        //eprintln!("item: {:#?}", item);
+        assert_eq!(item.1, expected);
+
+        let expected = Link::Text2Dest(
+            Cow::from("http://domain.com"),
+            Cow::from("http://getreu.net"),
+            Cow::from(""),
+        );
+        let item = iter.next().unwrap();
+        //eprintln!("item: {:#?}", item);
+        assert_eq!(item.1, expected);
+    }
 }
