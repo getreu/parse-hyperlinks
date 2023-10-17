@@ -197,13 +197,13 @@ impl<'a> Iterator for InlineImage<'a> {
 
 /// The state of the iterator.
 #[derive(Debug, PartialEq)]
-pub struct HyperlinkInlineImage<'a> {
+pub struct HtmlLinkInlineImage<'a> {
     /// The remaining text input.
     input: &'a str,
 }
 
-/// Constructor for the `HyperlinkInlineImage` struct.
-impl<'a> HyperlinkInlineImage<'a> {
+/// Constructor for the `HtmlLinkInlineImage` struct.
+impl<'a> HtmlLinkInlineImage<'a> {
     /// Constructor for the iterator. `input` is the text with hyperlinks and
     /// inline images to be extracted.
     #[inline]
@@ -223,13 +223,13 @@ impl<'a> HyperlinkInlineImage<'a> {
 ///   the variants `Link::Text2Dest`, `Link::Image` or `Link::Imgage2Dest`.
 ///
 /// ```
-/// use parse_hyperlinks_extras::iterator_html::HyperlinkInlineImage;
+/// use parse_hyperlinks_extras::iterator_html::HtmlLinkInlineImage;
 /// use std::borrow::Cow;
 ///
 /// let i = r#"abc<img src="dest1" alt="text1">abc
 /// abc<a href="dest2" title="title2">text2</a>abc"#;
 ///
-/// let mut iter = HyperlinkInlineImage::new(i);
+/// let mut iter = HtmlLinkInlineImage::new(i);
 /// assert_eq!(iter.next().unwrap().0, ("abc",
 ///     r#"<img src="dest1" alt="text1">"#,
 ///     "abc\nabc<a href=\"dest2\" title=\"title2\">text2</a>abc"
@@ -244,7 +244,7 @@ impl<'a> HyperlinkInlineImage<'a> {
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks_extras::iterator_html::HyperlinkInlineImage;
+/// use parse_hyperlinks_extras::iterator_html::HtmlLinkInlineImage;
 /// use parse_hyperlinks::parser::Link;
 /// use std::borrow::Cow;
 ///
@@ -253,7 +253,7 @@ impl<'a> HyperlinkInlineImage<'a> {
 /// abc<a href="dest3" title="title3">cde<img alt="alt3" src="src3"/>fgh</a>abc
 /// "#;
 ///
-/// let mut iter = HyperlinkInlineImage::new(i);
+/// let mut iter = HtmlLinkInlineImage::new(i);
 /// assert_eq!(iter.next().unwrap().1,
 ///            Link::Image(Cow::from("text1"), Cow::from("dest1")));
 /// assert_eq!(iter.next().unwrap().1,
@@ -266,7 +266,7 @@ impl<'a> HyperlinkInlineImage<'a> {
 /// assert_eq!(iter.next(), None);
 /// ```
 ///
-impl<'a> Iterator for HyperlinkInlineImage<'a> {
+impl<'a> Iterator for HtmlLinkInlineImage<'a> {
     type Item = ((&'a str, &'a str, &'a str), Link<'a>);
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
