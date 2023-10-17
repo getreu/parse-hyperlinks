@@ -21,13 +21,13 @@ use std::borrow::Cow;
 /// # Input split
 ///
 /// ```
-/// use parse_hyperlinks_extras::iterator_html::Hyperlink;
+/// use parse_hyperlinks_extras::iterator_html::HtmlLink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\n\
 ///          abc<a href=\"dest2\" title=\"title2\">text2</a>xyz";
 ///
-/// let mut iter = Hyperlink::new(i);
+/// let mut iter = HtmlLink::new(i);
 /// assert_eq!(iter.next().unwrap().0,
 ///            ("abc",
 ///             "<a href=\"dest1\" title=\"title1\">text1</a>",
@@ -44,25 +44,25 @@ use std::borrow::Cow;
 /// ## HTML
 ///
 /// ```
-/// use parse_hyperlinks_extras::iterator_html::Hyperlink;
+/// use parse_hyperlinks_extras::iterator_html::HtmlLink;
 /// use std::borrow::Cow;
 ///
 /// let i = "abc<a href=\"dest1\" title=\"title1\">text1</a>abc\
 ///          abc<a href=\"dest2\" title=\"title2\">text2</a>abc";
 ///
 ///
-/// let mut iter = Hyperlink::new(i);
+/// let mut iter = HtmlLink::new(i);
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text1"), Cow::from("dest1"), Cow::from("title1")));
 /// assert_eq!(iter.next().unwrap().1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
 /// assert_eq!(iter.next(), None);
 /// ```
-pub struct Hyperlink<'a> {
+pub struct HtmlLink<'a> {
     /// The remaining text input.
     input: &'a str,
 }
 
-/// Constructor for the `Hyperlink` struct.
-impl<'a> Hyperlink<'a> {
+/// Constructor for the `HtmlLink` struct.
+impl<'a> HtmlLink<'a> {
     /// Constructor for the iterator. `input` is the text with inline images to be
     /// extracted.
     #[inline]
@@ -79,7 +79,7 @@ impl<'a> Hyperlink<'a> {
 /// * `input_split = (skipped_characters, consumed_characters, remaining_characters)`
 /// * `link_content = (link_text, link_destination, link_title)`
 ///
-impl<'a> Iterator for Hyperlink<'a> {
+impl<'a> Iterator for HtmlLink<'a> {
     type Item = (
         (&'a str, &'a str, &'a str),
         (Cow<'a, str>, Cow<'a, str>, Cow<'a, str>),
@@ -155,7 +155,7 @@ pub struct HtmlInlineImage<'a> {
     input: &'a str,
 }
 
-/// Constructor for the `Hyperlink` struct.
+/// Constructor for the `HtmlLink` struct.
 impl<'a> HtmlInlineImage<'a> {
     /// Constructor for the iterator. `input` is the text with inline images to be
     /// extracted.
