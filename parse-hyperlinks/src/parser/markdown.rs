@@ -51,7 +51,9 @@ pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
         nom::sequence::delimited(
             tag("<"),
             map_parser(
-                nom::bytes::complete::take_till1(|c: char| c.is_ascii_whitespace() || c == '>'),
+                nom::bytes::complete::take_till1(|c: char| {
+                    c.is_ascii_whitespace() || c == '>' || c == '<'
+                }),
                 alt((md_absolute_uri, md_email_address)),
             ),
             tag(">"),
@@ -545,6 +547,18 @@ mod tests {
                 ErrorKind::Tag
             )))
         );
+        // [Example 20](https://spec.commonmark.org/0.30/#example-20)
+        assert_eq!(
+            md_text2dest(r#"<http://example.com?find=\*>abc"#),
+            Ok((
+                "abc",
+                (
+                    Cow::from(r#"http://example.com?find=\*"#),
+                    Cow::from(r#"http://example.com?find=\*"#),
+                    Cow::from("")
+                )
+            ))
+        );
         // [Example 22](https://spec.commonmark.org/0.30/#example-22)
         assert_eq!(
             md_text2dest(r#"[foo](/bar\* "ti\*tle")abc"#),
@@ -896,10 +910,12 @@ mod tests {
         assert_eq!(
             md_escaped_str_transform(r#"\(\)\\"#),
             Ok(("", Cow::from(r#"()\"#)))
-        ); 
-        // [Example 12](https://spec.commonmark.org/0.30/#example-12)       
+        );
+        // [Example 12](https://spec.commonmark.org/0.30/#example-12)
         assert_eq!(
-            md_escaped_str_transform(r#"\!\"\#\$\%\&\'\(\)\*\+\,\-\.\/\:\;\<\=\>\?\@\[\\\]\^\_\`\{\|\}\~"#),
+            md_escaped_str_transform(
+                r#"\!\"\#\$\%\&\'\(\)\*\+\,\-\.\/\:\;\<\=\>\?\@\[\\\]\^\_\`\{\|\}\~"#
+            ),
             Ok(("", Cow::from(r###"!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"###)))
         );
     }
@@ -1067,19 +1083,18 @@ mod tests {
         );
     }
 
-    /* 
+    /*
     #[test]
     fn test_md_escaped() {
         use nom::IResult;
         use nom::bytes::complete::escaped;
         use nom::character::complete::one_of;
-        
+
         fn esc(s: &str) -> IResult<&str, &str> {
           escaped(nom::character::complete::none_of(r#"\<>"#), '\\', one_of(ESCAPABLE))(s)
         }
-        
+
         assert_eq!(esc("123\\>123\\<4>abc"), Ok((">abc", "123\\>123\\<4")));
-    } 
+    }
     */
 }
-
