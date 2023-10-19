@@ -48,19 +48,20 @@ pub fn take_until_unbalanced(
         while let Some(n) = &i[index..].find(&[opening_bracket, closing_bracket, '\\'][..]) {
             index += n;
             let mut it = i[index..].chars();
-            match it.next().unwrap_or_default() {
-                c if c == '\\' => {
+            match it.next() {
+                Some(c) if c == '\\' => {
                     // Skip the escape char `\`.
                     index += '\\'.len_utf8();
                     // Skip also the following char.
-                    let c = it.next().unwrap_or_default();
-                    index += c.len_utf8();
+                    if let Some(c) = it.next() {
+                        index += c.len_utf8();
+                    }
                 }
-                c if c == opening_bracket => {
+                Some(c) if c == opening_bracket => {
                     bracket_counter += 1;
                     index += opening_bracket.len_utf8();
                 }
-                c if c == closing_bracket => {
+                Some(c) if c == closing_bracket => {
                     // Closing bracket.
                     bracket_counter -= 1;
                     index += closing_bracket.len_utf8();
@@ -97,12 +98,24 @@ mod tests {
             Ok((")abc", "url"))
         );
         assert_eq!(
+            take_until_unbalanced('(', ')')("url)abc\\"),
+            Ok((")abc\\", "url"))
+        );
+        assert_eq!(
             take_until_unbalanced('(', ')')("u()rl)abc"),
             Ok((")abc", "u()rl"))
         );
         assert_eq!(
             take_until_unbalanced('(', ')')("u(())rl)abc"),
             Ok((")abc", "u(())rl"))
+        );
+        assert_eq!(
+            take_until_unbalanced('(', ')')("u\\(())rl)abc"),
+            Ok((")rl)abc", "u\\(()"))
+        );
+        assert_eq!(
+            take_until_unbalanced('(', ')')("u(()\\)rl)abc"),
+            Ok(("", "u(()\\)rl)abc"))
         );
         assert_eq!(
             take_until_unbalanced('(', ')')("u(())r()l)abc"),
