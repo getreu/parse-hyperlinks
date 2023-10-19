@@ -683,4 +683,32 @@ ghi[http://getreu.net](<http://blog.getreu.net>)jkl"#;
         assert_eq!(skipped, "abcabc");
         assert_eq!(i, "abc");
     }
+
+    #[test]
+    fn test_take_link8() {
+        let i = "[into_bytes](https://doc.rust-lang.org/)";
+
+        let expected = Link::Text2Dest(
+            Cow::from("into_bytes"),
+            Cow::from("https://doc.rust-lang.org/"),
+            Cow::from(""),
+        );
+        let (i, (skipped, res)) = take_link(i).unwrap();
+        assert_eq!(i, "");
+        assert_eq!(skipped, "");
+        assert_eq!(res, expected);        
+        
+        //
+        let i = "[into\\_bytes](https://doc.rust-lang.org/)";
+
+        let expected = Link::Text2Dest(
+            Cow::from("into_bytes"),
+            Cow::from("https://doc.rust-lang.org/"),
+            Cow::from(""),
+        );
+        let (i, (skipped, res)) = take_link(i).unwrap();
+        assert_eq!(i, "");
+        assert_eq!(skipped, "");
+        assert_eq!(res, expected);
+    }
 }

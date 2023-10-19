@@ -14,7 +14,7 @@ use std::borrow::Cow;
 
 /// The following character are escapable in _link text_, _link label_, _link
 /// destination_ and _link title_.
-const ESCAPABLE: &str = r#"\'"()[]{}<>"#;
+const ESCAPABLE: &str = r###"!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"###;
 
 /// Wrapper around `md_text2dest()` that packs the result in
 /// `Link::Text2Dest`.
@@ -231,7 +231,7 @@ fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
             nom::sequence::delimited(
                 tag("["),
                 nom::bytes::complete::escaped(
-                    nom::character::complete::none_of(r#"\[]"#),
+                    nom::character::complete::none_of(ESCAPABLE),
                     '\\',
                     nom::character::complete::one_of(ESCAPABLE),
                 ),
@@ -545,6 +545,14 @@ mod tests {
                 ErrorKind::Tag
             )))
         );
+        // [Example 22](https://spec.commonmark.org/0.30/#example-22)
+        assert_eq!(
+            md_text2dest(r#"[foo](/bar\* "ti\*tle")abc"#),
+            Ok((
+                "abc",
+                (Cow::from("foo"), Cow::from("/bar*"), Cow::from("ti*tle"))
+            ))
+        );
     }
 
     #[test]
@@ -683,7 +691,7 @@ mod tests {
         );
         assert_eq!(
             md_label2dest("[text: url"),
-            Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
+            Err(nom::Err::Error(nom::error::Error::new(": url", ErrorKind::Tag)))
         );
         assert_eq!(
             md_label2dest("[text] url"),
@@ -742,6 +750,14 @@ mod tests {
                 ErrorKind::Verify
             )))
         );
+        // [Example 23](https://spec.commonmark.org/0.30/#example-23)
+        assert_eq!(
+            md_label2dest(r#"[foo]: /bar\* "ti\*tle""#),
+            Ok((
+                "",
+                (Cow::from("foo"), Cow::from("/bar*"), Cow::from("ti*tle"))
+            ))
+        );
     }
 
     #[test]
@@ -762,6 +778,10 @@ mod tests {
             md_link_text("[text(url)"),
             Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
         );
+        assert_eq!(
+            md_link_text(r#"[te\_xt](url)"#),
+            Ok(("(url)", Cow::from("te_xt")))
+        );
     }
 
     #[test]
@@ -776,7 +796,7 @@ mod tests {
         );
         assert_eq!(
             md_link_label("[text: url"),
-            Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
+            Err(nom::Err::Error(nom::error::Error::new(": url", ErrorKind::Tag)))
         );
         assert_eq!(
             md_link_label("[t[ext: url"),
@@ -876,6 +896,11 @@ mod tests {
         assert_eq!(
             md_escaped_str_transform(r#"\(\)\\"#),
             Ok(("", Cow::from(r#"()\"#)))
+        ); 
+        // [Example 12](https://spec.commonmark.org/0.30/#example-12)       
+        assert_eq!(
+            md_escaped_str_transform(r#"\!\"\#\$\%\&\'\(\)\*\+\,\-\.\/\:\;\<\=\>\?\@\[\\\]\^\_\`\{\|\}\~"#),
+            Ok(("", Cow::from(r###"!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"###)))
         );
     }
 

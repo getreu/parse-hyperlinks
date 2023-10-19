@@ -1052,4 +1052,23 @@ Some more text."#;
         //eprintln!("item: {:#?}", item);
         assert_eq!(item.1, expected);
     }
+
+    #[test]
+    fn test_next2() {
+        let i = r#"[te\_xt](ur\_l)[te_xt](ur_l)"#;
+        let mut iter = MarkupLink::new(i, false);
+
+        let expected = Link::Text2Dest(
+            Cow::from("te_xt"),
+            Cow::from("ur_l"),
+            Cow::from(""),
+        );
+        let item = iter.next().unwrap();
+        //eprintln!("item: {:#?}", item);
+        assert_eq!(item.1, expected);
+
+        let item = iter.next().unwrap();
+        //eprintln!("item: {:#?}", item);
+        assert_eq!(item.1, expected);
+    }
 }
