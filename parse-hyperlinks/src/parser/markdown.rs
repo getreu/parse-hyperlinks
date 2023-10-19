@@ -231,7 +231,7 @@ fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
             nom::sequence::delimited(
                 tag("["),
                 nom::bytes::complete::escaped(
-                    nom::character::complete::none_of(ESCAPABLE),
+                    nom::character::complete::none_of("\\[]"),
                     '\\',
                     nom::character::complete::one_of(ESCAPABLE),
                 ),
@@ -691,7 +691,7 @@ mod tests {
         );
         assert_eq!(
             md_label2dest("[text: url"),
-            Err(nom::Err::Error(nom::error::Error::new(": url", ErrorKind::Tag)))
+            Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
         );
         assert_eq!(
             md_label2dest("[text] url"),
@@ -796,7 +796,7 @@ mod tests {
         );
         assert_eq!(
             md_link_label("[text: url"),
-            Err(nom::Err::Error(nom::error::Error::new(": url", ErrorKind::Tag)))
+            Err(nom::Err::Error(nom::error::Error::new("", ErrorKind::Tag)))
         );
         assert_eq!(
             md_link_label("[t[ext: url"),
@@ -1066,4 +1066,20 @@ mod tests {
             )))
         );
     }
+
+    /* 
+    #[test]
+    fn test_md_escaped() {
+        use nom::IResult;
+        use nom::bytes::complete::escaped;
+        use nom::character::complete::one_of;
+        
+        fn esc(s: &str) -> IResult<&str, &str> {
+          escaped(nom::character::complete::none_of(r#"\<>"#), '\\', one_of(ESCAPABLE))(s)
+        }
+        
+        assert_eq!(esc("123\\>123\\<4>abc"), Ok((">abc", "123\\>123\\<4")));
+    } 
+    */
 }
+
