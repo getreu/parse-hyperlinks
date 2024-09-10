@@ -36,28 +36,27 @@ simple command line application:
    language.
 
 
+### Additional input contract for HTML documents
 
-## General HTML requirements
-
-1. The characters `&<>"` in absolute URLs in HTML documents must be _HTML-
+1. The characters `&<>"` in absolute URLs in HTML documents **must** be _HTML-
    escape-encoded_: these characters are replaced with their entity names, e.g.
    `&amp;`, `&lt;`, `&gt;` and `&quote`.
 
 2. Relative URLs (local links) in UTF-8 encoded HTML document, do not need to
    be HTML-escape encoded. I recommend not to do so.
 
-3. Relative URLs (local links) must not be preceded by a scheme, e.g. `html:`.
+3. Relative URLs (local links) **must not** start with a scheme, e.g. `http:`.
 
-4. In addition to HTML-escape-encoding, URLs can be _percent encoded_, e.g.
-   `%20` or `%26`. When both encoding appear in an HTML document, the HTML
-   escape decoding is applied first, then the percent encoding. 
-   For example, the encoded string `Ü ber%26amp;Über &amp` is decoded to 
-   `Ü  ber&amp;Über &`. In general, URLs in UTF-8 HTML documents can be 
-   expressed without percent encoding, which is recommended.
+4. In addition to HTML-escape-encoding discussed above, URLs can be _percent
+   encoded_ as well, e.g. `%20` or `%26`. When both encodings appear in an
+   HTML document, the HTML escape decoding is applied first, then the percent
+   decoding.  For example, the encoded string `Ü ber%26amp;Über &amp` is decoded
+   to `Ü ber&amp;Über &`. In general, avoid percent encoding. URLs in UTF-8
+   HTML documents can always be expressed without percent encoding.
 
 
       
-## Parse-Hyperlinks output guaranties
+## The Parse-Hyperlinks output guaranties
 
 The following section explains how Parse-Hyperlinks meets the above _General
 HTML requirements_. It refers to the items in the list above.
@@ -75,14 +74,14 @@ HTML requirements_. It refers to the items in the list above.
 
 4. Percent-encoding in Parse-Hyperlinks:
   
-   * No _percent encoding_ at all is performed in Parse-Hyperlinks.
+   * No _percent encoding_ at all is applied in Parse-Hyperlinks.
    
    * _Percent decoding_: In some cases, when the markup language specification
      requires the input URL to be percent encoded, the concerned consuming
      parser decodes the percent encoding automatically.
      Percent decoding is URL's is performed implicitly when consuming:
      * Markdown autolinks when parsed by: `md_text2dest()`,
-     * Asciidoc URLs when parsed by: `adoc_label2dest()`, `adoc_text2dest`
+     * Asciidoc URLs when parsed by: `adoc_label2dest()` or `adoc_text2dest`,
      * WikiText URLs when parsed by: `wikitext_text2dest()`
 
    * Rendered autolink markup:
