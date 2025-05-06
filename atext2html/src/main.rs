@@ -63,19 +63,19 @@ fn main() -> Result<(), ::std::io::Error> {
 
     let renderer = match (ARGS.render_links, ARGS.only_links) {
         (false, false) => |(inbuf, mut output): (&str, &mut dyn Write)| -> Result<_, _> {
-            text_rawlinks2html_writer(&inbuf, &mut output)
+            text_rawlinks2html_writer(inbuf, &mut output)
         },
         (true, false) => |(inbuf, mut output): (&str, &mut dyn Write)| -> Result<_, _> {
-            text_links2html_writer(&inbuf, &mut output)
+            text_links2html_writer(inbuf, &mut output)
         },
         (_, true) => |(inbuf, mut output): (&str, &mut dyn Write)| -> Result<_, _> {
-            links2html_writer(&inbuf, &mut output)
+            links2html_writer(inbuf, &mut output)
         },
     };
 
     // Where to print the output.
     let mut output = if let Some(outname) = &ARGS.output {
-        let file = File::create(&Path::new(&outname))?;
+        let file = File::create(Path::new(&outname))?;
         Box::new(file) as Box<dyn Write>
     } else {
         Box::new(io::stdout()) as Box<dyn Write>

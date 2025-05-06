@@ -176,7 +176,7 @@ impl<'a> MarkupLinkCollection<'a> {
         while idx < self.text2dest_label.len() {
             // If we can not resolve the label, we just skip it.
             if let (input_offset, len, Link::Text2Label(text, label)) = &self.text2dest_label[idx] {
-                if let Some((dest, title)) = &self.label2dest.get(&*label) {
+                if let Some((dest, title)) = &self.label2dest.get(label) {
                     let new_link = if text == "" {
                         (
                             *input_offset,
@@ -515,7 +515,7 @@ impl<'a> Iterator for MarkupLink<'a> {
                                 // Assign output.
                                 output = Some(((skipped, consumed, remaining_input), link));
                                 debug_assert_eq!(self.input, {
-                                    let mut s = (&self.input
+                                    let mut s = (self.input
                                         [..self.last_output_offset + self.last_output_len])
                                         .to_string();
                                     s.push_str(skipped);
@@ -1058,11 +1058,7 @@ Some more text."#;
         let i = r#"[te\_xt](ur\_l)[te_xt](ur_l)"#;
         let mut iter = MarkupLink::new(i, false);
 
-        let expected = Link::Text2Dest(
-            Cow::from("te_xt"),
-            Cow::from("ur_l"),
-            Cow::from(""),
-        );
+        let expected = Link::Text2Dest(Cow::from("te_xt"), Cow::from("ur_l"), Cow::from(""));
         let item = iter.next().unwrap();
         //eprintln!("item: {:#?}", item);
         assert_eq!(item.1, expected);
