@@ -252,19 +252,19 @@ pub(crate) fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
 }
 
 /// A [link destination](https://spec.commonmark.org/0.30/#link-destination)
-/// consists of either
+/// consists of either:
 ///
 /// * a sequence of zero or more characters between an opening `<` and a
-/// closing `>` that contains no line endings or unescaped `<` or `>`
-/// characters, or
+///   closing `>` that contains no line endings or unescaped `<` or `>`
+///   characters, or
 /// * a nonempty sequence of characters that does not start with `<`, does not
-/// include [ASCII control
-/// characters](https://spec.commonmark.org/0.30/#ascii-control-character) or
-/// [space](https://spec.commonmark.org/0.30/#space) character, and includes
-/// parentheses only if (a) they are backslash-escaped or (b) they are part of a
-/// balanced pair of unescaped parentheses. (Implementations may impose limits
-/// on parentheses nesting to avoid performance issues, but at least three
-/// levels of nesting should be supported.)
+///   include [ASCII control
+///   characters](https://spec.commonmark.org/0.30/#ascii-control-character) or
+///   [space](https://spec.commonmark.org/0.30/#space) character, and includes
+///   parentheses only if (a) they are backslash-escaped or (b) they are part
+///   of a balanced pair of unescaped parentheses. (Implementations may impose
+///   limits on parentheses nesting to avoid performance issues, but at least
+///   three levels of nesting should be supported.)
 fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
     alt((
         nom::sequence::delimited(

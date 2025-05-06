@@ -141,18 +141,19 @@ pub fn adoc_text2label_link(i: &str) -> nom::IResult<&str, Link> {
 ///
 /// There are three kinds of reference links `Text2Label`: full, collapsed, and
 /// shortcut.
-/// 1. A full reference link `{label}[text]` consists of a link label immediately
-/// followed by a link text. The label matches a link reference definition
-/// elsewhere in the document.
-/// 2. A collapsed reference link `{label}[]` consists of a link label that matches
-///    a link reference definition elsewhere in the document, followed by the string
-///    `[]`. In this case, the function returns an empty _link text_ `""`,
-///    indicating, that the empty string must be replaced later by the link
-///    destination `link_dest` of the matching _link reference definition_
-///    (`Label2Dest`).
+///
+/// 1. A full reference link `{label}[text]` consists of a link label
+///    immediately followed by a link text. The label matches a link reference
+///    definition elsewhere in the document.
+/// 2. A collapsed reference link `{label}[]` consists of a link label that
+///    matches a link reference definition elsewhere in the document, followed
+///    by the string `[]`. In this case, the function returns an empty _link
+///    text_ `""`, indicating, that the empty string must be replaced later
+///    by the link destination `link_dest` of the matching _link reference
+///    definition_ (`Label2Dest`).
 /// 3. A shortcut reference link consists of a link label that matches a link
-///    reference definition elsewhere in the document and is not followed by `[]` or
-///    a link text `[link text]`. This is a shortcut of case 2. above.
+///    reference definition elsewhere in the document and is not followed by
+///    `[]` or a link text `[link text]`. This is a shortcut of case 2. above.
 ///
 /// This parser expects to start at the beginning of the link `[` to succeed.
 /// It should always run at last position after all other parsers.

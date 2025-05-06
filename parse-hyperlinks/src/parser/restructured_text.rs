@@ -529,7 +529,8 @@ fn rst_parse_simple_label(i: &str) -> nom::IResult<&str, &str> {
 ///   markup start"),
 /// * whose second and subsequent lines (if any) are indented relative to the
 ///   first, and
-/// * which ends before an unindented line
+/// * which ends before an unintended line.
+///
 /// As with external hyperlink targets, the link block of an indirect
 /// hyperlink target may begin on the same line as the explicit markup start
 /// or the next line. It may also be split over multiple lines, in which case

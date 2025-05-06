@@ -21,6 +21,7 @@ use std::borrow::Cow;
 /// * a [reference alias] `Label2Label`,
 /// * an [inline image] `Image` or
 /// * an [inline link with embedded inline image] `Image2Dest`
+///
 /// This is the main return type of this API.
 ///
 /// The _link title_ in Markdown is optional, when not given the string is set

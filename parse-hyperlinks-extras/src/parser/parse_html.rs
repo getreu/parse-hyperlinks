@@ -128,9 +128,9 @@ pub fn take_text2dest(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>,
     Ok((l, (skipped_input, link)))
 }
 
-/// Consumes the input until the parser finds an HTML formatted _inline image_ (`Link::Image`).
-/// and HTML formatted hyperlinks _text2dest_ (`Link::Text2Dest`).
-
+/// Consumes the input until the parser finds an HTML formatted _inline
+/// image_ (`Link::Image`) and HTML formatted hyperlinks _text2dest_
+/// (`Link::Text2Dest`).
 ///
 /// The parser consumes the finding and returns
 /// `Ok((remaining_input, (skipped_input, Link)))` or some error.
