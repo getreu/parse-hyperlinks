@@ -436,7 +436,7 @@ fn md_email_address(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
         |(_, _)| {
             (
                 Cow::Borrowed(j),
-                Cow::Owned(format!("mailto:{}", j.to_string())),
+                Cow::Owned(format!("mailto:{}", j.to_owned())),
                 Cow::Borrowed(""),
             )
         },
