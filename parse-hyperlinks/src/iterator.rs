@@ -177,7 +177,7 @@ impl<'a> MarkupLinkCollection<'a> {
             // If we can not resolve the label, we just skip it.
             if let (input_offset, len, Link::Text2Label(text, label)) = &self.text2dest_label[idx] {
                 if let Some((dest, title)) = &self.label2dest.get(label) {
-                    let new_link = if text == "" {
+                    let new_link = if text.is_empty() {
                         (
                             *input_offset,
                             *len,
