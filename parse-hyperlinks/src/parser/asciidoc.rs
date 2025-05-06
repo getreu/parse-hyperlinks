@@ -244,7 +244,7 @@ fn remove_newline_take_till<'a>(
                     // This is the only Ok exit from the while loop.
                     c if c == pat => return Ok((k, res)),
                     // We stopped at an escaped character.
-                    c if c == '\\' => {
+                    '\\' => {
                         // Consume the escape `\`.
                         let (l, _) = char('\\')(k)?;
                         // `pat` is the only valid escaped character (not even `\\` is special in
@@ -261,7 +261,7 @@ fn remove_newline_take_till<'a>(
                         l
                     }
                     // We stopped at a newline.
-                    c if c == '\n' => {
+                    '\n' => {
                         // Now consume the `\n`.
                         let (l, _) = char('\n')(k)?;
                         let (l, _) = space0(l)?;

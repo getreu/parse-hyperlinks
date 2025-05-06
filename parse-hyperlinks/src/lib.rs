@@ -49,7 +49,7 @@ pub fn take_until_unbalanced(
             index += n;
             let mut it = i[index..].chars();
             match it.next() {
-                Some(c) if c == '\\' => {
+                Some('\\') => {
                     // Skip the escape char `\`.
                     index += '\\'.len_utf8();
                     // Skip also the following char.
