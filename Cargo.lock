@@ -13,10 +13,10 @@ dependencies = [
 
 [[package]]
 name = "atext2html"
-version = "0.28.1"
+version = "0.28.2"
 dependencies = [
  "lazy_static",
- "parse-hyperlinks 0.28.0",
+ "parse-hyperlinks 0.28.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt",
 ]
 
@@ -115,47 +115,35 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.27.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92ac700657cc7a89620d1c28b310d594ff0491c11fd3dd1ae748ed5c5c8640e6"
+version = "0.28.2"
 dependencies = [
  "html-escape",
  "nom",
  "percent-encoding",
- "thiserror 1.0.69",
+ "thiserror",
 ]
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.28.0"
+version = "0.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2a04d95c694ec04aa47186b9ecf23f566d4e17b0c3fe69c50c590971c0969c7"
+checksum = "7fa3363debbccf2942ad38c828f453b5e6c0dbcd377c642b861e5e0aad234ed4"
 dependencies = [
  "html-escape",
  "nom",
  "percent-encoding",
- "thiserror 2.0.12",
-]
-
-[[package]]
-name = "parse-hyperlinks"
-version = "0.28.1"
-dependencies = [
- "html-escape",
- "nom",
- "percent-encoding",
- "thiserror 2.0.12",
+ "thiserror",
 ]
 
 [[package]]
 name = "parse-hyperlinks-extras"
-version = "0.28.1"
+version = "0.28.2"
 dependencies = [
  "html-escape",
  "nom",
- "parse-hyperlinks 0.27.2",
+ "parse-hyperlinks 0.28.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "percent-encoding",
- "thiserror 2.0.12",
+ "thiserror",
 ]
 
 [[package]]
@@ -269,31 +257,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
-dependencies = [
- "thiserror-impl 1.0.69",
-]
-
-[[package]]
-name = "thiserror"
 version = "2.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "567b8a2dae586314f7be2a752ec7474332959c6460e02bde30d702a66d488708"
 dependencies = [
- "thiserror-impl 2.0.12",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.101",
+ "thiserror-impl",
 ]
 
 [[package]]
