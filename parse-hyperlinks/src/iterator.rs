@@ -456,12 +456,12 @@ impl<'a> Iterator for MarkupLink<'a> {
                     // We stay in direct mode.
                     match take_link(input) {
                         Ok((remaining_input, (skipped, link)))
-                            if match link {
-                                Link::Text2Dest(_, _, _) => true,
-                                Link::Image2Dest(_, _, _, _, _, _) => true,
-                                Link::Image(_, _) => true,
-                                _ => false,
-                            } =>
+                            if matches!(
+                                link,
+                                Link::Text2Dest(_, _, _)
+                                    | Link::Image2Dest(_, _, _, _, _, _)
+                                    | Link::Image(_, _)
+                            ) =>
                         {
                             let consumed =
                                 &input[skipped.len()..input.len() - remaining_input.len()];
@@ -500,12 +500,12 @@ impl<'a> Iterator for MarkupLink<'a> {
                         // Ok((remaining_input, (skipped, link)))
                         match resolved_links.remove(0) {
                             (input_offset, len, link)
-                                if match link {
-                                    Link::Text2Dest(_, _, _) => true,
-                                    Link::Image2Dest(_, _, _, _, _, _) => true,
-                                    Link::Image(_, _) => true,
-                                    _ => false,
-                                } =>
+                                if matches!(
+                                    link,
+                                    Link::Text2Dest(_, _, _)
+                                        | Link::Image2Dest(_, _, _, _, _, _)
+                                        | Link::Image(_, _)
+                                ) =>
                             {
                                 let skipped = &self.input[(self.last_output_offset
                                     + self.last_output_len)
