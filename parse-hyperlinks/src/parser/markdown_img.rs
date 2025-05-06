@@ -78,6 +78,7 @@ pub fn md_img2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///     Cow::from("222"), Cow::from("http://page.com"), Cow::from("my title"),
 /// ))));
 /// ```
+#[allow(clippy::type_complexity)]
 pub fn md_img2dest(
     i: &str,
 ) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>)> {

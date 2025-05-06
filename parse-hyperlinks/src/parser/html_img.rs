@@ -83,6 +83,7 @@ pub fn html_img2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///     Cow::from("after"), Cow::from("my doc.html"), Cow::from("title"),
 /// ))));
 /// ```
+#[allow(clippy::type_complexity)]
 pub fn html_img2dest(
     i: &str,
 ) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>)> {
