@@ -11,7 +11,6 @@ use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
 use nom::error::Error;
 use nom::error::ErrorKind;
-use nom::sequence::tuple;
 use std::borrow::Cow;
 
 /// Wrapper around `html_img()` that packs the result in
@@ -103,11 +102,12 @@ pub fn html_img2dest(
     )
     .parse(i)?;
 
-    let (_, (text1, (img_alt, img_src), text2)) = tuple((
+    let (_, (text1, (img_alt, img_src), text2)) = (
         nom::bytes::complete::take_until("<img"),
         html_img,
         nom::combinator::rest,
-    ))(text)?;
+    )
+        .parse(text)?;
 
     let text1 = decode_html_entities(text1);
     let text2 = decode_html_entities(text2);

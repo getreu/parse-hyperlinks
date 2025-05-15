@@ -60,7 +60,7 @@ pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
         ),
         // Parse inline link.
         map(
-            nom::sequence::tuple((md_link_text, md_link_destination_enclosed)),
+            (md_link_text, md_link_destination_enclosed),
             |(a, (b, c))| (a, b, c),
         ),
     ))
@@ -295,14 +295,14 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
 pub(crate) fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     map_parser(
         nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
-        nom::sequence::tuple((
+        (
             md_link_destination,
             alt((
                 // Take link title.
                 md_link_title,
                 nom::combinator::success(Cow::from("")),
             )),
-        )),
+        ),
     )
     .parse(i)
 }

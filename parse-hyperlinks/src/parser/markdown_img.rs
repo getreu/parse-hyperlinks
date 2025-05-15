@@ -8,8 +8,8 @@ use crate::parser::markdown::md_link_text;
 use crate::take_until_unbalanced;
 use html_escape::decode_html_entities;
 use nom::Parser;
+use nom::bytes::complete::tag;
 use nom::combinator::*;
-use nom::{bytes::complete::tag, sequence::tuple};
 use std::borrow::Cow;
 
 /// Wrapper around `md_img()` that packs the result in
@@ -38,7 +38,7 @@ pub fn md_img(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     nom::sequence::preceded(
         tag("!"),
         // Parse inline link.
-        nom::sequence::tuple((md_link_text, md_img_link_destination_enclosed)),
+        (md_link_text, md_img_link_destination_enclosed),
     )
     .parse(i)
 }
@@ -86,17 +86,17 @@ pub fn md_img2dest(
     i: &str,
 ) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>)> {
     map(
-        nom::sequence::tuple((
+        (
             map_parser(
                 nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]")),
-                tuple((
+                (
                     nom::bytes::complete::take_until("!["),
                     md_img,
                     nom::combinator::rest,
-                )),
+                ),
             ),
             md_link_destination_enclosed,
-        )),
+        ),
         // ((&str, (Cow<'_, str>, Cow<'_, str>), &str), (Cow<'_, str>, Cow<'_, str>)
         |((a, (b, c), d), (e, f))| (decode_html_entities(a), b, c, decode_html_entities(d), e, f),
     )
