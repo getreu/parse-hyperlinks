@@ -2,9 +2,10 @@
 #![allow(dead_code)]
 #![allow(clippy::type_complexity)]
 
+use crate::parser::Link;
 use crate::parser::parse::LABEL_LEN_MAX;
 use crate::parser::percent_decode;
-use crate::parser::Link;
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::bytes::complete::tag_no_case;
@@ -60,7 +61,8 @@ pub fn adoc_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
             adoc_inline_link_destination,
             nom::combinator::opt(adoc_link_text),
         ),
-    )(i)?;
+    )
+    .parse(i)?;
 
     let link_text = if let Some(lt) = link_text {
         if lt.is_empty() {
@@ -114,10 +116,11 @@ pub fn adoc_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
                 nom::character::complete::space0,
             ),
         ),
-    )(i)?;
+    )
+    .parse(i)?;
 
     if !i.is_empty() {
-        let _ = peek::<&str, _, nom::error::Error<_>, _>(nom::character::complete::newline)(i)?;
+        let _ = peek::<&str, _>(nom::character::complete::newline).parse(i)?;
     };
 
     Ok((
@@ -179,7 +182,8 @@ pub fn adoc_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
     let (i, (link_label, link_text)) = alt((
         nom::sequence::pair(adoc_parse_curly_bracket_reference, adoc_link_text),
         nom::combinator::map(adoc_parse_curly_bracket_reference, |s| (s, Cow::from(""))),
-    ))(i)?;
+    ))
+    .parse(i)?;
 
     // Check that there is no `[` or `{` following. Do not consume.
     if !i.is_empty() {
@@ -194,7 +198,7 @@ pub fn adoc_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 /// replaced by one space. There must be not contain more than one newline
 /// per sequence. The string can contain the `\]` which is replaced by `]`.
 fn adoc_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
-    nom::sequence::delimited(char('['), remove_newline_take_till(']'), char(']'))(i)
+    nom::sequence::delimited(char('['), remove_newline_take_till(']'), char(']')).parse(i)
 }
 
 /// Takes all characters until the character `<pat>`. The escaped character
@@ -238,7 +242,8 @@ fn remove_newline_take_till<'a>(
             // If there is a character left, inspect. Then either quit or advance at least one character.
             // Therefor no endless is loop possible.
             if let (_, Some(c)) =
-                nom::combinator::opt(nom::combinator::peek(nom::character::complete::anychar))(k)?
+                nom::combinator::opt(nom::combinator::peek(nom::character::complete::anychar))
+                    .parse(k)?
             {
                 let m = match c {
                     // We completed our mission and found `pat`.
@@ -251,7 +256,7 @@ fn remove_newline_take_till<'a>(
                         // `pat` is the only valid escaped character (not even `\\` is special in
                         // Asciidoc).
                         // If `<pat>` is found, `c=='<pat>'`, otherwise `c=='\\'`
-                        let (l, c) = alt((char(pat), nom::combinator::success('\\')))(l)?;
+                        let (l, c) = alt((char(pat), nom::combinator::success('\\'))).parse(l)?;
 
                         // and append the escaped character to `res`.
                         let mut strg = res.to_string();
@@ -267,7 +272,7 @@ fn remove_newline_take_till<'a>(
                         let (l, _) = char('\n')(k)?;
                         let (l, _) = space0(l)?;
                         // Return error if there is one more `\n`. BTW, `not()` never consumes.
-                        let _ = nom::combinator::not(char('\n'))(l)?;
+                        let _ = nom::combinator::not(char('\n')).parse(l)?;
 
                         // and append one space ` ` character to `res`.
                         let mut strg = res.to_string();
@@ -300,7 +305,8 @@ fn adoc_link_reference_definition_destination(i: &str) -> nom::IResult<&str, Cow
     alt((
         adoc_parse_http_link_destination,
         adoc_parse_escaped_link_destination,
-    ))(i)
+    ))
+    .parse(i)
 }
 
 /// Parses an inline link destination.
@@ -312,7 +318,8 @@ fn adoc_inline_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
         adoc_parse_http_link_destination,
         adoc_parse_literal_link_destination,
         adoc_parse_escaped_link_destination,
-    ))(i)
+    ))
+    .parse(i)
 }
 
 /// Parses a link destination in URL form starting with `http://` or `https://`
@@ -321,7 +328,8 @@ fn adoc_parse_http_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
     let (j, s) = nom::sequence::preceded(
         peek(alt((tag_no_case("http://"), (tag_no_case("https://"))))),
         nom::bytes::complete::take_till1(|c| c == '[' || c == ' ' || c == '\t' || c == '\n'),
-    )(i)?;
+    )
+    .parse(i)?;
     Ok((j, Cow::Borrowed(s)))
 }
 
@@ -340,7 +348,8 @@ fn adoc_parse_escaped_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> 
             }),
         ),
         percent_decode,
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Parses a link destination starting with `link:+++` ending with `++`. Everything in
@@ -349,7 +358,8 @@ fn adoc_parse_literal_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> 
     let (j, s) = nom::sequence::preceded(
         tag("link:"),
         nom::sequence::delimited(tag("++"), nom::bytes::complete::take_until("++"), tag("++")),
-    )(i)?;
+    )
+    .parse(i)?;
     Ok((j, Cow::Borrowed(s)))
 }
 
@@ -370,7 +380,8 @@ fn adoc_parse_curly_bracket_reference(i: &str) -> nom::IResult<&str, Cow<str>> {
             |s: &str| s.len() <= LABEL_LEN_MAX,
         ),
         Cow::Borrowed,
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Parses the label of a link reference definition.
@@ -387,7 +398,8 @@ fn adoc_parse_colon_reference(i: &str) -> nom::IResult<&str, &str> {
             char(':'),
         ),
         |s: &str| s.len() <= LABEL_LEN_MAX,
-    )(i)
+    )
+    .parse(i)
 }
 
 #[cfg(test)]

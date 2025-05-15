@@ -2,12 +2,12 @@
 #![allow(dead_code)]
 #![allow(clippy::type_complexity)]
 
-use crate::parser::parse::LABEL_LEN_MAX;
 use crate::parser::Link;
+use crate::parser::parse::LABEL_LEN_MAX;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::*;
-use nom::IResult;
+use nom::{IResult, Parser};
 use std::borrow::Cow;
 
 /// Character that can be escaped with `\`.
@@ -120,7 +120,8 @@ fn rst_parse_text2target(
                 nom::character::complete::one_of(ESCAPABLE),
             ),
             tag("`_"),
-        )(i)?;
+        )
+        .parse(i)?;
 
         if anonym {
             let (j, _) = nom::character::complete::char('_')(i)?;
@@ -129,7 +130,7 @@ fn rst_parse_text2target(
 
         // Assure that the next char is not`_`.
         if !i.is_empty() {
-            let _ = nom::combinator::not(nom::character::complete::char('_'))(i)?;
+            let _ = nom::combinator::not(nom::character::complete::char('_')).parse(i)?;
         };
 
         // From here on, we only deal with the inner result of the above.
@@ -150,7 +151,8 @@ fn rst_parse_text2target(
                 nom::character::complete::one_of(ESCAPABLE),
             ),
             tag(">"),
-        )(inner_rest)?;
+        )
+        .parse(inner_rest)?;
 
         // Fail if there are bytes left between `>` and `\``.
         let (_, _) = nom::combinator::eof(j)?;
@@ -159,7 +161,7 @@ fn rst_parse_text2target(
         // on `label`).
 
         // Fail if `link_dest_label` is empty.
-        let (_, _) = nom::combinator::not(nom::combinator::eof)(link_dest_label)?;
+        let (_, _) = nom::combinator::not(nom::combinator::eof).parse(link_dest_label)?;
 
         // Get last char.
         let last_char_is_ = link_dest_label.is_char_boundary(link_dest_label.len() - 1)
@@ -255,10 +257,11 @@ fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
     let (mut i, (link_text, mut link_label)) = alt((
         rst_parse_text2target(false, true),
         nom::combinator::map(rst_parse_simple_label, |s| (s, s)),
-    ))(i)?;
+    ))
+    .parse(i)?;
 
     // Is this an anonymous reference? Consume the second `_` also.
-    if let (j, Some(_)) = nom::combinator::opt(nom::character::complete::char('_'))(i)? {
+    if let (j, Some(_)) = nom::combinator::opt(nom::character::complete::char('_')).parse(i)? {
         link_label = "_";
         i = j;
     };
@@ -350,7 +353,7 @@ fn rst_label2target(label: bool, i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
 
     // If there is a block start? What kind of?
     let (i, c, block_header_is__) =
-        if let (i, Some(c)) = nom::combinator::opt(rst_explicit_markup_block(".. "))(i)? {
+        if let (i, Some(c)) = nom::combinator::opt(rst_explicit_markup_block(".. ")).parse(i)? {
             (i, c, false)
         } else {
             let (i, c) = rst_explicit_markup_block("__ ")(i)?;
@@ -370,7 +373,9 @@ fn rst_label2target(label: bool, i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
             };
             // If the target is a destination (not a label), the last char must not be `_`.
             if !label {
-                let _ = nom::combinator::not(rst_parse_simple_label)(lt).map_err(my_err)?;
+                let _ = nom::combinator::not(rst_parse_simple_label)
+                    .parse(lt)
+                    .map_err(my_err)?;
             };
             (
                 rst_escaped_link_text_transform(ls)?.1,
@@ -391,7 +396,9 @@ fn rst_label2target(label: bool, i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
             };
             // If the target is a destination (not a label), the last char must not be `_`.
             if !label {
-                let _ = nom::combinator::not(rst_parse_simple_label)(lt).map_err(my_err)?;
+                let _ = nom::combinator::not(rst_parse_simple_label)
+                    .parse(lt)
+                    .map_err(my_err)?;
             };
             let ls = Cow::Owned(
                 rst_escaped_link_text_transform(ls)
@@ -443,7 +450,8 @@ fn rst_parse_label2target(label: bool) -> impl Fn(&str) -> IResult<&str, (&str, 
                 tag(": "),
             ),
             nom::combinator::value("_", tag("__: ")),
-        ))(i)?;
+        ))
+        .parse(i)?;
 
         let link_target = if label {
             // The target is another label.
@@ -505,10 +513,11 @@ fn rst_parse_simple_label(i: &str) -> nom::IResult<&str, &str> {
             take_word_consume_first_ending_underscore,
         )),
         |s: &str| s.len() <= LABEL_LEN_MAX,
-    )(i)?;
+    )
+    .parse(i)?;
 
     // Return error if label is empty.
-    let _ = nom::combinator::not(alt((nom::combinator::eof, tag("``"))))(r)?;
+    let _ = nom::combinator::not(alt((nom::combinator::eof, tag("``")))).parse(r)?;
 
     Ok((i, r))
 }
@@ -551,12 +560,14 @@ fn rst_explicit_markup_block<'a>(
         let (i, (wsp1, wsp2)) = nom::sequence::pair(
             nom::character::complete::space0,
             nom::combinator::map(nom::bytes::complete::tag(block_header), |_| "   "),
-        )(i)?;
+        )
+        .parse(i)?;
 
         let (j, v) = nom::multi::separated_list1(
             indent(wsp1, wsp2),
             nom::character::complete::not_line_ending,
-        )(i)?;
+        )
+        .parse(i)?;
 
         // If the block consists of only one line return now.
         if v.len() == 1 {
@@ -600,7 +611,8 @@ fn rst_escaped_link_text_transform(i: &str) -> IResult<&str, Cow<str>> {
             )),
         ),
         |s| if s == i { Cow::from(i) } else { Cow::from(s) },
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Deletes all whitespace, but keeps one space for each `\ `.

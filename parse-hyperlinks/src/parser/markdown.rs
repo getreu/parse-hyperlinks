@@ -2,14 +2,14 @@
 #![allow(dead_code)]
 #![allow(clippy::type_complexity)]
 
+use crate::parser::Link;
 use crate::parser::parse::LABEL_LEN_MAX;
 use crate::parser::percent_decode;
-use crate::parser::Link;
 use crate::take_until_unbalanced;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace1;
-use nom::combinator::*;
+use nom::{Parser, combinator::*};
 use std::borrow::Cow;
 
 /// The following character are escapable in _link text_, _link label_, _link
@@ -63,7 +63,8 @@ pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
             nom::sequence::tuple((md_link_text, md_link_destination_enclosed)),
             |(a, (b, c))| (a, b, c),
         ),
-    ))(i)
+    ))
+    .parse(i)
 }
 
 /// Wrapper around `md_label2dest()` that packs the result in
@@ -123,7 +124,8 @@ pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str
     // Take spaces.
     let (i, _) = verify(nom::character::complete::multispace1, |s: &str| {
         !s.contains("\n\n")
-    })(i)?;
+    })
+    .parse(i)?;
     // Take destination.
     let (i, link_destination) = md_link_destination(i)?;
     // Try, but do not fail.
@@ -131,7 +133,8 @@ pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str
         // Take link title.
         md_link_title,
         nom::combinator::success(Cow::from("")),
-    ))(i)?;
+    ))
+    .parse(i)?;
 
     // Now consume as much whitespace as possible.
     let (i, _) = nom::character::complete::space0(i)?;
@@ -195,7 +198,8 @@ pub fn md_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
             (s.clone(), s)
         }),
         nom::combinator::map(md_link_text, |s| (s.clone(), s)),
-    ))(i)?;
+    ))
+    .parse(i)?;
 
     // Check that there is no `[` or `(` following. Do not consume.
     if !i.is_empty() {
@@ -216,7 +220,8 @@ pub(crate) fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::combinator::map_parser(
         nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]")),
         md_escaped_str_transform,
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Parses a _link label_.
@@ -242,13 +247,14 @@ fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
             |l: &str| l.len() <= LABEL_LEN_MAX,
         ),
         md_escaped_str_transform,
-    )(i)
+    )
+    .parse(i)
 }
 
 /// This is a wrapper around `md_parse_link_destination()`. It takes its result
 /// and removes the `\` before the escaped characters `ESCAPABLE`.
 pub(crate) fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
-    nom::combinator::map_parser(md_parse_link_destination, md_escaped_str_transform)(i)
+    nom::combinator::map_parser(md_parse_link_destination, md_escaped_str_transform).parse(i)
 }
 
 /// A [link destination](https://spec.commonmark.org/0.30/#link-destination)
@@ -281,7 +287,8 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
             nom::bytes::complete::is_not(" \t\r\n"),
             nom::combinator::success(""),
         )),
-    ))(i)
+    ))
+    .parse(i)
 }
 
 /// Matches `md_link_destination` in parenthesis.
@@ -296,13 +303,14 @@ pub(crate) fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<s
                 nom::combinator::success(Cow::from("")),
             )),
         )),
-    )(i)
+    )
+    .parse(i)
 }
 
 /// This is a wrapper around `md_parse_link_title()`. It takes its result
 /// and removes the `\` before the escaped characters `ESCAPABLE`.
 fn md_link_title(i: &str) -> nom::IResult<&str, Cow<str>> {
-    nom::combinator::map_parser(md_parse_link_title, md_escaped_str_transform)(i)
+    nom::combinator::map_parser(md_parse_link_title, md_escaped_str_transform).parse(i)
 }
 
 /// A link title is always preceded one or more whitespace inluding
@@ -350,7 +358,8 @@ fn md_parse_link_title(i: &str) -> nom::IResult<&str, &str> {
             )),
             |s: &str| !s.contains("\n\n"),
         ),
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Remove the `\` before the escaped characters `ESCAPABLE`.
@@ -362,7 +371,8 @@ fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
             nom::character::complete::one_of(ESCAPABLE),
         ),
         |s| if s == i { Cow::from(i) } else { Cow::from(s) },
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Parses an [absolute URI](https://spec.commonmark.org/0.30/#absolute-uri).
@@ -410,7 +420,8 @@ fn md_absolute_uri(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)
             };
             (uri.clone(), uri, Cow::from(""))
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Parses an Email address. This parser consumes all input to succeed.
@@ -440,7 +451,8 @@ fn md_email_address(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
                 Cow::Borrowed(""),
             )
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 #[cfg(test)]
@@ -984,15 +996,15 @@ mod tests {
     #[test]
     fn test_md_absolute_uri() {
         assert_eq!(
-            md_absolute_uri("http://domain.com").unwrap().1 .0,
+            md_absolute_uri("http://domain.com").unwrap().1.0,
             Cow::Borrowed("http://domain.com")
         );
         assert_eq!(
-            md_absolute_uri("http://domain.com").unwrap().1 .1,
+            md_absolute_uri("http://domain.com").unwrap().1.1,
             Cow::Borrowed("http://domain.com")
         );
         assert_eq!(
-            md_absolute_uri("scheme:domain").unwrap().1 .1,
+            md_absolute_uri("scheme:domain").unwrap().1.1,
             Cow::Borrowed("scheme:domain")
         );
         assert_eq!(
@@ -1046,33 +1058,33 @@ mod tests {
         );
 
         let res = md_absolute_uri("scheme:domain").unwrap();
-        assert!(matches!(res.1 .0, Cow::Borrowed(..)));
-        assert_eq!(res.1 .0, Cow::from("scheme:domain"));
+        assert!(matches!(res.1.0, Cow::Borrowed(..)));
+        assert_eq!(res.1.0, Cow::from("scheme:domain"));
 
         let res = md_absolute_uri("scheme:domai%25n").unwrap();
-        assert!(matches!(res.1 .0, Cow::Owned(..)));
-        assert_eq!(res.1 .0, Cow::from("scheme:domai%n"));
+        assert!(matches!(res.1.0, Cow::Owned(..)));
+        assert_eq!(res.1.0, Cow::from("scheme:domai%n"));
     }
 
     #[test]
     fn test_md_email_address() {
         let res = md_email_address("local@domain").unwrap();
-        assert!(matches!(res.1 .0, Cow::Borrowed(..)));
-        assert!(matches!(res.1 .1, Cow::Owned(..)));
-        assert_eq!(res.1 .0, Cow::from("local@domain"));
-        assert_eq!(res.1 .1, Cow::from("mailto:local@domain"));
+        assert!(matches!(res.1.0, Cow::Borrowed(..)));
+        assert!(matches!(res.1.1, Cow::Owned(..)));
+        assert_eq!(res.1.0, Cow::from("local@domain"));
+        assert_eq!(res.1.1, Cow::from("mailto:local@domain"));
 
         let res = md_email_address("localÜ@domainÜ").unwrap();
-        assert!(matches!(res.1 .0, Cow::Borrowed(..)));
-        assert!(matches!(res.1 .1, Cow::Owned(..)));
-        assert_eq!(res.1 .0, Cow::from("localÜ@domainÜ"));
-        assert_eq!(res.1 .1, Cow::from("mailto:localÜ@domainÜ"));
+        assert!(matches!(res.1.0, Cow::Borrowed(..)));
+        assert!(matches!(res.1.1, Cow::Owned(..)));
+        assert_eq!(res.1.0, Cow::from("localÜ@domainÜ"));
+        assert_eq!(res.1.1, Cow::from("mailto:localÜ@domainÜ"));
 
         let res = md_email_address("lo.cal@domain").unwrap();
-        assert!(matches!(res.1 .0, Cow::Borrowed(..)));
-        assert!(matches!(res.1 .1, Cow::Owned(..)));
-        assert_eq!(res.1 .0, Cow::from("lo.cal@domain"));
-        assert_eq!(res.1 .1, Cow::from("mailto:lo.cal@domain"));
+        assert!(matches!(res.1.0, Cow::Borrowed(..)));
+        assert!(matches!(res.1.1, Cow::Owned(..)));
+        assert_eq!(res.1.0, Cow::from("lo.cal@domain"));
+        assert_eq!(res.1.1, Cow::from("mailto:lo.cal@domain"));
 
         assert_eq!(
             md_email_address("lo_cal@do_main"),

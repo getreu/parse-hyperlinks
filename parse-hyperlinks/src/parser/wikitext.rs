@@ -2,8 +2,9 @@
 #![allow(dead_code)]
 #![allow(clippy::type_complexity)]
 
-use crate::parser::percent_decode;
 use crate::parser::Link;
+use crate::parser::percent_decode;
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
@@ -47,7 +48,8 @@ pub fn wikitext_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Co
         tag("["),
         nom::combinator::map_parser(is_not("]\n\r"), parse_inner),
         tag("]"),
-    )(i)?;
+    )
+    .parse(i)?;
     Ok((i, (link_text, link_destination, Cow::from(""))))
 }
 
@@ -59,7 +61,8 @@ fn parse_inner(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
             parse_url,
         ),
         nom::character::complete::space0,
-    )(i)?;
+    )
+    .parse(i)?;
     let link_text = i;
     Ok((i, (Cow::from(link_text), link_destination)))
 }
@@ -69,7 +72,8 @@ fn parse_url(i: &str) -> nom::IResult<&str, Cow<str>> {
     nom::sequence::preceded(
         nom::combinator::peek(alt((tag("http:"), tag("https:"), tag("mailto:")))),
         percent_decode,
-    )(i)
+    )
+    .parse(i)
 }
 
 #[test]

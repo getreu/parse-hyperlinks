@@ -16,11 +16,11 @@ pub mod iterator;
 pub mod parser;
 pub mod renderer;
 
+use nom::Err;
+use nom::IResult;
 use nom::error::Error;
 use nom::error::ErrorKind;
 use nom::error::ParseError;
-use nom::Err;
-use nom::IResult;
 
 /// A parser similar to `nom::bytes::complete::take_until()`, except that this
 /// one does not stop at balanced opening and closing tags. It is designed to
@@ -30,10 +30,11 @@ use nom::IResult;
 /// ```
 /// use nom::bytes::complete::tag;
 /// use nom::sequence::delimited;
+/// use nom::Parser;
 /// use parse_hyperlinks::take_until_unbalanced;
 ///
 /// let mut parser = delimited(tag("<"), take_until_unbalanced('<', '>'), tag(">"));
-/// assert_eq!(parser("<<inside>inside>abc"), Ok(("abc", "<inside>inside")));
+/// assert_eq!(parser.parse("<<inside>inside>abc"), Ok(("abc", "<inside>inside")));
 /// ```
 /// It skips nested brackets until it finds an extra unbalanced closing bracket. Escaped brackets
 /// like `\<` and `\>` are not considered as brackets and are not counted. This function is

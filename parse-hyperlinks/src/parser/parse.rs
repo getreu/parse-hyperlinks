@@ -4,24 +4,25 @@
 #![allow(dead_code)]
 #![allow(clippy::type_complexity)]
 
+use crate::parser::Link;
 use crate::parser::asciidoc::adoc_label2dest_link;
 use crate::parser::asciidoc::adoc_text2dest_link;
 use crate::parser::asciidoc::adoc_text2label_link;
 use crate::parser::html::html_text2dest_link;
-use crate::parser::html_img::html_img2dest_link;
 use crate::parser::html_img::html_img_link;
+use crate::parser::html_img::html_img2dest_link;
 use crate::parser::markdown::md_label2dest_link;
 use crate::parser::markdown::md_text2dest_link;
 use crate::parser::markdown::md_text2label_link;
-use crate::parser::markdown_img::md_img2dest_link;
 use crate::parser::markdown_img::md_img_link;
+use crate::parser::markdown_img::md_img2dest_link;
 use crate::parser::restructured_text::rst_label2dest_link;
 use crate::parser::restructured_text::rst_label2label_link;
+use crate::parser::restructured_text::rst_text_label2dest_link;
 use crate::parser::restructured_text::rst_text2dest_link;
 use crate::parser::restructured_text::rst_text2label_link;
-use crate::parser::restructured_text::rst_text_label2dest_link;
 use crate::parser::wikitext::wikitext_text2dest_link;
-use crate::parser::Link;
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
@@ -238,7 +239,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         // Are we on a new line character? consume it.
         line_start = false;
         // Does never fail.
-        let (k, count) = nom::multi::many0_count(nom::character::complete::newline)(j)?;
+        let (k, count) = nom::multi::many0_count(nom::character::complete::newline).parse(j)?;
         debug_assert_eq!(j.len() - k.len(), count);
         if count > 0 {
             skip_count += j.len() - k.len();
@@ -253,7 +254,8 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
                 // For both parser is the indent meaningful. We mustn't consume them.
                 rst_label2label_link,
                 rst_label2dest_link,
-            ))(j)
+            ))
+            .parse(j)
             {
                 break (k, r);
             };
@@ -261,7 +263,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
 
         // Are we on a whitespace? Now consume them.
         whitespace = false;
-        if let (k, Some(_)) = nom::combinator::opt(nom::character::complete::space1)(j)? {
+        if let (k, Some(_)) = nom::combinator::opt(nom::character::complete::space1).parse(j)? {
             skip_count += j.len() - k.len();
             j = k;
             whitespace = true;
@@ -275,7 +277,8 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
                 // only whitespace.
                 md_label2dest_link,
                 adoc_label2dest_link,
-            ))(j)
+            ))
+            .parse(j)
             {
                 break (k, r);
             };
@@ -297,7 +300,8 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             html_img_link,
             html_img2dest_link,
             html_text2dest_link,
-        ))(j)
+        ))
+        .parse(j)
         {
             break (k, r);
         };
@@ -305,7 +309,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         if whitespace || line_start || input_start {
             // There must be at least one more byte. If it is one of `([<'"`, skip it.
             let k = if let (k, Some(_)) =
-                nom::combinator::opt(nom::character::complete::one_of("([<'\""))(j)?
+                nom::combinator::opt(nom::character::complete::one_of("([<'\"")).parse(j)?
             {
                 // Skip that char.
                 k
@@ -317,7 +321,7 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
             // `rst_text2label` must be always placed after `rst_text2dest`.
             // `md_text2label` must be always placed after `adoc_text2label` and `adoc_text2dest`,
             // because the former consumes `[*]`.
-            if let Ok((l, r)) = alt((rst_text2label_link, adoc_text2dest_link))(k) {
+            if let Ok((l, r)) = alt((rst_text2label_link, adoc_text2dest_link)).parse(k) {
                 // If ever we have skipped a char, remember it now.
                 skip_count += j.len() - k.len();
                 break (l, r);
@@ -371,7 +375,8 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         Link::Label2Dest(_, _, _) | Link::Label2Label(_, _) => {}
         _ => {
             // Just consume, the result does not matter.
-            let (m, _) = nom::combinator::opt(alt((rst_label2dest_link, md_label2dest_link)))(l)?;
+            let (m, _) =
+                nom::combinator::opt(alt((rst_label2dest_link, md_label2dest_link))).parse(l)?;
             l = m;
         }
     };
@@ -696,8 +701,8 @@ ghi[http://getreu.net](<http://blog.getreu.net>)jkl"#;
         let (i, (skipped, res)) = take_link(i).unwrap();
         assert_eq!(i, "");
         assert_eq!(skipped, "");
-        assert_eq!(res, expected);        
-        
+        assert_eq!(res, expected);
+
         //
         let i = "[into\\_bytes](https://doc.rust-lang.org/)";
 

@@ -1,10 +1,11 @@
 //! This module implements parsers for HTML image elements.
 #![allow(dead_code)]
 
+use crate::parser::Link;
 use crate::parser::html::attribute_list;
 use crate::parser::html::tag_a_opening as href_tag_a_opening;
-use crate::parser::Link;
 use html_escape::decode_html_entities;
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
@@ -49,7 +50,8 @@ fn tag_img(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
         alt((tag("<img "), tag("<IMG "))),
         nom::combinator::map_parser(is_not(">"), parse_attributes),
         tag(">"),
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Wrapper around `html_img()` that packs the result in
@@ -98,7 +100,8 @@ pub fn html_img2dest(
         // HTML is case insensitive. XHTML, that is being XML is case sensitive.
         // Here we deal with HTML.
         alt((tag("</a>"), tag("</A>"))),
-    )(i)?;
+    )
+    .parse(i)?;
 
     let (_, (text1, (img_alt, img_src), text2)) = tuple((
         nom::bytes::complete::take_until("<img"),

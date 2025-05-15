@@ -4,6 +4,7 @@
 
 use crate::parser::Link;
 use html_escape::decode_html_entities;
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
@@ -46,7 +47,8 @@ pub fn html_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
         // HTML is case insensitive. XHTML, that is being XML is case sensitive.
         // Here we deal with HTML.
         alt((tag("</a>"), tag("</A>"))),
-    )(i)?;
+    )
+    .parse(i)?;
     let link_text = decode_html_entities(link_text);
     Ok((i, (link_text, link_destination, link_title)))
 }
@@ -60,7 +62,8 @@ pub(crate) fn tag_a_opening(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)>
         alt((tag("<a "), tag("<A "))),
         nom::combinator::map_parser(is_not(">"), parse_attributes),
         tag(">"),
-    )(i)
+    )
+    .parse(i)
 }
 
 /// Parses attributes and returns `Ok((name, value))`.
@@ -94,13 +97,14 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, Cow<str>)> {
                 nom::character::is_alphabetic(s.as_bytes()[0])
             }),
         ),
-    ))(i)
+    ))
+    .parse(i)
 }
 
 /// Parses a whitespace separated list of attributes and returns a vector of (name, value).
 pub fn attribute_list(i: &str) -> nom::IResult<&str, Vec<(&str, Cow<str>)>> {
     let i = i.trim();
-    nom::multi::separated_list1(nom::character::complete::multispace1, attribute)(i)
+    nom::multi::separated_list1(nom::character::complete::multispace1, attribute).parse(i)
 }
 
 /// Extracts the `href` and `title` attributes and returns
