@@ -4,6 +4,7 @@
 
 use crate::parser::Link;
 use html_escape::decode_html_entities;
+use nom::AsChar;
 use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
@@ -72,7 +73,7 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, Cow<str>)> {
     alt((
         nom::sequence::pair(
             nom::combinator::verify(alphanumeric1, |s: &str| {
-                nom::character::is_alphabetic(s.as_bytes()[0])
+                s.chars().next().is_some_and(|c| c.is_alpha())
             }),
             alt((
                 nom::combinator::value(Cow::from(""), tag(r#"="""#)),
@@ -94,7 +95,7 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, Cow<str>)> {
         nom::combinator::value(
             ("", Cow::from("")),
             nom::combinator::verify(alphanumeric1, |s: &str| {
-                nom::character::is_alphabetic(s.as_bytes()[0])
+                s.chars().next().is_some_and(|c| c.is_alpha())
             }),
         ),
     ))
