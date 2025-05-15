@@ -16,4 +16,4 @@ html-escape = "0.2.13"
 percent-encoding = "2.3.1"
 thiserror = "2.0.12"
 #parse-hyperlinks = { path = "../parse-hyperlinks" }
-parse-hyperlinks = "0.28.2"
+parse-hyperlinks = "0.29.0"
