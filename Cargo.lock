@@ -15,7 +15,6 @@ dependencies = [
 name = "atext2html"
 version = "0.29.0"
 dependencies = [
- "lazy_static",
  "parse-hyperlinks 0.29.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt",
 ]

@@ -2,7 +2,6 @@
 //! library. It extracts all Markdown and RestructuredText
 //! hyperlinks found in the input stream `stdin` and
 //! prints the list as HTML.
-use lazy_static::lazy_static;
 use parse_hyperlinks::renderer::links2html_writer;
 use parse_hyperlinks::renderer::text_links2html_writer;
 use parse_hyperlinks::renderer::text_rawlinks2html_writer;
@@ -13,6 +12,7 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process;
+use std::sync::LazyLock;
 use structopt::StructOpt;
 
 #[derive(Debug, PartialEq, StructOpt)]
@@ -43,10 +43,8 @@ pub struct Args {
     pub version: bool,
 }
 
-lazy_static! {
-    /// Structure to hold the parsed command-line arguments.
-    pub static ref ARGS : Args = Args::from_args();
-}
+/// Structure to hold the parsed command-line arguments.
+pub static ARGS: LazyLock<Args> = LazyLock::new(Args::from_args);
 
 /// Uses the version-number defined in `../Cargo.toml`.
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
