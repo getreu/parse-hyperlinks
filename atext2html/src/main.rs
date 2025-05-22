@@ -2,6 +2,7 @@
 //! library. It extracts all Markdown and RestructuredText
 //! hyperlinks found in the input stream `stdin` and
 //! prints the list as HTML.
+use clap::Parser;
 use parse_hyperlinks::renderer::links2html_writer;
 use parse_hyperlinks::renderer::text_links2html_writer;
 use parse_hyperlinks::renderer::text_rawlinks2html_writer;
@@ -13,43 +14,45 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 use std::sync::LazyLock;
-use structopt::StructOpt;
 
-#[derive(Debug, PartialEq, StructOpt)]
-#[structopt(
+#[derive(Debug, Eq, PartialEq, Parser)]
+#[command(
+    version,
     name = "atext2html",
-    about = "Render source text with markup hyperlinks."
+    about,
+    long_about = "Render source text with markup hyperlinks.",
+    disable_version_flag = true
 )]
 /// This structure holds the command-line-options.
 pub struct Args {
-    #[structopt(long, short = "r")]
+    #[arg(long, short = 'r')]
     /// render hyperlinks
     pub render_links: bool,
 
-    #[structopt(long, short = "l")]
+    #[arg(long, short = 'l')]
     /// print only links (one per line)
     pub only_links: bool,
 
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[structopt(name = "FILE")]
     /// paths to files to render (or `-` for stdin)
     pub inputs: Vec<PathBuf>,
 
-    #[structopt(long, short = "o", parse(from_os_str))]
+    #[arg(long, short = 'o')]
     /// print not to stdout but in file
     pub output: Option<PathBuf>,
 
     /// print version and exit
-    #[structopt(long, short = "V")]
+    #[arg(long, short = 'V')]
     pub version: bool,
 }
 
 /// Structure to hold the parsed command-line arguments.
-pub static ARGS: LazyLock<Args> = LazyLock::new(Args::from_args);
+pub static ARGS: LazyLock<Args> = LazyLock::new(Args::parse);
 
 /// Uses the version-number defined in `../Cargo.toml`.
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 /// (c) Jens Getreu
-const AUTHOR: &str = "(c) Jens Getreu, 2020-2023";
+const AUTHOR: &str = "(c) Jens Getreu, 2020-2025";
 
 /// Minimal application that prints all Markdown and
 /// RestructuredText links in `stdin`as HTML to `stdout`.
