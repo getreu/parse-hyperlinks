@@ -104,7 +104,9 @@ pub const LABEL_LEN_MAX: usize = 999;
 ///
 /// Note: This function is depreciated and will be removed in some later release.
 /// Use `take_link()` instead.
-pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn take_text2dest_label2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let mut j = i;
     loop {
         match take_link(j) {
@@ -229,7 +231,7 @@ pub fn take_text2dest_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<s
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, Link::Text2Dest(Cow::from("text2"), Cow::from("destination2"), Cow::from("title2")));
 /// ```
-pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
+pub fn take_link(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, Link<'_>)> {
     let mut j = i;
     let mut skip_count = 0;
     let mut input_start = true;

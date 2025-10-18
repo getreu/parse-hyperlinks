@@ -16,7 +16,7 @@ use std::borrow::Cow;
 
 /// Wrapper around `html_text2dest()` that packs the result in
 /// `Link::Text2Dest`.
-pub fn html_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn html_text2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, de, ti)) = html_text2dest(i)?;
     Ok((i, Link::Text2Dest(te, de, ti)))
 }
@@ -36,7 +36,9 @@ pub fn html_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("abc", (Cow::from("name"), Cow::from("destination"), Cow::from("title"))))
 /// );
 /// ```
-pub fn html_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn html_text2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let (i, ((link_destination, link_title), link_text)) = nom::sequence::terminated(
         nom::sequence::pair(
             tag_a_opening,
@@ -56,7 +58,7 @@ pub fn html_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
 
 /// Parses a `<a ...>` opening tag and returns
 /// either `Ok((i, (link_destination, link_title)))` or some error.
-pub(crate) fn tag_a_opening(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub(crate) fn tag_a_opening(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     nom::sequence::delimited(
         // HTML is case insensitive. XHTML, that is being XML is case sensitive.
         // Here we deal with HTML.
@@ -69,7 +71,7 @@ pub(crate) fn tag_a_opening(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)>
 
 /// Parses attributes and returns `Ok((name, value))`.
 /// Boolean attributes are ignored, but silently consumed.
-fn attribute(i: &str) -> nom::IResult<&str, (&str, Cow<str>)> {
+fn attribute(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, Cow<'_, str>)> {
     alt((
         nom::sequence::pair(
             nom::combinator::verify(alphanumeric1, |s: &str| {
@@ -103,7 +105,7 @@ fn attribute(i: &str) -> nom::IResult<&str, (&str, Cow<str>)> {
 }
 
 /// Parses a whitespace separated list of attributes and returns a vector of (name, value).
-pub fn attribute_list(i: &str) -> nom::IResult<&str, Vec<(&str, Cow<str>)>> {
+pub fn attribute_list(i: &'_ str) -> nom::IResult<&'_ str, Vec<(&'_ str, Cow<'_, str>)>> {
     let i = i.trim();
     nom::multi::separated_list1(nom::character::complete::multispace1, attribute).parse(i)
 }
@@ -111,7 +113,7 @@ pub fn attribute_list(i: &str) -> nom::IResult<&str, Vec<(&str, Cow<str>)>> {
 /// Extracts the `href` and `title` attributes and returns
 /// `Ok((link_destination, link_title))`. `link_title` can be empty,
 /// `link_destination` not.
-fn parse_attributes(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+fn parse_attributes(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     let (i, attributes) = attribute_list(i)?;
     let mut href = Cow::Borrowed("");
     let mut title = Cow::Borrowed("");

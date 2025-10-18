@@ -18,7 +18,7 @@ const ESCAPABLE: &str = r###"!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"###;
 
 /// Wrapper around `md_text2dest()` that packs the result in
 /// `Link::Text2Dest`.
-pub fn md_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn md_text2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, de, ti)) = md_text2dest(i)?;
     Ok((i, Link::Text2Dest(te, de, ti)))
 }
@@ -45,7 +45,9 @@ pub fn md_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("abc", (Cow::from("foo@dest"), Cow::from("mailto:foo@dest"), Cow::from(""))))
 /// );
 /// ```
-pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn md_text2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     alt((
         // Parse autolink.
         nom::sequence::delimited(
@@ -69,7 +71,7 @@ pub fn md_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>
 
 /// Wrapper around `md_label2dest()` that packs the result in
 /// `Link::Label2Dest`.
-pub fn md_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn md_label2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (l, d, t)) = md_label2dest(i)?;
     Ok((i, Link::Label2Dest(l, d, t)))
 }
@@ -115,7 +117,9 @@ pub fn md_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// document. [Link reference
 /// definitions](https://spec.commonmark.org/0.30/#link-reference-definition)
 /// can come either before or after the links that use them.
-pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn md_label2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     // Consume up to three spaces.
     let (i, _) = nom::bytes::complete::take_while_m_n(0, 3, |c| c == ' ')(i)?;
     // Take label.
@@ -149,7 +153,7 @@ pub fn md_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str
 
 /// Wrapper around `md_text2label()` that packs the result in
 /// `Link::Text2Label`.
-pub fn md_text2label_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn md_text2label_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (t, l)) = md_text2label(i)?;
     Ok((i, Link::Text2Label(t, l)))
 }
@@ -191,7 +195,7 @@ pub fn md_text2label_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("abc", (Cow::from("link text"), Cow::from("link text"))))
 /// );
 /// ```
-pub fn md_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub fn md_text2label(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     let (i, (link_text, link_label)) = alt((
         nom::sequence::pair(md_link_text, md_link_label),
         nom::combinator::map(nom::sequence::terminated(md_link_text, tag("[]")), |s| {
@@ -216,7 +220,7 @@ pub fn md_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 /// an open bracket `[`, a sequence of zero or more inlines, and a close
 /// bracket `]`.
 /// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-text)
-pub(crate) fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
+pub(crate) fn md_link_text(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::combinator::map_parser(
         nom::sequence::delimited(tag("["), take_until_unbalanced('[', ']'), tag("]")),
         md_escaped_str_transform,
@@ -232,7 +236,7 @@ pub(crate) fn md_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// labels. A link label can have at most 999 characters inside the square
 /// brackets (TODO).
 /// [CommonMark Spec](https://spec.commonmark.org/0.29/#link-label)
-fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn md_link_label(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::combinator::map_parser(
         nom::combinator::verify(
             nom::sequence::delimited(
@@ -253,7 +257,7 @@ fn md_link_label(i: &str) -> nom::IResult<&str, Cow<str>> {
 
 /// This is a wrapper around `md_parse_link_destination()`. It takes its result
 /// and removes the `\` before the escaped characters `ESCAPABLE`.
-pub(crate) fn md_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+pub(crate) fn md_link_destination(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::combinator::map_parser(md_parse_link_destination, md_escaped_str_transform).parse(i)
 }
 
@@ -292,7 +296,9 @@ fn md_parse_link_destination(i: &str) -> nom::IResult<&str, &str> {
 }
 
 /// Matches `md_link_destination` in parenthesis.
-pub(crate) fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub(crate) fn md_link_destination_enclosed(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     map_parser(
         nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
         (
@@ -309,7 +315,7 @@ pub(crate) fn md_link_destination_enclosed(i: &str) -> nom::IResult<&str, (Cow<s
 
 /// This is a wrapper around `md_parse_link_title()`. It takes its result
 /// and removes the `\` before the escaped characters `ESCAPABLE`.
-fn md_link_title(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn md_link_title(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::combinator::map_parser(md_parse_link_title, md_escaped_str_transform).parse(i)
 }
 
@@ -363,7 +369,7 @@ fn md_parse_link_title(i: &str) -> nom::IResult<&str, &str> {
 }
 
 /// Remove the `\` before the escaped characters `ESCAPABLE`.
-fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn md_escaped_str_transform(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::combinator::map(
         nom::bytes::complete::escaped_transform(
             nom::bytes::complete::is_not("\\"),
@@ -392,7 +398,9 @@ fn md_escaped_str_transform(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// period (”.”), or hyphen (”-”).
 ///
 /// [CommonMark Spec](https://spec.commonmark.org/0.30/#autolinks)
-fn md_absolute_uri(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+fn md_absolute_uri(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let j = i;
     map(
         all_consuming(nom::sequence::separated_pair(
@@ -432,7 +440,9 @@ fn md_absolute_uri(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)
 /// The link’s label is the email address, and the
 /// URL is `mailto:` followed by the email address.
 ///
-fn md_email_address(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+fn md_email_address(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let j = i;
     map(
         all_consuming(nom::sequence::separated_pair(

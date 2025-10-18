@@ -15,7 +15,7 @@ use std::borrow::Cow;
 
 /// Wrapper around `html_img()` that packs the result in
 /// `Link::Image`.
-pub fn html_img_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn html_img_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (alt, src)) = html_img(i)?;
     Ok((i, Link::Image(alt, src)))
 }
@@ -35,14 +35,14 @@ pub fn html_img_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("abc", (Cow::from("my Dog"), Cow::from("/images/my&dog.png"))))
 /// );
 /// ```
-pub fn html_img(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub fn html_img(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     tag_img(i)
 }
 
 /// Parses a `<img ...>` tag and returns
 /// either `Ok((i, (img_alt, img_src)))` or some error.
 #[inline]
-fn tag_img(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+fn tag_img(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     nom::sequence::delimited(
         // HTML is case insensitive. XHTML, that is being XML is case sensitive.
         // Here we deal with HTML.
@@ -55,7 +55,7 @@ fn tag_img(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 
 /// Wrapper around `html_img()` that packs the result in
 /// `Link::Image`.
-pub fn html_img2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn html_img2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (text1, img_alt, img_src, text2, dest, title)) = html_img2dest(i)?;
     Ok((
         i,
@@ -86,8 +86,18 @@ pub fn html_img2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// ```
 #[allow(clippy::type_complexity)]
 pub fn html_img2dest(
-    i: &str,
-) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>)> {
+    i: &'_ str,
+) -> nom::IResult<
+    &'_ str,
+    (
+        Cow<'_, str>,
+        Cow<'_, str>,
+        Cow<'_, str>,
+        Cow<'_, str>,
+        Cow<'_, str>,
+        Cow<'_, str>,
+    ),
+> {
     let (i, ((dest, title), text)) = nom::sequence::terminated(
         nom::sequence::pair(
             href_tag_a_opening,
@@ -118,7 +128,7 @@ pub fn html_img2dest(
 /// Extracts the `src` and `alt` attributes and returns
 /// `Ok((img_alt, img_src))`. `img_alt` can be empty,
 /// `img_src` not.
-fn parse_attributes(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+fn parse_attributes(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     let (i, attributes) = attribute_list(i)?;
     let mut src = Cow::Borrowed("");
     let mut alt = Cow::Borrowed("");

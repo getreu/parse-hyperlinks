@@ -5,12 +5,12 @@
 
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
+use parse_hyperlinks::parser::Link;
 use parse_hyperlinks::parser::html::html_text2dest;
 use parse_hyperlinks::parser::html::html_text2dest_link;
 use parse_hyperlinks::parser::html_img::html_img;
-use parse_hyperlinks::parser::html_img::html_img2dest_link;
 use parse_hyperlinks::parser::html_img::html_img_link;
-use parse_hyperlinks::parser::Link;
+use parse_hyperlinks::parser::html_img::html_img2dest_link;
 use std::borrow::Cow;
 
 /// Consumes the input until the parser finds an HTML formatted _inline image_ (`Link::Image`).
@@ -38,7 +38,7 @@ use std::borrow::Cow;
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, (Cow::from("text2"), Cow::from("destination2")));
 /// ```
-pub fn take_img(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>))> {
+pub fn take_img(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, (Cow<'_, str>, Cow<'_, str>))> {
     let mut j = i;
     let mut skip_count = 0;
 
@@ -96,7 +96,9 @@ pub fn take_img(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>))> {
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, (Cow::from("text2"), Cow::from("dest2"), Cow::from("title2")));
 /// ```
-pub fn take_text2dest(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>, Cow<str>))> {
+pub fn take_text2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>))> {
     let mut j = i;
     let mut skip_count = 0;
 
@@ -166,7 +168,7 @@ pub fn take_text2dest(i: &str) -> nom::IResult<&str, (&str, (Cow<str>, Cow<str>,
 /// assert_eq!(r.0, "abc\nabc");
 /// assert_eq!(r.1, Link::Image2Dest(Cow::from("cde"), Cow::from("alt5"), Cow::from("src5"), Cow::from("fgh"), Cow::from("dest5"), Cow::from("title5")));
 /// ```
-pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
+pub fn take_link(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, Link<'_>)> {
     let mut j = i;
     let mut skip_count = 0;
 

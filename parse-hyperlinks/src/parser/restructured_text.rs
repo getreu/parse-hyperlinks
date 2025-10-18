@@ -18,7 +18,7 @@ const ESCAPABLE: &str = r#" `:<>_\"#;
 
 /// Wrapper around `rst_text2dest()` that packs the result in
 /// `Link::Text2Dest`.
-pub fn rst_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn rst_text2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, de, ti)) = rst_text2dest(i)?;
     Ok((i, Link::Text2Dest(te, de, ti)))
 }
@@ -46,7 +46,9 @@ pub fn rst_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// ```
 /// The bracketed URI must be preceded by whitespace and be the last text
 /// before the end string.
-pub fn rst_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn rst_text2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let (i, (ln, ld)) = rst_parse_text2target(true, false)(i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
@@ -56,7 +58,7 @@ pub fn rst_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str
 
 /// Wrapper around `rst_textlabel2dest()` that packs the result in
 /// `Link::TextLabel2Dest`.
-pub fn rst_text_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn rst_text_label2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, de, ti)) = rst_text_label2dest(i)?;
     Ok((i, Link::TextLabel2Dest(te, de, ti)))
 }
@@ -84,7 +86,9 @@ pub fn rst_text_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// ```
 /// The bracketed URI must be preceded by whitespace and be the last text
 /// before the end string.
-pub fn rst_text_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn rst_text_label2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let (i, (ln, ld)) = rst_parse_text2target(false, false)(i)?;
     let ln = rst_escaped_link_text_transform(ln)?.1;
     let ld = rst_escaped_link_destination_transform(ld)?.1;
@@ -185,7 +189,7 @@ fn rst_parse_text2target(
 
 /// Wrapper around `rst_text2dest()` that packs the result in
 /// `Link::Text2Dest`.
-pub fn rst_text2label_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn rst_text2label_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, la)) = rst_text2label(i)?;
     Ok((i, Link::Text2Label(te, la)))
 }
@@ -219,7 +223,7 @@ pub fn rst_text2label_link(i: &str) -> nom::IResult<&str, Link> {
 /// );
 /// ```
 ///
-pub fn rst_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub fn rst_text2label(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     let (i, (te, la)) = rst_parse_text2label(i)?;
     let te = rst_escaped_link_text_transform(te)?.1;
     let la = rst_escaped_link_text_transform(la)?.1;
@@ -271,7 +275,7 @@ fn rst_parse_text2label(i: &str) -> nom::IResult<&str, (&str, &str)> {
 
 /// Wrapper around `rst_label2dest()` that packs the result in
 /// `Link::Label2Dest`.
-pub fn rst_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn rst_label2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (l, d, t)) = rst_label2dest(i)?;
     Ok((i, Link::Label2Dest(l, d, t)))
 }
@@ -304,14 +308,16 @@ pub fn rst_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// .. _`Python: home page`: http://www.python.org
 /// ```
 /// See unit test `test_rst_label2dest()` for more examples.
-pub fn rst_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn rst_label2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let (i, (l, d)) = rst_label2target(false, i)?;
     Ok((i, (l, d, Cow::from(""))))
 }
 
 /// Wrapper around `rst_label2label()` that packs the result in
 /// `Link::Label2Label`.
-pub fn rst_label2label_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn rst_label2label_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (l1, l2)) = rst_label2label(i)?;
     Ok((i, Link::Label2Label(l1, l2)))
 }
@@ -336,14 +342,17 @@ pub fn rst_label2label_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("\nabc", (Cow::from("_"), Cow::from("label"))))
 /// );
 /// ```
-pub fn rst_label2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub fn rst_label2label(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     rst_label2target(true, i)
 }
 
 /// Parser for _link_reference_definitions_:
 /// * `label==false`:  the link is of type `Label2Dest`
 /// * `label==true`: the link is of type `Label2Label`
-fn rst_label2target(label: bool, i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+fn rst_label2target(
+    label: bool,
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     let my_err = |_| {
         nom::Err::Error(nom::error::Error::new(
             i,
@@ -594,7 +603,7 @@ fn rst_explicit_markup_block<'a>(
 /// with:
 ///     \`:<>
 /// Preserves usual whitespace, but removes `\ `.
-fn rst_escaped_link_text_transform(i: &str) -> IResult<&str, Cow<str>> {
+fn rst_escaped_link_text_transform(i: &'_ str) -> IResult<&'_ str, Cow<'_, str>> {
     nom::combinator::map(
         nom::bytes::complete::escaped_transform(
             nom::bytes::complete::is_not("\\"),
@@ -616,7 +625,7 @@ fn rst_escaped_link_text_transform(i: &str) -> IResult<&str, Cow<str>> {
 }
 
 /// Deletes all whitespace, but keeps one space for each `\ `.
-fn remove_whitespace(i: &str) -> IResult<&str, Cow<str>> {
+fn remove_whitespace(i: &'_ str) -> IResult<&'_ str, Cow<'_, str>> {
     let mut res = Cow::Borrowed("");
     let mut j = i;
     while !j.is_empty() {
@@ -648,7 +657,7 @@ fn remove_whitespace(i: &str) -> IResult<&str, Cow<str>> {
 ///     \\\`\ \:\<\>
 /// with:
 ///     \` :<>
-fn rst_escaped_link_destination_transform(i: &str) -> IResult<&str, Cow<str>> {
+fn rst_escaped_link_destination_transform(i: &'_ str) -> IResult<&'_ str, Cow<'_, str>> {
     let my_err = |_| {
         nom::Err::Error(nom::error::Error::new(
             i,

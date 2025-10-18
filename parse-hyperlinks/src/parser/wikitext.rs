@@ -12,7 +12,7 @@ use std::borrow::Cow;
 
 /// Wrapper around `wikitext_text2dest()` that packs the result in
 /// `Link::Text2Dest`.
-pub fn wikitext_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn wikitext_text2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, de, ti)) = wikitext_text2dest(i)?;
     Ok((i, Link::Text2Dest(te, de, ti)))
 }
@@ -41,7 +41,9 @@ pub fn wikitext_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///     expected
 /// );
 /// ```
-pub fn wikitext_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn wikitext_text2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let (i, (link_text, link_destination)) = nom::sequence::delimited(
         // HTML is case insensitive. XHTML, that is being XML is case sensitive.
         // Here we deal with HTML.
@@ -54,7 +56,7 @@ pub fn wikitext_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Co
 }
 
 /// Parse link destination and link text.
-fn parse_inner(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+fn parse_inner(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     let (i, link_destination) = nom::sequence::terminated(
         nom::combinator::map_parser(
             nom::bytes::complete::take_till(|c| c == ' ' || c == '\t'),
@@ -68,7 +70,7 @@ fn parse_inner(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 }
 
 /// Parse URL.
-fn parse_url(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn parse_url(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::sequence::preceded(
         nom::combinator::peek(alt((tag("http:"), tag("https:"), tag("mailto:")))),
         percent_decode,

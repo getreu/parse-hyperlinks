@@ -14,7 +14,7 @@ use std::borrow::Cow;
 
 /// Wrapper around `md_img()` that packs the result in
 /// `Link::Image`.
-pub fn md_img_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn md_img_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (alt, src)) = md_img(i)?;
     Ok((i, Link::Image(alt, src)))
 }
@@ -34,7 +34,7 @@ pub fn md_img_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("abc", (Cow::from("my Dog"), Cow::from("/images/my&dog.png"))))
 /// );
 /// ```
-pub fn md_img(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub fn md_img(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     nom::sequence::preceded(
         tag("!"),
         // Parse inline link.
@@ -44,7 +44,7 @@ pub fn md_img(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 }
 
 /// Matches `md_link_destination` in parenthesis.
-fn md_img_link_destination_enclosed(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn md_img_link_destination_enclosed(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     map_parser(
         nom::sequence::delimited(tag("("), take_until_unbalanced('(', ')'), tag(")")),
         md_link_destination,
@@ -54,7 +54,7 @@ fn md_img_link_destination_enclosed(i: &str) -> nom::IResult<&str, Cow<str>> {
 
 /// Wrapper around `md_img()` that packs the result in
 /// `Link::Image`.
-pub fn md_img2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn md_img2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (text1, img_alt, img_src, text2, dest, title)) = md_img2dest(i)?;
     Ok((
         i,
@@ -83,8 +83,18 @@ pub fn md_img2dest_link(i: &str) -> nom::IResult<&str, Link> {
 /// ```
 #[allow(clippy::type_complexity)]
 pub fn md_img2dest(
-    i: &str,
-) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>, Cow<str>)> {
+    i: &'_ str,
+) -> nom::IResult<
+    &'_ str,
+    (
+        Cow<'_, str>,
+        Cow<'_, str>,
+        Cow<'_, str>,
+        Cow<'_, str>,
+        Cow<'_, str>,
+        Cow<'_, str>,
+    ),
+> {
     map(
         (
             map_parser(

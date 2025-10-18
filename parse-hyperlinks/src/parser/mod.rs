@@ -185,7 +185,7 @@ pub enum Link<'a> {
 /// let res = percent_decode("https://getreu.net/?q=%5Ba%20b%5D").unwrap();
 /// assert_eq!(res, ("", Cow::Owned("https://getreu.net/?q=[a b]".to_string())));
 ///```
-fn percent_decode(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn percent_decode(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     let decoded = percent_decode_str(i)
         .decode_utf8()
         .map_err(|_| nom::Err::Error(nom::error::Error::new(i, ErrorKind::EscapedTransform)))?;

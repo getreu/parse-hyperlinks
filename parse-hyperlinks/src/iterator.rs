@@ -568,7 +568,7 @@ impl<'a> Iterator for MarkupLink<'a> {
 /// let r = find_first(i);
 /// assert_eq!(r, Some(Link::Text2Dest(Cow::from("t"), Cow::from("v"), Cow::from("w"))));
 /// ```
-pub fn find_first(i: &str) -> Option<Link> {
+pub fn find_first(i: &'_ str) -> Option<Link<'_>> {
     MarkupLink::new(i, false).next().map(|(_, l)| l)
 }
 

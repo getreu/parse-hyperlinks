@@ -1,4 +1,4 @@
-//! This module implements parsers for Asciidoc hyperlinks.
+//! This module implements parsers for  hyperlinks.
 #![allow(dead_code)]
 #![allow(clippy::type_complexity)]
 
@@ -16,7 +16,7 @@ use std::borrow::Cow;
 
 /// Wrapper around `adoc_text2dest()` that packs the result in
 /// `Link::Text2Dest`.
-pub fn adoc_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn adoc_text2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, de, ti)) = adoc_text2dest(i)?;
     Ok((i, Link::Text2Dest(te, de, ti)))
 }
@@ -54,7 +54,9 @@ pub fn adoc_text2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok((" abc", (Cow::from("https://destination"), Cow::from("https://destination"), Cow::from(""))))
 /// );
 /// ```
-pub fn adoc_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn adoc_text2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let (i, (link_destination, link_text)) = nom::sequence::preceded(
         space0,
         nom::sequence::pair(
@@ -79,7 +81,7 @@ pub fn adoc_text2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<st
 
 /// Wrapper around `adoc_label2dest()` that packs the result in
 /// `Link::Label2Dest`.
-pub fn adoc_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn adoc_label2dest_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, de, ti)) = adoc_label2dest(i)?;
     Ok((i, Link::Label2Dest(te, de, ti)))
 }
@@ -105,7 +107,9 @@ pub fn adoc_label2dest_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("\nabc", (Cow::from("label"), Cow::from("https://destination"), Cow::from(""))))
 /// );
 /// ```
-pub fn adoc_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<str>)> {
+pub fn adoc_label2dest(
+    i: &'_ str,
+) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>, Cow<'_, str>)> {
     let (i, (link_label, link_destination)) = nom::sequence::preceded(
         space0,
         nom::sequence::pair(
@@ -135,7 +139,7 @@ pub fn adoc_label2dest(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>, Cow<s
 
 /// Wrapper around `adoc_text2label()` that packs the result in
 /// `Link::Text2Label`.
-pub fn adoc_text2label_link(i: &str) -> nom::IResult<&str, Link> {
+pub fn adoc_text2label_link(i: &'_ str) -> nom::IResult<&'_ str, Link<'_>> {
     let (i, (te, la)) = adoc_text2label(i)?;
     Ok((i, Link::Text2Label(te, la)))
 }
@@ -178,7 +182,7 @@ pub fn adoc_text2label_link(i: &str) -> nom::IResult<&str, Link> {
 ///   Ok(("abc", (Cow::from(""), Cow::from("link-label"))))
 /// );
 /// ```
-pub fn adoc_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
+pub fn adoc_text2label(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, Cow<'_, str>)> {
     let (i, (link_label, link_text)) = alt((
         nom::sequence::pair(adoc_parse_curly_bracket_reference, adoc_link_text),
         nom::combinator::map(adoc_parse_curly_bracket_reference, |s| (s, Cow::from(""))),
@@ -197,7 +201,7 @@ pub fn adoc_text2label(i: &str) -> nom::IResult<&str, (Cow<str>, Cow<str>)> {
 /// last letter `]`. A sequence of whitespaces including newlines, will be
 /// replaced by one space. There must be not contain more than one newline
 /// per sequence. The string can contain the `\]` which is replaced by `]`.
-fn adoc_link_text(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn adoc_link_text(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::sequence::delimited(char('['), remove_newline_take_till(']'), char(']')).parse(i)
 }
 
@@ -301,7 +305,7 @@ fn remove_newline_take_till<'a>(
 /// The parser succeeds, if one of the variants:
 /// `adoc_parse_http_link_destination()` or
 /// `adoc_parse_escaped_link_destination()` succeeds and returns its result.
-fn adoc_link_reference_definition_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn adoc_link_reference_definition_destination(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     alt((
         adoc_parse_http_link_destination,
         adoc_parse_escaped_link_destination,
@@ -313,7 +317,7 @@ fn adoc_link_reference_definition_destination(i: &str) -> nom::IResult<&str, Cow
 /// The parser succeeds, if one of the variants:
 /// `adoc_parse_http_link_destination()`, `adoc_parse_literal_link_destination()`
 /// or `adoc_parse_escaped_link_destination()` succeeds and returns its result.
-fn adoc_inline_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn adoc_inline_link_destination(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     alt((
         adoc_parse_http_link_destination,
         adoc_parse_literal_link_destination,
@@ -324,7 +328,7 @@ fn adoc_inline_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
 
 /// Parses a link destination in URL form starting with `http://` or `https://`
 /// and ending with `[`. The latter is peeked, but no consumed.
-fn adoc_parse_http_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn adoc_parse_http_link_destination(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     let (j, s) = nom::sequence::preceded(
         peek(alt((tag_no_case("http://"), (tag_no_case("https://"))))),
         nom::bytes::complete::take_till1(|c| c == '[' || c == ' ' || c == '\t' || c == '\n'),
@@ -336,7 +340,7 @@ fn adoc_parse_http_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
 /// Parses a link destination starting with `link:http://` or `link:https://` ending
 /// with `]`, whitespace or newline. The later is peeked, but not consumed. The URL can contain percent
 /// encoded characters, which are decoded.
-fn adoc_parse_escaped_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn adoc_parse_escaped_link_destination(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::combinator::map_parser(
         nom::sequence::preceded(
             nom::sequence::pair(
@@ -354,7 +358,7 @@ fn adoc_parse_escaped_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> 
 
 /// Parses a link destination starting with `link:+++` ending with `++`. Everything in
 /// between is taken as it is without any transformation.
-fn adoc_parse_literal_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn adoc_parse_literal_link_destination(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     let (j, s) = nom::sequence::preceded(
         tag("link:"),
         nom::sequence::delimited(tag("++"), nom::bytes::complete::take_until("++"), tag("++")),
@@ -367,7 +371,7 @@ fn adoc_parse_literal_link_destination(i: &str) -> nom::IResult<&str, Cow<str>> 
 ///
 /// The parser expects to start at the opening `{` to succeed.
 /// The result is always a borrowed reference.
-fn adoc_parse_curly_bracket_reference(i: &str) -> nom::IResult<&str, Cow<str>> {
+fn adoc_parse_curly_bracket_reference(i: &'_ str) -> nom::IResult<&'_ str, Cow<'_, str>> {
     nom::combinator::map(
         nom::combinator::verify(
             nom::sequence::delimited(
