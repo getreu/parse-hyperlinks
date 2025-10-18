@@ -13,5 +13,5 @@ categories = ["parser-implementations"]
 [dependencies]
 nom= "8"
 html-escape = "0.2.13"
-percent-encoding = "2.3.1"
-thiserror = "2.0.12"
+percent-encoding = "2.3.2"
+thiserror = "2.0.17"
