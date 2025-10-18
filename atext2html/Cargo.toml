@@ -13,5 +13,5 @@ description = "Convert a text with markup hyperlinks to HTML"
 
 [dependencies]
 #parse-hyperlinks = { path = "../parse-hyperlinks" }
-parse-hyperlinks = "0.29.0"
+parse-hyperlinks = "0.29.1"
 structopt = "0.3.26"
