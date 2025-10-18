@@ -248,17 +248,16 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         };
 
         // Are we at the beginning of a line?
-        if line_start || input_start {
-            if let Ok((k, r)) = alt((
+        if (line_start || input_start)
+            && let Ok((k, r)) = alt((
                 // Now we search for `label2*`.
                 // For both parser is the indent meaningful. We mustn't consume them.
                 rst_label2label_link,
                 rst_label2dest_link,
             ))
             .parse(j)
-            {
-                break (k, r);
-            };
+        {
+            break (k, r);
         };
 
         // Are we on a whitespace? Now consume them.
@@ -270,8 +269,8 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
         }
 
         // Are we at the beginning of a line?
-        if line_start || input_start {
-            if let Ok((k, r)) = alt((
+        if (line_start || input_start)
+            && let Ok((k, r)) = alt((
                 // Now we search for `label2*`.
                 // These parsers do not care about the indent, as long it is
                 // only whitespace.
@@ -279,9 +278,8 @@ pub fn take_link(i: &str) -> nom::IResult<&str, (&str, Link)> {
                 adoc_label2dest_link,
             ))
             .parse(j)
-            {
-                break (k, r);
-            };
+        {
+            break (k, r);
         };
         // Start searching for links.
 

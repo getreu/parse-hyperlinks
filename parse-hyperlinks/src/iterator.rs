@@ -2,8 +2,8 @@
 //! documentation of `parser::parse::take_link()` to see a list of supported markup languages. The
 //! iterator resolves link references.
 
-use crate::parser::parse::take_link;
 use crate::parser::Link;
+use crate::parser::parse::take_link;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem::swap;
@@ -175,23 +175,23 @@ impl<'a> MarkupLinkCollection<'a> {
         let mut idx = 0;
         while idx < self.text2dest_label.len() {
             // If we can not resolve the label, we just skip it.
-            if let (input_offset, len, Link::Text2Label(text, label)) = &self.text2dest_label[idx] {
-                if let Some((dest, title)) = &self.label2dest.get(label) {
-                    let new_link = if text.is_empty() {
-                        (
-                            *input_offset,
-                            *len,
-                            Link::Text2Dest(dest.clone(), dest.clone(), title.clone()),
-                        )
-                    } else {
-                        (
-                            *input_offset,
-                            *len,
-                            Link::Text2Dest(text.clone(), dest.clone(), title.clone()),
-                        )
-                    };
-                    self.text2dest_label[idx] = new_link;
+            if let (input_offset, len, Link::Text2Label(text, label)) = &self.text2dest_label[idx]
+                && let Some((dest, title)) = &self.label2dest.get(label)
+            {
+                let new_link = if text.is_empty() {
+                    (
+                        *input_offset,
+                        *len,
+                        Link::Text2Dest(dest.clone(), dest.clone(), title.clone()),
+                    )
+                } else {
+                    (
+                        *input_offset,
+                        *len,
+                        Link::Text2Dest(text.clone(), dest.clone(), title.clone()),
+                    )
                 };
+                self.text2dest_label[idx] = new_link;
             };
             // We advance in the loop because we increment `idx`.
             idx += 1;
