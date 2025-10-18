@@ -12,6 +12,6 @@ categories = ["command-line-utilities", "parser-implementations"]
 description = "Convert a text with markup hyperlinks to HTML"
 
 [dependencies]
+clap = { version = "4.5.49", features = ["derive"] }
 #parse-hyperlinks = { path = "../parse-hyperlinks" }
 parse-hyperlinks = "0.29.1"
-structopt = "0.3.26"
