@@ -54,10 +54,10 @@ dependencies = [
 
 [[package]]
 name = "atext2html"
-version = "0.29.4"
+version = "0.29.5"
 dependencies = [
  "clap",
- "parse-hyperlinks 0.29.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parse-hyperlinks 0.29.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -96,9 +96,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
+checksum = "e0921b3876b3a1df8a1c9f912e7f94342458022c2e84288015893d83c4d62a79"
 
 [[package]]
 name = "colorchoice"
@@ -126,9 +126,9 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "memchr"
-version = "2.8.0"
+version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
+checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "nom"
@@ -147,7 +147,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.29.4"
+version = "0.29.5"
 dependencies = [
  "html-escape",
  "nom",
@@ -156,9 +156,9 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks"
-version = "0.29.4"
+version = "0.29.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07fe481ee3d6420d51a2235efa85b4b1c7c1671ea8485fcb1821063cc65d6595"
+checksum = "282e118a6f756cbffad9eaa4ec7ace71a01ddd6a7c0dbf8b9e3f5c85d6c09d1d"
 dependencies = [
  "html-escape",
  "nom",
@@ -167,10 +167,10 @@ dependencies = [
 
 [[package]]
 name = "parse-hyperlinks-extras"
-version = "0.29.4"
+version = "0.29.5"
 dependencies = [
  "nom",
- "parse-hyperlinks 0.29.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parse-hyperlinks 0.29.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -216,9 +216,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.24"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "utf8parse"
