@@ -6,6 +6,7 @@
 use nom::bytes::complete::take_till;
 use nom::character::complete::anychar;
 use parse_hyperlinks::parser::Link;
+use parse_hyperlinks::parser::html::html_inert;
 use parse_hyperlinks::parser::html::html_text2dest;
 use parse_hyperlinks::parser::html::html_text2dest_link;
 use parse_hyperlinks::parser::html_img::html_img;
@@ -48,6 +49,15 @@ pub fn take_img(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, (Cow<'_, str>, Co
         // Regular `Link::Image` can start everywhere.
         if let Ok((k, r)) = html_img(j) {
             break (k, r);
+        };
+
+        // A link inside a comment or inside the raw text of `<script>` or
+        // `<style>` is no link: skip the whole construct, which also keeps
+        // a `<a>` tag written inside a script from being parsed as one.
+        if let Ok((k, _)) = html_inert(j) {
+            skip_count += j.len() - k.len();
+            j = k;
+            continue;
         };
 
         // This makes sure that we advance.
@@ -108,6 +118,15 @@ pub fn take_text2dest(
         // Regular `Link::Text2Dest` can start everywhere.
         if let Ok((k, r)) = html_text2dest(j) {
             break (k, r);
+        };
+
+        // A link inside a comment or inside the raw text of `<script>` or
+        // `<style>` is no link: skip the whole construct, which also keeps
+        // a `<a>` tag written inside a script from being parsed as one.
+        if let Ok((k, _)) = html_inert(j) {
+            skip_count += j.len() - k.len();
+            j = k;
+            continue;
         };
 
         // This makes sure that we advance.
@@ -188,6 +207,15 @@ pub fn take_link(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, Link<'_>)> {
             break (k, r);
         };
 
+        // A link inside a comment or inside the raw text of `<script>` or
+        // `<style>` is no link: skip the whole construct, which also keeps
+        // a `<a>` tag written inside a script from being parsed as one.
+        if let Ok((k, _)) = html_inert(j) {
+            skip_count += j.len() - k.len();
+            j = k;
+            continue;
+        };
+
         // This makes sure that we advance.
         let (k, _) = anychar(j)?;
         skip_count += j.len() - k.len();
@@ -212,6 +240,30 @@ pub fn take_link(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, Link<'_>)> {
 mod tests {
     use super::*;
     use crate::parser::parse_html::take_link;
+
+    /// A link inside a comment or inside the raw text of `<script>` or
+    /// `<style>` is no link: the scanner must hand it back as skipped
+    /// input and find the next real one instead.
+    #[test]
+    fn test_take_link_skips_inert() {
+        let i = r#"<!-- <a href="d1">t1</a> --><a href="d2">t2</a>abc"#;
+        let (i, r) = take_link(i).unwrap();
+        assert_eq!(r.0, r#"<!-- <a href="d1">t1</a> -->"#);
+        assert_eq!(
+            r.1,
+            Link::Text2Dest(Cow::from("t2"), Cow::from("d2"), Cow::from(""))
+        );
+        assert_eq!(i, "abc");
+
+        let i = r#"<script>var a = "<a href="d1">t1</a>";</script><img src="d2" alt="t2">abc"#;
+        let (i, r) = take_link(i).unwrap();
+        assert_eq!(r.0, r#"<script>var a = "<a href="d1">t1</a>";</script>"#);
+        assert_eq!(r.1, Link::Image(Cow::from("t2"), Cow::from("d2")));
+        assert_eq!(i, "abc");
+
+        // Nothing but an inert construct: no link at all.
+        assert!(take_link(r#"<!-- <a href="d">t</a> -->"#).is_err());
+    }
 
     #[test]
     fn test_take_link() {
