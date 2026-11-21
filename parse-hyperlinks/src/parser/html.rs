@@ -9,7 +9,6 @@ use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
-use nom::character::complete::alphanumeric1;
 use nom::error::Error;
 use nom::error::ErrorKind;
 use std::borrow::Cow;
@@ -69,14 +68,30 @@ pub(crate) fn tag_a_opening(i: &'_ str) -> nom::IResult<&'_ str, (Cow<'_, str>, 
     .parse(i)
 }
 
+/// Parses an attribute name. HTML forbids only whitespace, `"`, `'`, `>`,
+/// `/` and `=` in a name, so a name may well contain a hyphen or a colon
+/// (`data-id`, `aria-label`, `xml:lang`). `alphanumeric1` stopped at the
+/// first such character, and that did not merely skip the one attribute:
+/// `attribute_list()` ends at the first element it cannot parse, so a
+/// single `data-*` attribute hid every attribute behind it. The first
+/// character must still be a letter, so stray punctuation inside a tag
+/// does not parse as a name.
+fn attribute_name(i: &'_ str) -> nom::IResult<&'_ str, &'_ str> {
+    nom::combinator::verify(
+        nom::bytes::complete::take_while1(|c: char| {
+            !c.is_whitespace() && !matches!(c, '"' | '\'' | '>' | '/' | '=')
+        }),
+        |s: &str| s.chars().next().is_some_and(|c| c.is_alpha()),
+    )
+    .parse(i)
+}
+
 /// Parses attributes and returns `Ok((name, value))`.
 /// Boolean attributes are ignored, but silently consumed.
 fn attribute(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, Cow<'_, str>)> {
     alt((
         nom::sequence::pair(
-            nom::combinator::verify(alphanumeric1, |s: &str| {
-                s.chars().next().is_some_and(|c| c.is_alpha())
-            }),
+            attribute_name,
             alt((
                 nom::combinator::value(Cow::from(""), tag(r#"="""#)),
                 nom::combinator::value(Cow::from(""), tag(r#"=''"#)),
@@ -94,12 +109,7 @@ fn attribute(i: &'_ str) -> nom::IResult<&'_ str, (&'_ str, Cow<'_, str>)> {
             )),
         ),
         // Consume boolean attributes.
-        nom::combinator::value(
-            ("", Cow::from("")),
-            nom::combinator::verify(alphanumeric1, |s: &str| {
-                s.chars().next().is_some_and(|c| c.is_alpha())
-            }),
-        ),
+        nom::combinator::value(("", Cow::from("")), attribute_name),
     ))
     .parse(i)
 }
@@ -190,9 +200,12 @@ mod tests {
             expected
         );
 
+        // The leading `<` is no attribute name: `attribute_name()` rejects
+        // it because a name must start with a letter. (The error code is
+        // `Verify`, the one that guard reports, not `AlphaNumeric`.)
         let expected = nom::Err::Error(nom::error::Error::new(
             r#"<a href="url" title="" >name</a abc"#,
-            nom::error::ErrorKind::AlphaNumeric,
+            nom::error::ErrorKind::Verify,
         ));
         assert_eq!(
             parse_attributes(r#"<a href="url" title="" >name</a abc"#).unwrap_err(),
@@ -338,5 +351,59 @@ mod tests {
             attribute(r#"1name="http://getreu.net"#).unwrap_err(),
             expected
         );
+    }
+
+    /// A name may contain any character but whitespace, `"`, `'`, `>`,
+    /// `/` and `=`, so hyphenated and namespaced attributes parse as one
+    /// name each.
+    #[test]
+    fn test_attribute_hyphenated_name() {
+        assert_eq!(
+            attribute(r#"data-id="x" abc"#).unwrap(),
+            (" abc", ("data-id", Cow::from("x")))
+        );
+        assert_eq!(
+            attribute(r#"aria-label="Close" abc"#).unwrap(),
+            (" abc", ("aria-label", Cow::from("Close")))
+        );
+        assert_eq!(
+            attribute(r#"xml:lang="en" abc"#).unwrap(),
+            (" abc", ("xml:lang", Cow::from("en")))
+        );
+        // Unquoted values stop at whitespace, hyphen in the name and all.
+        assert_eq!(
+            attribute("data-level=2 abc").unwrap(),
+            (" abc", ("data-level", Cow::from("2")))
+        );
+    }
+
+    /// `attribute_list()` stops at the first attribute it cannot parse,
+    /// so a name it rejects does not just get skipped - it hides every
+    /// attribute behind it. A hyphenated name must therefore not end the
+    /// list.
+    #[test]
+    fn test_attribute_list_keeps_going_after_hyphenated_name() {
+        let expected = (
+            "",
+            vec![
+                ("data-id", Cow::from("x")),
+                ("id", Cow::from("real")),
+                ("class", Cow::from("c")),
+            ],
+        );
+        assert_eq!(
+            attribute_list(r#"data-id="x" id="real" class="c""#).unwrap(),
+            expected
+        );
+    }
+
+    /// A name must not swallow the characters that end it, or the tag's
+    /// `>` and the next attribute would be read as part of the name.
+    #[test]
+    fn test_attribute_name_stops_at_delimiters() {
+        assert_eq!(attribute_name("id=\"x\"").unwrap(), ("=\"x\"", "id"));
+        assert_eq!(attribute_name("bool>rest").unwrap(), (">rest", "bool"));
+        assert_eq!(attribute_name("bool/>rest").unwrap(), ("/>rest", "bool"));
+        assert_eq!(attribute_name("a'b").unwrap(), ("'b", "a"));
     }
 }
