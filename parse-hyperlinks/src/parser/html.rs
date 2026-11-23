@@ -16,6 +16,9 @@ use std::ops::Range;
 
 /// The elements whose content HTML does not parse as markup, with the
 /// prefix of their end tag.
+///
+/// Must stay ASCII: `html_inert()` matches these as raw bytes, relying on
+/// ASCII bytes never occurring inside a multi-byte UTF-8 sequence.
 const RAW_TEXT_ELEMENTS: &[(&str, &str); 2] = &[("<script", "</script"), ("<style", "</style")];
 
 /// Case insensitive `str::find()` for an ASCII `needle`. A match can only
@@ -88,7 +91,17 @@ pub fn html_inert(i: &'_ str) -> nom::IResult<&'_ str, &'_ str> {
 
     // A raw text element: its opening tag, its text, and its end tag.
     for (open, close) in RAW_TEXT_ELEMENTS {
-        if i.len() < open.len() || !i[..open.len()].eq_ignore_ascii_case(open) {
+        // Byte, not `str`, slicing: `i` need not start at `<` (callers probe
+        // arbitrary offsets), so a multi-byte char can straddle `open.len()`.
+        // `open` is ASCII-only, and ASCII bytes never occur inside a
+        // multi-byte UTF-8 sequence (continuation bytes are all >= 0x80), so
+        // a byte-for-byte comparison agrees with the `str` comparison it
+        // replaces whenever that one would even be constructible, without
+        // ever requiring a char boundary the input isn't guaranteed to have.
+        let Some(prefix) = i.as_bytes().get(..open.len()) else {
+            continue;
+        };
+        if !prefix.eq_ignore_ascii_case(open.as_bytes()) {
             continue;
         }
         // The tag name must end here, so `<styles>` is not `<style>`.
@@ -528,6 +541,10 @@ mod tests {
         assert!(html_inert(r#"<a href="d">t</a>"#).is_err());
         assert!(html_inert("<pre><h1>t</h1></pre>").is_err());
         assert!(html_inert("abc").is_err());
+        // Callers probe arbitrary offsets, not only `<`. A multi-byte char
+        // within the first `open.len()` bytes must not panic the slicer.
+        assert!(html_inert("kolmapäevased").is_err());
+        assert!(html_inert("xxxxxäevased").is_err());
     }
 
     #[test]
